@@ -1,0 +1,21 @@
+# --- dados do usuário (NUNCA versionar / nunca sobrescrever) ---
+clientes/
+propostas/
+tarifas_cache.json
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# --- build do executável (PyInstaller) ---
+build/
+dist/
+*.spec
+
+# --- sistema / editor ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

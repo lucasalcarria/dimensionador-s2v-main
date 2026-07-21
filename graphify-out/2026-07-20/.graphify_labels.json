@@ -1,0 +1,22 @@
+{
+  "0": "Motor de Cálculo & Validação (engine.py)",
+  "1": "Documentação do Skill Graphify",
+  "2": "Servidor Flask & API (app.py)",
+  "3": "Geração de PDF da Proposta",
+  "4": "Configuração & Documentação Geral",
+  "5": "Interface do Usuário (JS da index.html)",
+  "6": "Integração com Internet (online.py)",
+  "7": "Unidade Consumidora (UC) — campos",
+  "9": "PWA: pendência vs. implementação",
+  "10": "Script de Inicialização (iniciar.sh)",
+  "11": "Export FalkorDB (ref. graphify)",
+  "12": "Export GraphML (ref. graphify)",
+  "13": "Servidor MCP (ref. graphify)",
+  "14": "Export Neo4j (ref. graphify)",
+  "15": "Export SVG (ref. graphify)",
+  "16": "Benchmark de tokens (ref. graphify)",
+  "17": "Regra: Fio B Escalonado",
+  "18": "Regra: Preço/Wp Convergente",
+  "19": "teste_planilha.py",
+  "21": "Constrained Query Expansion"
+}

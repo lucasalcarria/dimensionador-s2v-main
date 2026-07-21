@@ -1,0 +1,349 @@
+{
+  "_comentario": "Parâmetros de negócio do dimensionador S2V. Edite à vontade — o programa lê este arquivo a cada cálculo. As referências indicam a célula de origem na planilha.",
+  "performance_ratio": 0.75,
+  "_performance_ratio": "Fator de desempenho do sistema usado na geração (DADOS!D22 usa 0,75).",
+  "perfis_irradiacao": {
+    "23° NORTE": [
+      6070,
+      5948,
+      6008,
+      5644,
+      4584,
+      4720,
+      5524,
+      5516,
+      5856,
+      6138,
+      6510,
+      6456
+    ],
+    "3.3": [
+      5223.306122448979,
+      5134.775510204082,
+      4692.122448979592,
+      4072.4081632653065,
+      3187.1020408163267,
+      2921.5102040816323,
+      3098.5714285714284,
+      3983.877551020408,
+      4160.938775510204,
+      4692.122448979592,
+      5311.836734693878,
+      5577.428571428572
+    ],
+    "3.8": [
+      6339.5337423312885,
+      5934.938775510204,
+      5423.30612244898,
+      4707.0204081632655,
+      3683.7551020408164,
+      3376.7755102040815,
+      3581.4285714285716,
+      4604.693877551021,
+      4809.34693877551,
+      5423.30612244898,
+      6139.591836734694,
+      6446.571428571429
+    ],
+    "4": [
+      6339.5337423312885,
+      6236.171779141105,
+      5619.230061349694,
+      4892.4662576687115,
+      3914.834355828221,
+      3588.5981595092026,
+      3799.628834355828,
+      4792.334355828221,
+      5042.125766871166,
+      5718.28527607362,
+      6426.745398773006,
+      6812.199386503067
+    ],
+    "4.2": [
+      6647.734693877551,
+      6535.061224489796,
+      5971.693877551021,
+      5182.979591836735,
+      4056.244897959184,
+      3718.224489795918,
+      3943.5714285714284,
+      5070.306122448979,
+      5295.65306122449,
+      5971.693877551021,
+      6760.408163265306,
+      7098.428571428572
+    ]
+  },
+  "_perfis_irradiacao": "Irradiação em Wh/m²/dia por mês (jan..dez) — DADOS!B3:N7. O perfil escolhido na tela equivale a DADOS!B8.",
+  "aliquota_imposto": 0.08,
+  "_aliquota_imposto": "Imposto sobre (preço de venda − kit) — DADOS!D26. Valor em fração: 0.08 = 8 %. Na tela aparece e se edita em %.",
+  "faixas_margem": [
+    [
+      100000,
+      0.2
+    ],
+    [
+      300000,
+      0.19
+    ],
+    [
+      600000,
+      0.18
+    ],
+    [
+      1500000,
+      0.17
+    ],
+    [
+      5000000,
+      0.16
+    ],
+    [
+      1e+18,
+      0.15
+    ]
+  ],
+  "_faixas_margem": "Margem automática por porte (base = custo/0,8) — DADOS!B78. Usada quando 'margem desejada' fica em branco.",
+  "material_markup": 1.6,
+  "material_extra_faixas": [
+    [
+      0,
+      3,
+      400
+    ],
+    [
+      3,
+      6,
+      500
+    ],
+    [
+      6,
+      10,
+      800
+    ],
+    [
+      10,
+      15,
+      1200
+    ],
+    [
+      15,
+      20,
+      1500
+    ],
+    [
+      20,
+      30,
+      4500
+    ],
+    [
+      30,
+      40,
+      6000
+    ],
+    [
+      40,
+      50,
+      7000
+    ],
+    [
+      50,
+      60,
+      8000
+    ],
+    [
+      60,
+      75,
+      10000
+    ]
+  ],
+  "_material_extra_faixas": "Material adicional por faixa de kWp: [kWp mínimo (exclusivo), kWp máximo (inclusivo), custo base]. Valor cobrado = base × material_markup — DADOS!G26:G35.",
+  "trafos": [
+    [
+      15,
+      15,
+      15,
+      3540
+    ],
+    [
+      18,
+      23,
+      20,
+      4526
+    ],
+    [
+      23,
+      28,
+      25,
+      4526
+    ],
+    [
+      28,
+      33,
+      30,
+      4817
+    ],
+    [
+      37,
+      43,
+      40,
+      6320
+    ],
+    [
+      43,
+      53,
+      50,
+      6810
+    ],
+    [
+      58,
+      78,
+      75,
+      10132
+    ],
+    [
+      93,
+      120,
+      100,
+      11470
+    ],
+    [
+      120,
+      null,
+      150,
+      18280
+    ]
+  ],
+  "_trafos": "Autotransformador p/ inversor ≥12 kW em 380 V. Potência avaliada = kW inversor ÷ 0,8. Linhas: [mín, máx, kVA, preço] — DADOS!R25:T47. Mín=máx significa igualdade exata; máx nulo significa 'acima de'.",
+  "mao_de_obra_minima": 850,
+  "mao_de_obra_por_modulo": 85,
+  "_mao_de_obra": "PR!Q21: abaixo de 10 módulos cobra o mínimo; a partir de 10, valor por módulo.",
+  "fio_b_rs_mwh": 159.14,
+  "_fio_b_rs_mwh": "Valor do Fio B (TUSD) em R$/MWh — DADOS!J59.",
+  "fio_b_escalonamento": {
+    "2023": 0.15,
+    "2024": 0.3,
+    "2025": 0.45,
+    "2026": 0.6,
+    "2027": 0.75,
+    "2028": 0.9,
+    "2029": 1.0
+  },
+  "_fio_b_escalonamento": "Percentual do Fio B pago pelo consumidor (Lei 14.300) — DADOS!J47:K52. A planilha fixava 2026 (60%); o programa escolhe pelo ano corrente.",
+  "bandeiras": {
+    "VERDE": 0.0,
+    "AMARELA": 0.01885,
+    "VERMELHA P1": 0.04463,
+    "VERMELHA P2": 0.07877
+  },
+  "_bandeiras": "Adicional de bandeira em R$/kWh (sem impostos) — DADOS!J54:J57. O programa aplica o gross-up de ICMS/PIS/COFINS igual à planilha.",
+  "reajuste_tarifa_aa": 0.05,
+  "degradacao_ano1": 0.025,
+  "degradacao_demais": 0.007,
+  "_retorno_25": "Projeção de 25 anos (DADOS!Q43:Q67): tarifa reajusta 5% a.a.; geração cai 2,5% no 2º ano e 0,7% a.a. depois.",
+  "garantias_fixas": {
+    "inversor": null,
+    "instalacao": null,
+    "modulos": null,
+    "bateria": null
+  },
+  "_garantias_fixas": "Deixe null para usar as regras da planilha (DD!O30:O32: inversor 15 anos p/ MICRO DEYE/HOYMILES senão 10; 20/15/12 anos conforme módulo; módulos 30 anos p/ N-TYPE/SUNOVA/OSDA/AMERISOLAR senão 25). Preencha um número para fixar. A garantia da bateria (bateria) usa 10 anos quando null.",
+  "marcas_modulo": [
+    "SUNOVA N-TYPE",
+    "HONOR N-TYPE",
+    "OSDA N-TYPE",
+    "RONMA N-TYPE",
+    "ERA SOLAR N-TYPE",
+    "DAH SOLAR N-TYPE",
+    "ASTRONERGY N-TYPE",
+    "TRINA",
+    "SUNOVA",
+    "ZNSHINE N-TYPE"
+  ],
+  "marcas_inversor": [
+    "SAJ",
+    "MICRO SAJ",
+    "SOLIS",
+    "SUNGROW",
+    "GROWATT",
+    "MICRO DEYE",
+    "HOYMILES",
+    "CHINT",
+    "SOLPLANET"
+  ],
+  "_marcas": "Listas dos menus (DADOS!K25:K34 e M25:M33). Pode digitar outra marca livremente na tela.",
+  "tarifas_padrao": {
+    "te": 0.27575,
+    "tusd": 0.36667,
+    "icms": 0.19,
+    "cofins": 0.058,
+    "pis": 0.0126,
+    "pct_noturno": 0.65
+  },
+  "_tarifas_padrao": "Valores pré-preenchidos por UC (PR!D31:H31, M31). Cada UC pode ser ajustada na tela.",
+  "financiamento_padrao": {
+    "taxa_mes": 1.99,
+    "parcelas": 60
+  },
+  "_financiamento_padrao": "DADOS!M35:M36 — usado no texto 'EM 60x SOB 1,99% AO MÊS' e na parcela estimada.",
+  "formato_ptbr": true,
+  "_formato_ptbr": "true = números no padrão brasileiro (R$ 8.758,12 / 2,6 ANOS). false = padrão da planilha original salva (R$ 8,758.12 / 2.6 ANOS).",
+  "compat_planilha": false,
+  "_compat_planilha": "true reproduz o RETORNO EM 25 ANOS exatamente como a planilha (que dividia a tarifa média pelas 9 linhas de UC, mesmo vazias — valor ~10× menor). false usa o modelo realista: economia mensal efetiva × 12, tarifa +5% a.a., degradação de −2,5% no 2º ano e −0,7% a.a. depois.",
+  "concessionarias": {
+    "COPEL (PR)": {
+      "site_tarifas": "https://www.copel.com/site/copel-distribuicao/tarifas-de-energia-eletrica/",
+      "site_tributos": "https://www.copel.com/site/copel-distribuicao/tributos/",
+      "impostos": {
+        "B1": {
+          "icms": 0.19,
+          "cofins": 0.058,
+          "pis": 0.0126
+        },
+        "B2": {
+          "icms": 0.18,
+          "cofins": 0.058,
+          "pis": 0.0126
+        },
+        "padrao": {
+          "icms": 0.19,
+          "cofins": 0.058,
+          "pis": 0.0126
+        }
+      },
+      "tarifas": {
+        "B1": {
+          "te": 0.246,
+          "tusd": 0.352,
+          "resolucao": "REH 3.472/2025",
+          "vigencia": "24/06/2025–23/06/2026",
+          "obs": "vigência ANTERIOR — atualize com os valores do site da COPEL (REH 3.592/2026)"
+        },
+        "B2": {
+          "te": null,
+          "tusd": null,
+          "resolucao": "",
+          "vigencia": "",
+          "obs": "preencha com os valores do site da COPEL (rural)"
+        }
+      },
+      "fonte_impostos": "COPEL/tributos: ICMS 19% (18% rural, Decreto PR 5.143/2023); PIS/COFINS apurados mensalmente.",
+      "resolucao_atual_site": "REH 3.592/2026 · vigência 24/06/2026 a 23/06/2027"
+    }
+  },
+  "_concessionarias": "Tabela LOCAL de tarifas por concessionária/subgrupo (sem depender de internet). 'tarifas' guarda TE/TUSD SEM impostos (R$/kWh); atualize pela tela (botão 'atualizar valores…' na UC), que aceita colar os valores COM impostos do site da concessionária e converte sozinho. 'impostos' traz as alíquotas por subgrupo (fração; 0.19 = 19%). Para outra concessionária, copie o bloco da COPEL.",
+  "subgrupos": [
+    {
+      "id": "B1",
+      "rotulo": "B1 – Residencial"
+    },
+    {
+      "id": "B2",
+      "rotulo": "B2 – Rural"
+    },
+    {
+      "id": "B3",
+      "rotulo": "B3 – Demais classes"
+    }
+  ]
+}

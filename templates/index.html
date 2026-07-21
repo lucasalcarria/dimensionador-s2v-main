@@ -1,0 +1,869 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Dimensionador S2V</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- PWA: vira ícone na tela do celular e abre em tela cheia -->
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0e141b">
+<link rel="icon" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Dimensionador S2V">
+<style>
+:root{
+ --azul:#2f8bdb; --azul-forte:#004D94; --verde:#12c39a; --verde-forte:#089C83;
+ --bg:#0e141b; --card:#151d27; --card2:#1b2531; --borda:#27333f;
+ --texto:#dbe4ee; --mudo:#8b99a8;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Segoe UI',system-ui,Arial,sans-serif;background:var(--bg);color:var(--texto)}
+header{background:linear-gradient(90deg,#0b1220,#101b28);border-bottom:1px solid var(--borda);
+ padding:10px 22px;display:flex;align-items:center;gap:16px}
+header .chip{display:flex;align-items:center}
+header img{height:40px;display:block}
+header h1{margin:0;font-size:17px;letter-spacing:.6px;color:#fff}
+header small{color:var(--mudo);font-size:12px}
+main{display:grid;grid-template-columns:minmax(0,1fr) 390px;gap:18px;max-width:1300px;margin:18px auto;padding:0 16px}
+@media(max-width:1020px){main{grid-template-columns:1fr}}
+section{background:var(--card);border:1px solid var(--borda);border-radius:12px;padding:16px 18px;margin-bottom:16px}
+section h2{margin:0 0 12px;font-size:12.5px;color:var(--verde);text-transform:uppercase;letter-spacing:1px}
+label{display:block;font-size:12px;color:var(--mudo);margin-bottom:3px}
+input,select{width:100%;padding:7px 9px;border:1px solid var(--borda);border-radius:7px;font-size:14px;
+ background:var(--card2);color:var(--texto)}
+input::placeholder{color:#5a6875}
+input:focus,select:focus{outline:2px solid #1e4d78;border-color:var(--azul)}
+.grid{display:grid;gap:10px}
+.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:1fr 1fr 1fr}
+.g4{grid-template-columns:repeat(4,1fr)}
+.linha{display:flex;gap:8px;align-items:end}
+button{cursor:pointer;border:0;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:600}
+.bt-azul{background:var(--azul-forte);color:#fff}.bt-azul:hover{background:#1462ae}
+.bt-verde{background:var(--verde-forte);color:#fff}.bt-verde:hover{background:#0bb193}
+.bt-claro{background:#223141;color:var(--azul)}
+.bt-mini{padding:5px 10px;font-size:12px}
+button:disabled{opacity:.5;cursor:wait}
+.uc{border:1px solid var(--borda);border-radius:10px;padding:12px;margin-bottom:10px;background:var(--card2)}
+.uc h3{margin:0 0 10px;font-size:13px;color:var(--texto);display:flex;justify-content:space-between}
+.uc h3 .rm{color:#e46a5f;cursor:pointer;font-weight:600;font-size:12px}
+details{margin-top:8px}
+summary{cursor:pointer;font-size:12px;color:var(--azul);font-weight:600}
+.meses{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-top:8px}
+.meses input{padding:5px 6px;font-size:13px}
+.tarifa-cheia{font-size:12px;color:var(--verde);margin-top:6px}
+.res{position:sticky;top:14px}
+.res table{width:100%;border-collapse:collapse;font-size:13.5px}
+.res td{padding:5px 2px;border-bottom:1px dashed #232e3a}
+.res td:last-child{text-align:right;font-weight:600}
+.res td small{color:var(--mudo);font-weight:400}
+.destaque{background:linear-gradient(135deg,#0d2b46,#0e3a33);border:1px solid #1e4d5e;border-radius:10px;
+ padding:12px;margin:10px 0;text-align:center}
+.destaque .v{font-size:26px;font-weight:800;color:#fff}
+.destaque .l{font-size:11px;color:#9db4c8;text-transform:uppercase;letter-spacing:.6px}
+.trio{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center;margin:8px 0}
+.trio .v{font-weight:700;color:var(--verde)}
+.trio .l{font-size:10.5px;color:var(--mudo)}
+.aviso{font-size:12px;color:#e8c56a;background:#2a2410;border:1px solid #4d431e;border-radius:7px;
+ padding:7px 9px;margin-top:8px;display:none}
+.erro{color:#ff8d80;font-size:13px;margin-top:8px;display:none}
+.ok-irr{font-size:12px;color:var(--verde);margin-top:6px;display:none}
+.opt{border:1px solid var(--borda);border-radius:10px;padding:10px 12px;margin-top:10px;background:var(--card2)}
+.opt .cab{display:flex;align-items:center;gap:10px}
+.opt .cab input{width:auto;accent-color:var(--verde-forte);transform:scale(1.2)}
+.opt .cab b{font-size:13px}
+.opt .campos{margin-top:10px;display:none}
+footer{max-width:1300px;margin:0 auto 26px;padding:0 16px;font-size:12px;color:#5f6d7c}
+.badge{display:inline-block;background:#223141;color:var(--azul);border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;margin-left:6px}
+small.auto{color:var(--mudo)}
+.ocult{display:none}
+.fotos-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
+.foto-cx{position:relative;border:1.5px dashed var(--borda);border-radius:10px;background:var(--card2);
+ padding:10px;min-height:118px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+ gap:6px;cursor:pointer;text-align:center;transition:border-color .15s}
+.foto-cx:hover,.foto-cx.drag{border-color:var(--verde)}
+.foto-cx.tem{border-style:solid;border-color:var(--verde-forte)}
+.foto-titulo{font-size:11px;color:var(--verde);text-transform:uppercase;letter-spacing:.5px;font-weight:700}
+.foto-prev{max-width:100%;max-height:132px;border-radius:6px;object-fit:contain}
+.foto-dica{font-size:11.5px;color:var(--mudo);line-height:1.35}
+.foto-rm{position:absolute;top:6px;right:6px;padding:2px 8px;font-size:11px;background:#3a2020;color:#ff9d90}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;
+ align-items:flex-start;justify-content:center;padding:30px 16px;overflow:auto}
+.modal.on{display:flex}
+.modal-cx{background:var(--card);border:1px solid var(--borda);border-radius:12px;
+ max-width:760px;width:100%;padding:16px 18px}
+.modal-cab{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;color:var(--verde)}
+.modal-x{cursor:pointer;color:var(--mudo);font-size:18px}
+#conf-texto{background:#0b1119;border:1px solid var(--borda);border-radius:8px;
+ padding:12px;font-family:'JetBrains Mono','Consolas',monospace;font-size:12px;
+ line-height:1.5;color:#cfe0f0;white-space:pre-wrap;max-height:65vh;overflow:auto;margin:0}
+
+@media (max-width: 760px){
+ main{grid-template-columns:1fr !important;padding:10px}
+ .grid.g4,.grid.g3{grid-template-columns:1fr 1fr}
+ .grid.g2{grid-template-columns:1fr}
+ header{flex-wrap:wrap;gap:8px;padding:10px 12px}
+ header img{height:34px}
+ .linha{flex-wrap:wrap}
+ section{padding:12px}
+ .painel{position:static !important;max-height:none !important}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="chip"><img src="/logo.png" alt="S2V Engenharia"></div>
+  <div><h1>DIMENSIONADOR S2V</h1><small>proposta comercial · energia solar fotovoltaica</small></div>
+</header>
+<main>
+<div>
+  <section>
+    <h2>Cliente</h2>
+    <div class="grid g2">
+      <div><label>Nome do cliente</label><input id="nome" placeholder="Nome completo"></div>
+      <div><label>Nº da UC (proposta)</label><input id="uc_numero" class="digitos" inputmode="numeric" placeholder="somente números"></div>
+    </div>
+    <div class="grid g3" style="margin-top:10px">
+      <div class="linha" style="grid-column:span 2">
+        <div style="flex:1"><label>Endereço</label><input id="endereco" placeholder="Rua / Avenida, nº"></div>
+        <div style="width:140px"><label>CEP</label><input id="cep" class="cep" inputmode="numeric" placeholder="00.000-000"></div>
+        <button class="bt-claro bt-mini" onclick="buscarCep()" title="Preenche endereço e cidade pela internet">buscar</button>
+      </div>
+      <div><label>Cidade - UF</label><input id="cidade" placeholder="Cidade - UF"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Unidades consumidoras <span class="badge" id="badge-ucs">1</span></h2>
+    <div id="ucs"></div>
+    <button class="bt-claro bt-mini" onclick="addUC()">+ adicionar UC (até 9)</button>
+  </section>
+
+  <section>
+    <h2>Irradiação &amp; geração</h2>
+    <div class="grid g3">
+      <div><label>Perfil de irradiação (DADOS!B8)</label>
+        <select id="perfil">
+          {% for p in perfis %}<option value="{{p}}" {{'selected' if p=='3.8'}}>{{p}}</option>{% endfor %}
+          <option value="__custom__">— pesquisada na internet —</option>
+        </select></div>
+      <div class="linha" style="grid-column:span 2">
+        <div style="flex:1"><label>Buscar irradiação da cidade (internet)</label>
+          <input id="cidade-irr" placeholder="usa a cidade do cliente se vazio"></div>
+        <button class="bt-claro" onclick="buscarIrradiacao()" id="bt-irr">buscar</button>
+      </div>
+    </div>
+    <div class="ok-irr" id="irr-info"></div>
+  </section>
+
+  <section>
+    <h2>Kit gerador</h2>
+    <div class="grid g3">
+      <div><label>Marca do módulo</label>
+        <select id="marca_modulo" onchange="outro(this,'marca_modulo_x')">
+          {% for m in cfg.marcas_modulo %}<option value="{{m}}" {{'selected' if m=='ASTRONERGY N-TYPE'}}>{{m}}</option>{% endfor %}
+          <option value="__outro__">Outro (digitar)…</option>
+        </select>
+        <input id="marca_modulo_x" class="ocult" style="margin-top:6px" placeholder="digite a marca do módulo"></div>
+      <div><label>Potência do módulo (W)</label><input id="pot_modulo_w" type="number" value="620"></div>
+      <div><label>Qtd. de módulos <span id="sugestao" style="color:var(--verde)"></span></label>
+        <input id="qtd_modulos" type="number" value="0"></div>
+    </div>
+    <div class="grid g4" style="margin-top:10px">
+      <div><label>Marca do inversor</label>
+        <select id="marca_inversor" onchange="outro(this,'marca_inversor_x')">
+          {% for m in cfg.marcas_inversor %}<option value="{{m}}" {{'selected' if m=='CHINT'}}>{{m}}</option>{% endfor %}
+          <option value="__outro__">Outro (digitar)…</option>
+        </select>
+        <input id="marca_inversor_x" class="ocult" style="margin-top:6px" placeholder="digite a marca do inversor"></div>
+      <div><label>Potência inversor (kW)</label><input id="pot_inversor_kw" type="number" step="0.1" value="3"></div>
+      <div><label>Tensão</label><select id="tensao"><option>220</option><option>380</option></select></div>
+      <div><label>Conexão</label>
+        <select id="conexao" onchange="outro(this,'conexao_x')">
+          <option>HÍBRIDO</option><option>ON-GRID</option><option>MICRO</option>
+          <option value="__outro__">Outro (digitar)…</option>
+        </select>
+        <input id="conexao_x" class="ocult" style="margin-top:6px" placeholder="digite a conexão"></div>
+    </div>
+    <div class="grid g3" style="margin-top:10px">
+      <div><label>Estrutura</label>
+        <select id="estrutura" onchange="outro(this,'estrutura_x')">
+          <option>FIBROCIMENTO</option><option>CERÂMICO</option><option>METÁLICO</option>
+          <option>MINI TRILHO</option><option>LAJE</option><option>SOLO</option>
+          <option value="__outro__">Outro (digitar)…</option>
+        </select>
+        <input id="estrutura_x" class="ocult" style="margin-top:6px" placeholder="digite a estrutura"></div>
+      <div><label>Valor do kit</label><input id="valor_kit" class="rs" inputmode="decimal" placeholder="R$ 0,00"></div>
+    </div>
+
+    <div class="opt">
+      <div class="cab"><input type="checkbox" id="tem_stringbox" checked onchange="toggleOpt(this,'campos-sb')">
+        <b>String box CC</b> <small class="auto">aparece na página 3 da proposta</small></div>
+      <div class="campos grid g3" id="campos-sb" style="display:grid">
+        <div><label>Quantidade</label><input id="sb_qtd" type="number" value="1" min="1"></div>
+        <div><label>Marca (opcional)</label><input id="sb_marca" placeholder="ex.: CLAMPER"></div>
+        <div><label>Entradas/Saídas (opcional)</label><input id="sb_es" placeholder="ex.: 2E/2S"></div>
+      </div>
+    </div>
+    <div class="opt">
+      <div class="cab"><input type="checkbox" id="tem_bateria" onchange="toggleOpt(this,'campos-bat')">
+        <b>Bateria de lítio</b> <small class="auto">marque para sistemas híbridos com armazenamento</small></div>
+      <div class="campos grid g3" id="campos-bat">
+        <div><label>Quantidade</label><input id="bat_qtd" type="number" value="1" min="1"></div>
+        <div><label>Marca</label><input id="bat_marca" placeholder="ex.: BYD"></div>
+        <div><label>Capacidade (kWh)</label><input id="bat_kwh" class="kwh" inputmode="decimal" placeholder="0,00 kWh"></div>
+      </div>
+    </div>
+
+    <div style="margin-top:12px">
+      <label>Fotos do módulo e do inversor (aparecem na página 3 da proposta)</label>
+      <div class="fotos-grid">
+        <div class="foto-cx" id="foto-mod-cx" onclick="document.getElementById('foto-mod-file').click()">
+          <div class="foto-titulo">Módulo</div>
+          <img id="foto-mod-img" class="foto-prev" alt="" style="display:none">
+          <div class="foto-dica" id="foto-mod-dica">clique para enviar,<br>arraste ou cole (Ctrl+V) o print do módulo</div>
+          <button type="button" class="foto-rm" id="foto-mod-rm" style="display:none" onclick="removerFoto(event,'mod')">remover</button>
+          <input type="file" id="foto-mod-file" accept="image/*" style="display:none">
+        </div>
+        <div class="foto-cx" id="foto-inv-cx" onclick="document.getElementById('foto-inv-file').click()">
+          <div class="foto-titulo">Inversor</div>
+          <img id="foto-inv-img" class="foto-prev" alt="" style="display:none">
+          <div class="foto-dica" id="foto-inv-dica">clique para enviar,<br>arraste ou cole (Ctrl+V) o print do inversor</div>
+          <button type="button" class="foto-rm" id="foto-inv-rm" style="display:none" onclick="removerFoto(event,'inv')">remover</button>
+          <input type="file" id="foto-inv-file" accept="image/*" style="display:none">
+        </div>
+      </div>
+      <small class="auto">As fotos coladas substituem a imagem genérica do fundo; as GARANTIAS continuam ao lado.</small>
+    </div>
+  </section>
+
+  <section>
+    <h2>Custos, margem &amp; financiamento</h2>
+    <div class="grid g4">
+      <div><label>Mão de obra <small class="auto" id="mo-auto"></small></label>
+        <input id="mo_manual" class="rs" inputmode="decimal" placeholder="automática"></div>
+      <div><label>Material extra <small class="auto" id="mat-auto"></small></label>
+        <input id="material_manual" class="rs" inputmode="decimal" placeholder="automático"></div>
+      <div><label>Alíquota de imposto</label>
+        <input id="aliquota_pct" class="pct" inputmode="decimal" value="{{ (cfg.aliquota_imposto*100)|round(2) }}"></div>
+      <div><label>Margem desejada <small class="auto">vazio = automática</small></label>
+        <input id="margem" class="pct" inputmode="decimal" value="16"></div>
+    </div>
+    <div class="grid g4" style="margin-top:10px">
+      <div><label>Entrada</label><input id="entrada" class="rs" inputmode="decimal" placeholder="R$ 0,00"></div>
+      <div><label>Deslocamento</label><input id="desloc" class="rs" inputmode="decimal" placeholder="R$ 0,00"></div>
+      <div><label>Comissão (%)</label><input id="comissao" class="pct" inputmode="decimal" value="0"></div>
+      <div><label>Seguro (%)</label><input id="seguro" class="pct" inputmode="decimal" value="0"></div>
+    </div>
+    <div class="grid g4" style="margin-top:10px">
+      <div><label>Financiamento (% a.m.)</label><input id="fin_taxa" class="pct" inputmode="decimal" value="{{cfg.financiamento_padrao.taxa_mes}}"></div>
+      <div><label>Parcelas</label><input id="fin_parcelas" type="number" value="{{cfg.financiamento_padrao.parcelas}}"></div>
+      <div><label>Preço/Wp manual <small class="auto">(avançado)</small></label><input id="wp_manual" inputmode="decimal" placeholder="auto"></div>
+    </div>
+  </section>
+</div>
+
+<div class="res">
+  <section>
+    <h2>Resultados</h2>
+    <div class="destaque"><div class="l">Valor de venda</div><div class="v" id="r-venda">—</div>
+      <div class="l" id="r-parcela"></div></div>
+    <div class="trio">
+      <div><div class="v" id="r-sem">—</div><div class="l">fatura sem S2V</div></div>
+      <div><div class="v" id="r-com">—</div><div class="l">fatura com S2V</div></div>
+      <div><div class="v" id="r-eco">—</div><div class="l">economia/mês</div></div>
+    </div>
+    <table>
+      <tr><td>Potência do sistema</td><td id="r-kwp">—</td></tr>
+      <tr><td>kWp p/ compensar · módulos sugeridos</td><td id="r-nec">—</td></tr>
+      <tr><td>Geração média mensal</td><td id="r-ger">—</td></tr>
+      <tr><td>Consumo médio mensal</td><td id="r-cons">—</td></tr>
+      <tr><td>Compensação</td><td id="r-comp">—</td></tr>
+      <tr><td>Área ocupada</td><td id="r-area">—</td></tr>
+      <tr><td>Payback</td><td id="r-pay">—</td></tr>
+      <tr><td>Economia estimada em 25 anos</td><td id="r-25">—</td></tr>
+    </table>
+    <details style="margin-top:10px"><summary>Composição do preço</summary>
+      <table style="margin-top:6px">
+        <tr><td>Mão de obra <small id="c-mo-a"></small></td><td id="c-mo">—</td></tr>
+        <tr><td>Material extra <small id="c-mat-a"></small></td><td id="c-mat">—</td></tr>
+        <tr><td>Transformador <span id="c-trafo-desc"></span></td><td id="c-trafo">—</td></tr>
+        <tr><td>Imposto (<span id="c-aliq">8</span>% s/ venda − kit)</td><td id="c-imp">—</td></tr>
+        <tr><td>Comissão · seguro</td><td id="c-com">—</td></tr>
+        <tr><td>Custo total</td><td id="c-tot">—</td></tr>
+        <tr><td>Margem usada</td><td id="c-marg">—</td></tr>
+        <tr><td>Preço por Wp (convergido)</td><td id="c-wp">—</td></tr>
+        <tr><td>Lucro</td><td id="c-lucro">—</td></tr>
+      </table>
+    </details>
+    <div class="erro" id="erro"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="bt-azul" style="flex:1" onclick="calc(true)">Calcular</button>
+      <button class="bt-verde" style="flex:1" onclick="gerar()" id="bt-pdf">Gerar proposta (PDF)</button>
+    </div>
+    <button class="bt-claro" style="width:100%;margin-top:8px" onclick="conferir()" id="bt-conf">🧮 Conferir contas do retorno financeiro</button>
+    <button class="bt-claro" style="width:100%;margin-top:8px" onclick="salvarResumo()" id="bt-salvar">💾 Salvar resumo na pasta do cliente</button>
+    <div class="ok-irr" id="salvo-ok"></div>
+    <div class="aviso" id="aviso-kit">Informe a <b>quantidade de módulos</b> e o <b>valor do kit</b> para fechar a proposta.</div>
+  </section>
+</div>
+</main>
+
+<div id="modal-atu" class="modal" onclick="if(event.target===this)fecharAtu()">
+  <div class="modal-cx" style="max-width:520px">
+    <div class="modal-cab"><b>Atualizar tarifas — <span id="atu-conc"></span> · <span id="atu-sub"></span></b>
+      <span class="modal-x" onclick="fecharAtu()">✕</span></div>
+    <p style="margin:0 0 10px;color:var(--mudo);font-size:13px">
+      Copie os valores de TUSD e TE do <a id="atu-link" href="#" target="_blank" style="color:var(--verde)">site da concessionária</a>
+      e cole abaixo. Se o site mostrar os valores <b>com impostos</b> (caso da COPEL), marque a opção —
+      a conversão para "sem impostos" usa as alíquotas da UC.
+      <span id="atu-verif" style="display:block;margin-top:6px"></span>
+      <button class="bt-claro bt-mini" style="margin-top:6px" onclick="verificarCopel()">verificar resolução/ICMS no site da COPEL</button>
+    </p>
+    <div class="grid g2">
+      <div><label>TE (R$/kWh)</label><input id="atu-te" inputmode="decimal" placeholder="0,0000"></div>
+      <div><label>TUSD (R$/kWh)</label><input id="atu-tusd" inputmode="decimal" placeholder="0,0000"></div>
+      <div><label>Resolução (opcional)</label><input id="atu-res" placeholder="REH 3.592/2026"></div>
+      <div><label>Vigência (opcional)</label><input id="atu-vig" placeholder="24/06/2026–23/06/2027"></div>
+    </div>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px">
+      <input type="checkbox" id="atu-comimp" checked> os valores colados estão <b>com impostos</b> (converter)</label>
+    <div id="atu-msg" style="margin-top:8px;color:var(--verde)"></div>
+    <div style="text-align:right;margin-top:10px">
+      <button class="bt-claro bt-mini" onclick="fecharAtu()">cancelar</button>
+      <button class="bt-azul bt-mini" onclick="salvarAtu()">salvar na tabela</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-conf" class="modal" onclick="if(event.target===this)fecharConf()">
+  <div class="modal-cx">
+    <div class="modal-cab">
+      <b>Conferência do retorno financeiro</b>
+      <span class="modal-x" onclick="fecharConf()">✕</span>
+    </div>
+    <pre id="conf-texto">carregando…</pre>
+    <div style="text-align:right;margin-top:10px">
+      <button class="bt-claro bt-mini" onclick="copiarConf()">copiar</button>
+      <button class="bt-azul bt-mini" onclick="fecharConf()">fechar</button>
+    </div>
+  </div>
+</div>
+<div id="mobile-info" style="display:none;margin:14px auto 0;max-width:520px;text-align:center;color:var(--mudo);font-size:13px">
+  📱 <b>Usar no celular</b> (mesmo Wi-Fi): abra <b><span id="lan-url"></span></b><br>
+  <img id="lan-qr" alt="QR" style="margin-top:8px;width:132px;height:132px;border-radius:8px;background:#fff;padding:6px;display:none">
+</div>
+<footer>Tarifas TE/TUSD são digitadas <b>sem impostos</b>; a tarifa cheia (com impostos) aparece para conferência em cada UC.
+Parâmetros de negócio editáveis em <b>config.json</b> · propostas salvas em <b>propostas/</b>.</footer>
+
+<script>
+const MESES=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+const T={{ cfg.tarifas_padrao | tojson }};
+const PCT = x => Math.round(x*10000)/100;      // fração -> %
+let irrCustom=null;
+let CONC={};       // concessionárias (tarifas locais + alíquotas)
+let SUBGRUPOS=[];  // modalidades (B1, B2, B3)
+
+async function carregarConcessionarias(force){
+ try{
+  const r=await fetch('/api/concessionarias'); const j=await r.json();
+  if(j.ok){ CONC=j.concessionarias; SUBGRUPOS=j.subgrupos||[{id:'B1',rotulo:'B1 – Residencial'}]; if(!force) preencherConcSelects(); }
+ }catch(e){}
+}
+function preencherConcSelects(root){
+ if(!Object.keys(CONC).length) return;   // ainda não carregou; espera
+ const alvo=(root||document);
+ const sels = alvo.matches && alvo.matches('select.u-conc')
+   ? [alvo] : alvo.querySelectorAll('select.u-conc');
+ sels.forEach(sel=>{
+   if(sel.dataset.filled) return;
+   Object.keys(CONC).forEach(nome=>{
+     const o=document.createElement('option'); o.value=nome; o.textContent=nome;
+     sel.appendChild(o);
+   });
+   if(Object.keys(CONC).length===1) sel.value=Object.keys(CONC)[0];
+   sel.dataset.filled='1';
+   const uc=sel.closest('.uc');
+   const ssub=uc.querySelector('.u-sub');
+   if(ssub && !ssub.dataset.filled){
+     SUBGRUPOS.forEach(sg=>{
+       const o=document.createElement('option'); o.value=sg.id; o.textContent=sg.rotulo||sg.id;
+       ssub.appendChild(o);
+     });
+     ssub.dataset.filled='1';
+   }
+ });
+}
+// aplica TARIFAS locais + alíquotas do par concessionária+modalidade
+function aplicarConc(btn){
+ const uc=btn.closest('.uc');
+ const nome=uc.querySelector('.u-conc').value;
+ const c=CONC[nome]; const obs=uc.querySelector('.u-conc-obs');
+ if(!c){ obs.textContent='Escolha a concessionária.'; return; }
+ const sub=(uc.querySelector('.u-sub')||{}).value||'B1';
+ const a=(c.impostos&&(c.impostos[sub]||c.impostos.padrao))||null;
+ if(a){
+   if(a.icms_pct!=null) uc.querySelector('.u-icms').value=a.icms_pct;
+   if(a.cofins_pct!=null) uc.querySelector('.u-cofins').value=a.cofins_pct;
+   if(a.pis_pct!=null) uc.querySelector('.u-pis').value=a.pis_pct;
+ }
+ const t=(c.tarifas||{})[sub];
+ if(t && t.te && t.tusd){
+   uc.querySelector('.u-te').value=String(t.te).replace('.',',');
+   uc.querySelector('.u-tusd').value=String(t.tusd).replace('.',',');
+   const alerta = (t.obs||'').toLowerCase().includes('anterior') ? ' ⚠ '+t.obs : '';
+   obs.innerHTML=`✔ ${nome} · ${sub} · TE R$ ${String(t.te).replace('.',',')} + TUSD R$ ${String(t.tusd).replace('.',',')} /kWh (sem impostos) · ${t.resolucao||''} ${t.vigencia?('· vigência '+t.vigencia):''}${alerta}`;
+ } else {
+   obs.innerHTML=`Alíquotas aplicadas. Sem tarifa cadastrada para ${sub} — use <b>atualizar valores…</b> com os números do site da concessionária.`;
+ }
+ cheiaLocal(uc); agendar();
+}
+// ----- modal de atualização de tarifas -----
+let atuUC=null;
+function abrirAtu(btn){
+ atuUC=btn.closest('.uc');
+ const nome=atuUC.querySelector('.u-conc').value||Object.keys(CONC)[0]||'';
+ const sub=(atuUC.querySelector('.u-sub')||{}).value||'B1';
+ document.getElementById('atu-conc').textContent=nome;
+ document.getElementById('atu-sub').textContent=sub;
+ const c=CONC[nome]||{};
+ const link=document.getElementById('atu-link');
+ link.href=c.site_tarifas||'#'; link.style.display=c.site_tarifas?'inline':'none';
+ document.getElementById('atu-te').value='';
+ document.getElementById('atu-tusd').value='';
+ document.getElementById('atu-res').value='';
+ document.getElementById('atu-vig').value='';
+ document.getElementById('atu-msg').textContent='';
+ document.getElementById('modal-atu').classList.add('on');
+}
+function fecharAtu(){ document.getElementById('modal-atu').classList.remove('on'); }
+async function salvarAtu(){
+ const nome=document.getElementById('atu-conc').textContent;
+ const sub=document.getElementById('atu-sub').textContent;
+ const msg=document.getElementById('atu-msg');
+ const body={concessionaria:nome, subgrupo:sub,
+   te:numBR(document.getElementById('atu-te').value),
+   tusd:numBR(document.getElementById('atu-tusd').value),
+   com_impostos:document.getElementById('atu-comimp').checked,
+   icms:numBR(atuUC.querySelector('.u-icms').value)||0,
+   pis:numBR(atuUC.querySelector('.u-pis').value)||0,
+   cofins:numBR(atuUC.querySelector('.u-cofins').value)||0,
+   resolucao:document.getElementById('atu-res').value,
+   vigencia:document.getElementById('atu-vig').value};
+ try{
+  const r=await fetch('/api/atualizar-tarifa',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body)});
+  const j=await r.json(); if(!j.ok) throw j.erro;
+  await carregarConcessionarias(true);
+  msg.textContent=`✔ salvo: TE R$ ${String(j.te).replace('.',',')} + TUSD R$ ${String(j.tusd).replace('.',',')} /kWh (sem impostos)`;
+  aplicarConc(atuUC.querySelector('.u-conc'));
+  setTimeout(fecharAtu, 1200);
+ }catch(e){ msg.textContent='Erro: '+e; }
+}
+async function verificarCopel(){
+ const el=document.getElementById('atu-verif'); el.textContent='consultando o site da COPEL…';
+ try{
+  const r=await fetch('/api/copel-verificar'); const j=await r.json();
+  if(!j.ok) throw j.erro;
+  const v=j.vigencia_site, i=j.icms_site;
+  let txt='';
+  if(v) txt+=`Site: ${v.resolucao}${v.vigencia?(' · '+v.vigencia):''}. `;
+  if(j.vigencia_erro) txt+='(vigência: '+j.vigencia_erro+') ';
+  if(i) txt+=`ICMS ${Math.round(i.icms*100)}%${i.icms_rural?(' / rural '+Math.round(i.icms_rural*100)+'%'):''}.`;
+  if(j.icms_erro) txt+='(ICMS: '+j.icms_erro+')';
+  el.textContent=txt||'sem dados';
+ }catch(e){ el.textContent='Falha ao consultar: '+e; }
+}
+function fmtData(s){ if(!s) return '—'; const p=String(s).slice(0,10).split('-'); if(p.length===3&&p[0].length===4) return `${p[2]}/${p[1]}/${p[0]}`; return s; }
+
+// ---- máscaras e parsers (formato brasileiro) ----
+// converte texto mascarado em número (aceita "R$ 1.234,56", "12,5%", "5 kWh",
+// e também "0.27575" no formato com ponto decimal)
+function numBR(txt){
+ if(txt==null) return NaN;
+ if(typeof txt==='number') return txt;
+ let s=String(txt).replace(/[^\d.,-]/g,'');           // tira R$, %, kWh, espaços
+ if(s==='') return NaN;
+ const temV=s.includes(','), temP=s.includes('.');
+ if(temV){                                            // vírgula = decimal (BR)
+   s=s.replace(/\./g,'').replace(',', '.');
+ } else if(temP){
+   // só ponto: se houver 1 ponto e ≤ com dígitos após, é decimal (ex 0.27575);
+   // se houver múltiplos pontos, são milhares (ex 1.234.567)
+   if((s.match(/\./g)||[]).length>1) s=s.replace(/\./g,'');
+   // 1 ponto → mantém como decimal
+ }
+ const n=parseFloat(s);
+ return isNaN(n)?NaN:n;
+}
+// formata número no padrão brasileiro com N casas
+function fmtBR(n, dec){
+ if(n==null||isNaN(n)) return '';
+ return n.toLocaleString('pt-BR',{minimumFractionDigits:dec,maximumFractionDigits:dec});
+}
+// aplica máscara de moeda enquanto digita (mantém cursor no fim)
+function maskRS(el){
+ let dig=el.value.replace(/\D/g,'');
+ if(dig===''){el.value=''; return;}
+ dig=dig.replace(/^0+(?=\d)/,'');
+ while(dig.length<3) dig='0'+dig;
+ const cents=dig.slice(-2), int=dig.slice(0,-2);
+ el.value='R$ '+Number(int).toLocaleString('pt-BR')+','+cents;
+}
+// máscara de porcentagem (livre, só troca . por , e garante sufixo visual no blur)
+function maskPCT(el){ el.value=el.value.replace(/[^\d,.]/g,''); }
+function blurPCT(el){ const n=numBR(el.value); el.value=(n||n===0)?fmtBR(n,2)+'%':''; }
+// máscara kWh
+function maskKWH(el){ el.value=el.value.replace(/[^\d,.]/g,''); }
+function blurKWH(el){ const n=numBR(el.value); el.value=(n||n===0)?fmtBR(n,2)+' kWh':''; }
+// máscara CEP 00.000-000
+function maskCEP(el){
+ let d=el.value.replace(/\D/g,'').slice(0,8);
+ let out=d;
+ if(d.length>5) out=d.slice(0,2)+'.'+d.slice(2,5)+'-'+d.slice(5);
+ else if(d.length>2) out=d.slice(0,2)+'.'+d.slice(2);
+ el.value=out;
+}
+// só dígitos (UC)
+function maskDig(el){ el.value=el.value.replace(/\D/g,''); }
+
+// mostra/oculta o campo "Outro" de um select
+function outro(sel, campoId){
+ const box=document.getElementById(campoId);
+ const on=sel.value==='__outro__';
+ box.style.display=on?'block':'none';
+ if(on){box.focus();}
+ agendar();
+}
+// valor efetivo de um select com opção Outro
+function selVal(id){
+ const s=document.getElementById(id);
+ if(s.value==='__outro__'){ return document.getElementById(id+'_x').value.trim(); }
+ return s.value;
+}
+
+function toggleOpt(chk, id){
+  document.getElementById(id).style.display = chk.checked ? 'grid' : 'none';
+  agendar();
+}
+
+function ucHTML(i){
+ return `<div class="uc" data-i="${i}">
+  <h3>UC ${i+1} <span class="rm" onclick="rmUC(${i})" ${i==0?'style="display:none"':''}>remover</span></h3>
+  <div class="grid g4">
+    <div><label>Tipo</label><select class="u-tipo">
+      <option value="GERADORA" ${i==0?'selected':''}>GERADORA</option>
+      <option value="BENEFICIÁRIA" ${i>0?'selected':''}>BENEFICIÁRIA</option></select></div>
+    <div><label>Ligação</label><select class="u-lig">
+      <option value="MONOFASICO">MONOFÁSICO (30)</option>
+      <option value="BIFASICO">BIFÁSICO (50)</option>
+      <option value="TRIFASICO">TRIFÁSICO (100)</option></select></div>
+    <div><label>Ilum. pública</label><input class="u-ilum rs" inputmode="decimal" value="R$ 0,00"></div>
+    <div><label>Consumo médio (kWh)</label><input class="u-medio" type="number" placeholder="rápido"></div>
+  </div>
+  <details><summary>consumo mês a mês</summary>
+    <div class="meses">${MESES.map(m=>`<input class="u-mes" placeholder="${m}" type="number">`).join('')}</div>
+  </details>
+  <details><summary>tarifas (sem impostos) e bandeira desta UC</summary>
+    <div class="linha" style="margin-top:8px;gap:8px;flex-wrap:wrap">
+      <div style="flex:1;min-width:140px"><label>Concessionária</label>
+        <select class="u-conc"><option value="">— selecione —</option></select></div>
+      <div style="width:170px"><label>Modalidade</label>
+        <select class="u-sub"></select></div>
+      <button type="button" class="bt-claro bt-mini" onclick="aplicarConc(this)">aplicar tarifas e impostos</button>
+      <button type="button" class="bt-claro bt-mini" onclick="abrirAtu(this)" title="colar os valores novos do site da concessionária">atualizar valores…</button>
+    </div>
+    <div class="tarifa-cheia u-conc-obs" style="color:var(--mudo)"></div>
+    <div class="grid g4" style="margin-top:8px">
+      <div><label>TE s/ imposto (R$/kWh)</label><input class="u-te" value="${String(T.te).replace('.',',')}"></div>
+      <div><label>TUSD s/ imposto (R$/kWh)</label><input class="u-tusd" value="${String(T.tusd).replace('.',',')}"></div>
+      <div><label>ICMS (%)</label><input class="u-icms" type="number" step="0.01" value="${PCT(T.icms)}"></div>
+      <div><label>COFINS (%)</label><input class="u-cofins" type="number" step="0.01" value="${PCT(T.cofins)}"></div>
+      <div><label>PIS (%)</label><input class="u-pis" type="number" step="0.01" value="${PCT(T.pis)}"></div>
+      <div><label>% noturno <small class="auto u-not-obs"></small></label><input class="u-not" type="number" step="1" value="${PCT(T.pct_noturno)}"></div>
+      <div><label>Bandeira</label><select class="u-band">
+        <option>VERDE</option><option>AMARELA</option>
+        <option>VERMELHA P1</option><option>VERMELHA P2</option></select></div>
+    </div>
+    <div class="tarifa-cheia u-cheia"></div>
+    <div class="tarifa-cheia u-cheia-srv"></div>
+  </details>
+ </div>`;
+}
+function addUC(){const box=document.getElementById('ucs');const n=box.children.length;
+ if(n>=9)return; box.insertAdjacentHTML('beforeend',ucHTML(n));
+ document.getElementById('badge-ucs').textContent=n+1; wire(box.lastElementChild);
+ preencherConcSelects(box.lastElementChild); }
+function rmUC(i){const box=document.getElementById('ucs');box.children[i].remove();
+ [...box.children].forEach((el,k)=>{el.dataset.i=k;el.querySelector('h3').firstChild.textContent=`UC ${k+1} `;});
+ document.getElementById('badge-ucs').textContent=box.children.length; calc();}
+
+function lerUC(el){
+ const meses=[...el.querySelectorAll('.u-mes')].map(x=>x.value);
+ const medio=el.querySelector('.u-medio').value;
+ let consumos;
+ if(meses.some(v=>v!=='')) consumos=meses.map(v=>v===''?0:numBR(v)||0);
+ else consumos=Array(12).fill(medio===''?0:numBR(medio)||0);
+ const n=c=>{const x=numBR(el.querySelector(c).value); return isNaN(x)?'':x;};
+ return {tipo:el.querySelector('.u-tipo').value, ligacao:el.querySelector('.u-lig').value,
+  ilum_publica:n('.u-ilum'), consumos,
+  te:n('.u-te'), tusd:n('.u-tusd'),
+  icms:n('.u-icms'), cofins:n('.u-cofins'),
+  pis:n('.u-pis'), pct_noturno:n('.u-not'),
+  bandeira:el.querySelector('.u-band').value};
+}
+function coletar(){
+ const num=id=>{const x=numBR(v(id)); return isNaN(x)?'':x;};
+ return {nome:v('nome'),endereco:v('endereco'),cidade:v('cidade'),uc_numero:v('uc_numero'),
+  ucs:[...document.getElementById('ucs').children].map(lerUC),
+  perfil_irradiacao:v('perfil')==='__custom__'?'3.8':v('perfil'),
+  irradiacao_customizada:v('perfil')==='__custom__'?irrCustom:null,
+  marca_modulo:selVal('marca_modulo'),pot_modulo_w:num('pot_modulo_w'),qtd_modulos_kit:num('qtd_modulos'),
+  marca_inversor:selVal('marca_inversor'),pot_inversor_kw:num('pot_inversor_kw'),
+  tensao_inversor:v('tensao'),conexao:selVal('conexao'),estrutura:selVal('estrutura'),valor_kit:num('valor_kit'),
+  entrada:num('entrada'),desloc:num('desloc'),comissao_pct:num('comissao'),seguro_pct:num('seguro'),
+  margem_desejada:num('margem'),fin_taxa_mes:num('fin_taxa'),fin_parcelas:num('fin_parcelas'),
+  wp_manual:num('wp_manual'),
+  mo_manual:num('mo_manual'),material_manual:num('material_manual'),aliquota_pct:num('aliquota_pct'),
+  tem_stringbox:chk('tem_stringbox'),sb_qtd:num('sb_qtd'),sb_marca:v('sb_marca'),sb_es:v('sb_es'),
+  tem_bateria:chk('tem_bateria'),bat_qtd:num('bat_qtd'),bat_marca:v('bat_marca'),bat_kwh:num('bat_kwh')};
+}
+const v=id=>document.getElementById(id).value;
+const chk=id=>document.getElementById(id).checked;
+const set=(id,t)=>document.getElementById(id).textContent=t;
+
+let timer=null;
+async function calc(mostrarErro){
+ clearTimeout(timer);
+ try{
+  const r=await fetch('/api/calcular',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(coletar())});
+  const j=await r.json();
+  const err=document.getElementById('erro');
+  if(!j.ok){ if(mostrarErro){err.textContent=j.erro;err.style.display='block';} return;}
+  err.style.display='none';
+  const s=j.resumo;
+  set('r-venda',s.preco_venda); set('r-parcela',`ou ${s.parcela_fin} /mês no financiamento`);
+  set('r-sem',s.fatura_sem); set('r-com',s.fatura_com); set('r-eco',s.economia_mensal);
+  set('r-kwp',`${s.kwp} kWp`);
+  set('r-nec',`${s.kwp_necessario} kWp · ${s.modulos_sugeridos} mód.`);
+  set('r-ger',`${s.geracao_media} kWh/mês`); set('r-cons',`${s.consumo_medio} kWh/mês`);
+  set('r-comp',`${s.compensacao_pct}%`); set('r-area',`${s.area_m2} m²`);
+  set('r-pay',s.payback); set('r-25',s.retorno_25);
+  set('c-mo',s.custo_mo); set('c-mat',s.custo_material);
+  set('c-mo-a',v('mo_manual')!==''?`(auto: ${s.custo_mo_auto})`:'');
+  set('c-mat-a',v('material_manual')!==''?`(auto: ${s.custo_material_auto})`:'');
+  document.getElementById('mo-auto').textContent=`auto: ${s.custo_mo_auto}`;
+  document.getElementById('mat-auto').textContent=`auto: ${s.custo_material_auto}`;
+  set('c-aliq',s.aliquota_usada_pct);
+  set('c-trafo',s.custo_trafo); set('c-trafo-desc',s.trafo_desc?`(${s.trafo_desc})`:'');
+  set('c-imp',s.custo_imposto); set('c-com',`${s.custo_comissao} · ${s.custo_seguro}`);
+  set('c-tot',s.custo_total); set('c-marg',`${s.margem_usada_pct}%`);
+  set('c-wp',`R$ ${s.preco_wp}/Wp`); set('c-lucro',`${s.lucro_pct}% (${s.lucro_rs})`);
+  document.getElementById('sugestao').textContent=s.modulos_sugeridos?`· sugerido: ${s.modulos_sugeridos}`:'';
+  // tarifa cheia (com impostos) por UC, para conferência
+  [...document.getElementById('ucs').children].forEach((el,i)=>{
+    const t=s.tarifas_cheias[i];
+    const alvo=el.querySelector('.u-cheia-srv');
+    if(alvo) alvo.textContent =
+      t!=null?`✔ usado no cálculo: R$ ${String(t.toFixed(4)).replace('.',',')} /kWh (com impostos)`:'';
+  });
+  document.getElementById('aviso-kit').style.display=
+    (numBR(v('qtd_modulos'))>0 && !isNaN(numBR(v('valor_kit'))))?'none':'block';
+ }catch(e){ if(mostrarErro){const err=document.getElementById('erro');
+   err.textContent='Falha ao calcular: '+e; err.style.display='block';} }
+}
+function cheiaLocal(el){
+ const n=c=>{const x=numBR(el.querySelector(c).value); return isNaN(x)?0:x;};
+ const te=n('.u-te'), tusd=n('.u-tusd');
+ const g=(1-n('.u-icms')/100)*(1-(n('.u-cofins')+n('.u-pis'))/100);
+ if(!g||(!te&&!tusd)){el.querySelector('.u-cheia').textContent='';return;}
+ const f=x=>'R$ '+(x/g).toFixed(4).replace('.',',');
+ el.querySelector('.u-cheia').textContent=
+   `com impostos (conferência): TE ${f(te)} · TUSD ${f(tusd)} · cheia ${f(te+tusd)} /kWh`;
+}
+function agendar(){clearTimeout(timer);timer=setTimeout(()=>calc(false),450);}
+// aplica máscaras conforme a classe do campo
+function aplicarMascaras(root){
+ root.querySelectorAll('input.rs').forEach(el=>{
+   maskRS(el); el.addEventListener('input',()=>maskRS(el));});
+ root.querySelectorAll('input.pct').forEach(el=>{
+   if(el.value.trim()!=='') blurPCT(el);          // formata o valor inicial com "%"
+   el.addEventListener('input',()=>maskPCT(el));
+   el.addEventListener('blur',()=>blurPCT(el));});
+ root.querySelectorAll('input.kwh').forEach(el=>{
+   el.addEventListener('input',()=>maskKWH(el));
+   el.addEventListener('blur',()=>blurKWH(el));});
+ root.querySelectorAll('input.cep').forEach(el=>
+   el.addEventListener('input',()=>maskCEP(el)));
+ root.querySelectorAll('input.digitos').forEach(el=>
+   el.addEventListener('input',()=>maskDig(el)));
+}
+function syncNoturno(uc){
+ const tipo=uc.querySelector('.u-tipo').value;
+ const inp=uc.querySelector('.u-not');
+ const obs=uc.querySelector('.u-not-obs');
+ if(tipo==='BENEFICIÁRIA'){
+   inp.disabled=true; inp.style.opacity=.5;
+   if(obs) obs.textContent='(beneficiária: 100% fixo)';
+ }else{
+   inp.disabled=false; inp.style.opacity=1;
+   if(obs) obs.textContent='';
+ }
+}
+function wire(root){root.querySelectorAll('input,select').forEach(el=>{
+  el.addEventListener('input',agendar); el.addEventListener('change',agendar);});
+ aplicarMascaras(root);
+ root.querySelectorAll('.uc').forEach(uc=>{
+  cheiaLocal(uc); syncNoturno(uc);
+  uc.querySelector('.u-tipo').addEventListener('change',()=>syncNoturno(uc));
+  uc.querySelectorAll('.u-te,.u-tusd,.u-icms,.u-cofins,.u-pis').forEach(inp=>
+    inp.addEventListener('input',()=>cheiaLocal(uc)));});
+ if(root.classList&&root.classList.contains('uc')){cheiaLocal(root); syncNoturno(root);
+  root.querySelector('.u-tipo').addEventListener('change',()=>syncNoturno(root));
+  root.querySelectorAll('.u-te,.u-tusd,.u-icms,.u-cofins,.u-pis').forEach(inp=>
+    inp.addEventListener('input',()=>cheiaLocal(root)));}}
+
+async function gerar(){
+ const bt=document.getElementById('bt-pdf'); bt.disabled=true; bt.textContent='Gerando…';
+ try{
+  const body=coletar(); body.img_modulo=fotoModulo; body.img_inversor=fotoInversor;
+  const r=await fetch('/api/proposta',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body)});
+  if(!r.ok){const j=await r.json(); throw j.erro||'erro';}
+  const blob=await r.blob();
+  const cd=r.headers.get('Content-Disposition')||'';
+  const m=cd.match(/filename\*?=(?:UTF-8''|\")?([^\";]+)/i);
+  const nome=m?decodeURIComponent(m[1]):'PROPOSTA.pdf';
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=nome; a.click(); URL.revokeObjectURL(a.href);
+ }catch(e){const err=document.getElementById('erro');
+   err.textContent='Falha ao gerar: '+e; err.style.display='block';}
+ bt.disabled=false; bt.textContent='Gerar proposta (PDF)';
+}
+
+async function buscarIrradiacao(){
+ const bt=document.getElementById('bt-irr'); bt.disabled=true;
+ try{
+  const cidade=v('cidade-irr')||v('cidade');
+  const r=await fetch('/api/irradiacao',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({cidade})});
+  const j=await r.json(); if(!j.ok) throw j.erro;
+  irrCustom=j.mensal;
+  document.getElementById('perfil').value='__custom__';
+  const info=document.getElementById('irr-info');
+  info.innerHTML=`✔ ${j.cidade}/${j.uf}: média <b>${j.media_dia_kwh} kWh/m²/dia</b> (NASA POWER) aplicada como perfil.`;
+  info.style.display='block'; agendar();
+ }catch(e){const err=document.getElementById('erro');
+   err.textContent='Irradiação: '+e; err.style.display='block';}
+ bt.disabled=false;
+}
+async function buscarCep(){
+ try{
+  const r=await fetch('/api/cep/'+encodeURIComponent(v('cep').replace(/\D/g,'')));
+  const j=await r.json(); if(!j.ok) throw j.erro;
+  if(j.logradouro) document.getElementById('endereco').value=j.logradouro;
+  document.getElementById('cidade').value=`${j.cidade} - ${j.uf}`;
+  agendar();
+ }catch(e){const err=document.getElementById('erro');
+   err.textContent='CEP: '+e; err.style.display='block';}
+}
+
+async function conferir(){
+ const bt=document.getElementById('bt-conf'); bt.disabled=true;
+ const modal=document.getElementById('modal-conf');
+ const alvo=document.getElementById('conf-texto');
+ alvo.textContent='calculando…'; modal.classList.add('on');
+ try{
+  const r=await fetch('/api/conferencia',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(coletar())});
+  const j=await r.json();
+  alvo.textContent = j.ok ? j.texto : ('Erro: '+j.erro);
+ }catch(e){ alvo.textContent='Falha ao conferir: '+e; }
+ bt.disabled=false;
+}
+function fecharConf(){ document.getElementById('modal-conf').classList.remove('on'); }
+function copiarConf(){
+ const t=document.getElementById('conf-texto').textContent;
+ navigator.clipboard&&navigator.clipboard.writeText(t);
+}
+
+async function salvarResumo(){
+ const bt=document.getElementById('bt-salvar'); bt.disabled=true; bt.textContent='Salvando…';
+ const ok=document.getElementById('salvo-ok');
+ try{
+  const body=coletar(); body._incluir_conferencia=true;
+  const r=await fetch('/api/salvar-resumo',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body)});
+  const j=await r.json();
+  if(!j.ok) throw j.erro;
+  ok.innerHTML=`✔ salvo em <b>clientes/${(body.nome||'CLIENTE').trim()}/</b>: ${j.arquivos.join(', ')}`;
+  ok.style.display='block';
+  setTimeout(()=>{ok.style.display='none';},8000);
+ }catch(e){const err=document.getElementById('erro');
+   err.textContent='Falha ao salvar: '+e; err.style.display='block';}
+ bt.disabled=false; bt.textContent='💾 Salvar resumo na pasta do cliente';
+}
+
+// ---- fotos do módulo/inversor (página 3 da proposta) ----
+let fotoModulo=null, fotoInversor=null;   // data URLs (base64) enviados ao gerar o PDF
+function _setFoto(qual, dataurl){
+ if(qual==='mod') fotoModulo=dataurl; else fotoInversor=dataurl;
+ const img=document.getElementById('foto-'+qual+'-img');
+ const dica=document.getElementById('foto-'+qual+'-dica');
+ const rm=document.getElementById('foto-'+qual+'-rm');
+ const cx=document.getElementById('foto-'+qual+'-cx');
+ if(dataurl){ img.src=dataurl; img.style.display='block'; dica.style.display='none';
+   rm.style.display='inline-block'; cx.classList.add('tem'); }
+ else { img.removeAttribute('src'); img.style.display='none'; dica.style.display='block';
+   rm.style.display='none'; cx.classList.remove('tem'); }
+}
+function removerFoto(ev, qual){ ev.stopPropagation(); _setFoto(qual, null); }
+function _lerImg(file, qual){
+ if(!file || !file.type || file.type.indexOf('image/')!==0) return;
+ const fr=new FileReader(); fr.onload=()=>_setFoto(qual, fr.result); fr.readAsDataURL(file);
+}
+let fotoAlvo=null;   // caixa sob o cursor (para o Ctrl+V cair no lugar certo)
+function _wireFoto(qual){
+ const cx=document.getElementById('foto-'+qual+'-cx');
+ const file=document.getElementById('foto-'+qual+'-file');
+ file.addEventListener('change',()=>{ if(file.files[0]) _lerImg(file.files[0], qual); });
+ cx.addEventListener('dragover',e=>{e.preventDefault();cx.classList.add('drag');});
+ cx.addEventListener('dragleave',()=>cx.classList.remove('drag'));
+ cx.addEventListener('drop',e=>{e.preventDefault();cx.classList.remove('drag');
+   if(e.dataTransfer.files[0]) _lerImg(e.dataTransfer.files[0], qual);});
+ cx.addEventListener('mouseenter',()=>fotoAlvo=qual);
+ cx.addEventListener('mouseleave',()=>{ if(fotoAlvo===qual) fotoAlvo=null; });
+}
+_wireFoto('mod'); _wireFoto('inv');
+window.addEventListener('paste',e=>{
+ const items=e.clipboardData?e.clipboardData.items:[];
+ let it=null; for(const i of items){ if(i.type && i.type.indexOf('image/')===0){ it=i; break; } }
+ if(!it) return;
+ const qual=fotoAlvo || (!fotoModulo?'mod':(!fotoInversor?'inv':'mod'));
+ _lerImg(it.getAsFile(), qual);
+});
+
+carregarConcessionarias();
+addUC(); wire(document);
+// bloco "usar no celular": só aparece se o servidor tiver IP de rede
+fetch('/api/rede').then(r=>r.json()).then(j=>{
+ if(j.ok && !j.local){
+   document.getElementById('lan-url').textContent=j.url;
+   document.getElementById('mobile-info').style.display='block';
+   const img=document.getElementById('lan-qr');
+   img.onload=()=>{img.style.display='inline-block';};
+   img.src='/qr.png';
+ }
+}).catch(()=>{});
+
+// PWA: registra o service worker (só funciona em localhost ou https).
+if('serviceWorker' in navigator){
+ window.addEventListener('load',()=>{
+   navigator.serviceWorker.register('/sw.js').catch(()=>{});
+ });
+}
+</script>
+</body>
+</html>
