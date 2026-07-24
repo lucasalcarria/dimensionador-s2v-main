@@ -1,902 +1,654 @@
 {
  "fields": [
   {
+   "page": 1,
    "field": "uc_numero",
-   "page": 1,
-   "link": "'PLANILHA RESUMO'!Y3:Z3",
-   "algn": "l",
-   "anchor": "t",
+   "box": {
+    "x0": 214.44,
+    "y0": 162.86,
+    "x1": 262.54,
+    "y1": 174.84
+   },
    "style": {
-    "size": 10.0,
+    "size": 9.9,
     "bold": true,
     "color": "434F5C",
     "font": "Inter"
    },
-   "box": {
-    "x0": 226.598,
-    "x1": 243.787918,
-    "top": 675.145295779528,
-    "bottom": 684.951295779528,
-    "y0": 156.938468,
-    "y1": 166.744468,
-    "mheight": 9.806000000000012,
-    "fontname": "DAAAAA+Inter-Bold",
-    "size": 9.806000000000012
-   },
-   "cx": 235.19,
-   "max_w": 52.5
+   "algn": "l",
+   "max_w": 100
   },
   {
+   "page": 1,
    "field": "endereco",
-   "page": 1,
-   "link": "TEXTO!B3",
-   "algn": "l",
-   "anchor": "t",
+   "box": {
+    "x0": 319.48,
+    "y0": 162.86,
+    "x1": 424.55,
+    "y1": 174.84
+   },
    "style": {
-    "size": 10.0,
+    "size": 9.9,
     "bold": true,
     "color": "434F5C",
     "font": "Inter"
    },
-   "box": {
-    "x0": 321.187,
-    "x1": 340.318506,
-    "top": 675.145295779528,
-    "bottom": 684.951295779528,
-    "y0": 156.938468,
-    "y1": 166.744468,
-    "mheight": 9.806000000000012,
-    "fontname": "DAAAAA+Inter-Bold",
-    "size": 9.806000000000012
-   },
-   "cx": 330.75,
-   "max_w": 108.1
+   "algn": "l",
+   "max_w": 155
   },
   {
+   "page": 1,
    "field": "nome_proper",
-   "page": 1,
-   "link": "TEXTO!B2",
-   "algn": "l",
-   "anchor": "t",
+   "box": {
+    "x0": 69.2,
+    "y0": 162.86,
+    "x1": 154.27,
+    "y1": 174.84
+   },
    "style": {
-    "size": 10.0,
+    "size": 9.9,
     "bold": true,
     "color": "434F5C",
     "font": "Inter"
    },
-   "box": {
-    "x0": 88.228,
-    "x1": 107.516402,
-    "top": 675.117295779528,
-    "bottom": 684.9232957795281,
-    "y0": 156.966468,
-    "y1": 166.772468,
-    "mheight": 9.806000000000012,
-    "fontname": "DAAAAA+Inter-Bold",
-    "size": 9.806000000000012
-   },
-   "cx": 97.87,
-   "max_w": 94.0
+   "algn": "l",
+   "max_w": 135
   },
   {
+   "page": 1,
    "field": "kwp_txt",
-   "page": 1,
-   "link": "TEXTO!D3",
-   "algn": "l",
-   "anchor": "t",
+   "box": {
+    "x0": 480.6,
+    "y0": 162.86,
+    "x1": 526.88,
+    "y1": 174.84
+   },
    "style": {
-    "size": 10.0,
+    "size": 9.9,
     "bold": true,
     "color": "434F5C",
     "font": "Inter"
    },
-   "box": {
-    "x0": 475.586,
-    "x1": 495.178388,
-    "top": 675.117295779528,
-    "bottom": 684.9232957795281,
-    "y0": 156.966468,
-    "y1": 166.772468,
-    "mheight": 9.806000000000012,
-    "fontname": "DAAAAA+Inter-Bold",
-    "size": 9.806000000000012
-   },
-   "cx": 485.38,
-   "max_w": 79.4
+   "algn": "l",
+   "max_w": 105
   },
   {
+   "page": 1,
    "field": "cidade",
-   "page": 1,
-   "link": "'PLANILHA RESUMO'!U3",
-   "algn": "l",
-   "anchor": "t",
+   "box": {
+    "x0": 319.48,
+    "y0": 139.24,
+    "x1": 404.97,
+    "y1": 151.22
+   },
    "style": {
-    "size": 10.0,
+    "size": 9.9,
     "bold": true,
     "color": "434F5C",
     "font": "Inter"
    },
-   "box": {
-    "x0": 321.187,
-    "x1": 340.249864,
-    "top": 699.3132957795281,
-    "bottom": 709.1192957795281,
-    "y0": 132.770468,
-    "y1": 142.576468,
-    "mheight": 9.806000000000012,
-    "fontname": "DAAAAA+Inter-Bold",
-    "size": 9.806000000000012
-   },
-   "cx": 330.72,
-   "max_w": 108.1
+   "algn": "l",
+   "max_w": 155
   },
   {
+   "page": 3,
    "field": "mod_qtd",
-   "page": 3,
-   "link": "TEXTO!B8",
-   "algn": "l",
-   "anchor": "ctr",
+   "box": {
+    "x0": 339.35,
+    "y0": 556.9,
+    "x1": 359.72,
+    "y1": 576.83
+   },
    "style": {
-    "size": 16.0,
+    "size": 15.82,
     "bold": true,
     "color": "089C83",
     "font": "Sora"
    },
-   "box": {
-    "x0": 337.294,
-    "x1": 371.98579,
-    "top": 270.97860377952804,
-    "bottom": 286.9656037795281,
-    "y0": 554.9241599999999,
-    "y1": 570.91116,
-    "mheight": 15.98700000000008,
-    "fontname": "BAAAAA+Sora-Bold",
-    "size": 15.98700000000008
-   },
-   "cx": 354.64,
-   "max_w": 60
+   "algn": "l",
+   "max_w": null
   },
   {
+   "page": 3,
    "field": "mod_desc",
-   "page": 3,
-   "link": "TEXTO!B10",
-   "algn": "c",
-   "anchor": "ctr",
+   "box": {
+    "x0": 341.37,
+    "y0": 534.59,
+    "x1": 431.06,
+    "y1": 543.28
+   },
    "style": {
-    "size": 7.0,
+    "size": 6.9,
     "bold": false,
     "color": "000000",
     "font": "Sora"
    },
-   "box": {
-    "x0": 377.688,
-    "x1": 391.74101399999995,
-    "top": 303.563403779528,
-    "bottom": 310.56540377952797,
-    "y0": 531.3243600000001,
-    "y1": 538.32636,
-    "mheight": 7.001999999999953,
-    "fontname": "GAAAAA+Sora-Regular",
-    "size": 7.001999999999953
-   },
-   "cx": 384.71,
-   "max_w": 96.6
+   "algn": "c",
+   "max_w": 118,
+   "cx": 386.22
   },
   {
+   "page": 3,
    "field": "inv_titulo",
-   "page": 3,
-   "link": "TEXTO!B9",
-   "algn": "c",
-   "anchor": "ctr",
+   "box": {
+    "x0": 350.89,
+    "y0": 450.69,
+    "x1": 421.76,
+    "y1": 459.38
+   },
    "style": {
-    "size": 7.0,
+    "size": 6.9,
     "bold": true,
     "color": "000000",
     "font": "Sora"
    },
-   "box": {
-    "x0": 377.49,
-    "x1": 392.558304,
-    "top": 390.927403779528,
-    "bottom": 397.929403779528,
-    "y0": 443.96036000000004,
-    "y1": 450.96236000000005,
-    "mheight": 7.0020000000000095,
-    "fontname": "BAAAAA+Sora-Bold",
-    "size": 7.0020000000000095
-   },
-   "cx": 385.02,
-   "max_w": 96.6
+   "algn": "c",
+   "max_w": 118,
+   "cx": 386.33
   },
   {
+   "page": 3,
    "field": "inv_qtd",
-   "page": 3,
-   "link": "TEXTO!C12",
-   "algn": "l",
-   "anchor": "ctr",
+   "box": {
+    "x0": 339.2,
+    "y0": 462.2,
+    "x1": 355.48,
+    "y1": 482.14
+   },
    "style": {
-    "size": 16.0,
+    "size": 15.82,
     "bold": true,
     "color": "089C83",
     "font": "Sora"
    },
-   "box": {
-    "x0": 337.124,
-    "x1": 371.81579000000005,
-    "top": 369.68060377952804,
-    "bottom": 385.667603779528,
-    "y0": 456.22216000000003,
-    "y1": 472.20916,
-    "mheight": 15.986999999999966,
-    "fontname": "BAAAAA+Sora-Bold",
-    "size": 15.986999999999966
-   },
-   "cx": 354.47,
-   "max_w": 60
+   "algn": "l",
+   "max_w": null
   },
   {
+   "page": 3,
    "field": "inv_desc",
-   "page": 3,
-   "link": "TEXTO!B12",
-   "algn": "c",
-   "anchor": "ctr",
+   "box": {
+    "x0": 345.57,
+    "y0": 439.67,
+    "x1": 427.44,
+    "y1": 448.36
+   },
    "style": {
-    "size": 7.0,
+    "size": 6.9,
     "bold": false,
     "color": "000000",
     "font": "Sora"
    },
-   "box": {
-    "x0": 378.482,
-    "x1": 391.47071000000005,
-    "top": 402.408403779528,
-    "bottom": 409.410403779528,
-    "y0": 432.47936000000004,
-    "y1": 439.48136000000005,
-    "mheight": 7.0020000000000095,
-    "fontname": "GAAAAA+Sora-Regular",
-    "size": 7.0020000000000095
-   },
-   "cx": 384.98,
-   "max_w": 96.6
+   "algn": "c",
+   "max_w": 118,
+   "cx": 386.51
   },
   {
+   "page": 3,
    "field": "estr_qtd",
-   "page": 3,
-   "link": "TEXTO!C13",
-   "algn": "l",
-   "anchor": "ctr",
+   "box": {
+    "x0": 462.54,
+    "y0": 556.9,
+    "x1": 482.04,
+    "y1": 576.83
+   },
    "style": {
-    "size": 16.0,
+    "size": 15.82,
     "bold": true,
     "color": "089C83",
     "font": "Sora"
    },
-   "box": {
-    "x0": 453.231,
-    "x1": 478.426512,
-    "top": 270.97860377952804,
-    "bottom": 286.9656037795281,
-    "y0": 554.9241599999999,
-    "y1": 570.91116,
-    "mheight": 15.98700000000008,
-    "fontname": "BAAAAA+Sora-Bold",
-    "size": 15.98700000000008
-   },
-   "cx": 465.83,
-   "max_w": 60
+   "algn": "l",
+   "max_w": null
   },
   {
+   "page": 3,
    "field": "estr_desc",
-   "page": 3,
-   "link": "TEXTO!B13",
-   "algn": "c",
-   "anchor": "ctr",
+   "box": {
+    "x0": 468.61,
+    "y0": 534.37,
+    "x1": 549.56,
+    "y1": 543.06
+   },
    "style": {
-    "size": 7.0,
+    "size": 6.9,
     "bold": false,
     "color": "000000",
     "font": "Sora"
    },
-   "box": {
-    "x0": 495.099,
-    "x1": 507.21246,
-    "top": 303.8194037795281,
-    "bottom": 310.82140377952805,
-    "y0": 531.06836,
-    "y1": 538.0703599999999,
-    "mheight": 7.001999999999953,
-    "fontname": "GAAAAA+Sora-Regular",
-    "size": 7.001999999999953
-   },
-   "cx": 501.16,
-   "max_w": 96.6
+   "algn": "c",
+   "max_w": 118,
+   "cx": 509.09
   },
   {
+   "page": 3,
+   "field": "sb_qtd",
+   "box": {
+    "x0": 462.54,
+    "y0": 462.13,
+    "x1": 478.81,
+    "y1": 482.06
+   },
+   "style": {
+    "size": 15.82,
+    "bold": true,
+    "color": "089C83",
+    "font": "Sora"
+   },
+   "algn": "l",
+   "max_w": null
+  },
+  {
+   "page": 3,
+   "field": "sb_desc",
+   "box": {
+    "x0": 465.91,
+    "y0": 439.37,
+    "x1": 552.17,
+    "y1": 448.06
+   },
+   "style": {
+    "size": 6.9,
+    "bold": false,
+    "color": "000000",
+    "font": "Sora"
+   },
+   "algn": "c",
+   "max_w": 118,
+   "cx": 509.04
+  },
+  {
+   "page": 3,
    "field": "kwp_txt",
-   "page": 3,
-   "link": "TEXTO!D3",
-   "algn": "l",
-   "anchor": "ctr",
+   "box": {
+    "x0": 226.06,
+    "y0": 562.97,
+    "x1": 268.59,
+    "y1": 574.21
+   },
    "style": {
-    "size": 9.0,
+    "size": 8.92,
     "bold": true,
     "color": "004D94",
     "font": "Sora"
    },
-   "box": {
-    "x0": 230.627,
-    "x1": 246.698962,
-    "top": 271.95024377952814,
-    "bottom": 280.96424377952815,
-    "y0": 560.9255199999999,
-    "y1": 569.9395199999999,
-    "mheight": 9.01400000000001,
-    "fontname": "BAAAAA+Sora-Bold",
-    "size": 9.01400000000001
-   },
-   "cx": 238.66,
-   "max_w": 100
+   "algn": "l",
+   "max_w": 105
   },
   {
+   "page": 3,
    "field": "consumo_txt",
-   "page": 3,
-   "link": "TEXTO!E6",
-   "algn": "l",
-   "anchor": "ctr",
+   "box": {
+    "x0": 226.06,
+    "y0": 525.26,
+    "x1": 290.02,
+    "y1": 536.5
+   },
    "style": {
-    "size": 9.0,
+    "size": 8.92,
     "bold": true,
     "color": "004D94",
     "font": "Sora"
    },
-   "box": {
-    "x0": 230.627,
-    "x1": 247.05952200000002,
-    "top": 311.1252437795281,
-    "bottom": 320.1392437795281,
-    "y0": 521.7505199999999,
-    "y1": 530.76452,
-    "mheight": 9.01400000000001,
-    "fontname": "BAAAAA+Sora-Bold",
-    "size": 9.01400000000001
-   },
-   "cx": 238.84,
-   "max_w": 100
+   "algn": "l",
+   "max_w": 110
   },
   {
+   "page": 3,
    "field": "geracao_txt",
-   "page": 3,
-   "link": "TEXTO!E7",
-   "algn": "l",
-   "anchor": "ctr",
+   "box": {
+    "x0": 226.06,
+    "y0": 488.29,
+    "x1": 288.99,
+    "y1": 499.53
+   },
    "style": {
-    "size": 9.0,
+    "size": 8.92,
     "bold": true,
     "color": "004D94",
     "font": "Sora"
    },
-   "box": {
-    "x0": 230.627,
-    "x1": 246.80713,
-    "top": 349.676243779528,
-    "bottom": 358.69024377952803,
-    "y0": 483.19952,
-    "y1": 492.21352,
-    "mheight": 9.01400000000001,
-    "fontname": "BAAAAA+Sora-Bold",
-    "size": 9.01400000000001
-   },
-   "cx": 238.72,
-   "max_w": 100
+   "algn": "l",
+   "max_w": 110
   },
   {
+   "page": 3,
    "field": "area_txt",
-   "page": 3,
-   "link": "TEXTO!D4",
-   "algn": "l",
-   "anchor": "ctr",
+   "box": {
+    "x0": 226.06,
+    "y0": 450.95,
+    "x1": 259.93,
+    "y1": 462.2
+   },
    "style": {
-    "size": 9.0,
+    "size": 8.92,
     "bold": true,
     "color": "004D94",
     "font": "Sora"
    },
-   "box": {
-    "x0": 230.627,
-    "x1": 247.19473200000002,
-    "top": 388.56724377952804,
-    "bottom": 397.58124377952805,
-    "y0": 444.30852,
-    "y1": 453.32252,
-    "mheight": 9.01400000000001,
-    "fontname": "BAAAAA+Sora-Bold",
-    "size": 9.01400000000001
-   },
-   "cx": 238.91,
-   "max_w": 100
+   "algn": "l",
+   "max_w": 110
   },
   {
+   "page": 3,
    "field": "compensa_txt",
-   "page": 3,
-   "link": "TEXTO!D8",
-   "algn": "l",
-   "anchor": "ctr",
+   "box": {
+    "x0": 226.06,
+    "y0": 413.61,
+    "x1": 247.64,
+    "y1": 424.86
+   },
    "style": {
-    "size": 9.0,
+    "size": 8.92,
     "bold": true,
     "color": "004D94",
     "font": "Sora"
    },
-   "box": {
-    "x0": 230.627,
-    "x1": 246.473612,
-    "top": 427.515243779528,
-    "bottom": 436.52924377952803,
-    "y0": 405.36052,
-    "y1": 414.37452,
-    "mheight": 9.01400000000001,
-    "fontname": "BAAAAA+Sora-Bold",
-    "size": 9.01400000000001
-   },
-   "cx": 238.55,
-   "max_w": 100
+   "algn": "l",
+   "max_w": 110
   },
   {
+   "page": 3,
    "field": "gar_inversor",
-   "page": 3,
-   "link": "TEXTO!I6",
-   "algn": "l",
-   "anchor": "ctr",
+   "box": {
+    "x0": 396.86,
+    "y0": 240.24,
+    "x1": 433.33,
+    "y1": 250.26
+   },
    "style": {
-    "size": 8.0,
+    "size": 7.95,
     "bold": true,
     "color": "004D94",
     "font": "Sora"
    },
-   "box": {
-    "x0": 391.408,
-    "x1": 405.90911600000004,
-    "top": 609.285843779528,
-    "bottom": 617.279843779528,
-    "y0": 224.60992000000002,
-    "y1": 232.60392000000002,
-    "mheight": 7.994,
-    "fontname": "BAAAAA+Sora-Bold",
-    "size": 7.994
-   },
-   "cx": 398.66,
-   "max_w": 130
+   "algn": "l",
+   "max_w": 150,
+   "desloca_sem_bateria": 22.33
   },
   {
+   "page": 3,
    "field": "gar_instalacao",
-   "page": 3,
-   "link": "TEXTO!I7",
-   "algn": "l",
-   "anchor": "ctr",
+   "box": {
+    "x0": 396.86,
+    "y0": 200.36,
+    "x1": 432.39,
+    "y1": 210.37
+   },
    "style": {
-    "size": 8.0,
+    "size": 7.95,
     "bold": true,
     "color": "004D94",
     "font": "Sora"
    },
-   "box": {
-    "x0": 391.408,
-    "x1": 406.068996,
-    "top": 650.813843779528,
-    "bottom": 658.8078437795281,
-    "y0": 183.08192,
-    "y1": 191.07592,
-    "mheight": 7.994,
-    "fontname": "BAAAAA+Sora-Bold",
-    "size": 7.994
-   },
-   "cx": 398.74,
-   "max_w": 130
+   "algn": "l",
+   "max_w": 150,
+   "desloca_sem_bateria": 22.33
   },
   {
+   "page": 3,
    "field": "gar_modulos",
-   "page": 3,
-   "link": "TEXTO!I3",
-   "algn": "l",
-   "anchor": "ctr",
+   "box": {
+    "x0": 396.86,
+    "y0": 159.27,
+    "x1": 434.96,
+    "y1": 169.28
+   },
    "style": {
-    "size": 8.0,
+    "size": 7.95,
     "bold": true,
     "color": "004D94",
     "font": "Sora"
    },
-   "box": {
-    "x0": 391.408,
-    "x1": 408.31531,
-    "top": 693.6448437795281,
-    "bottom": 701.6388437795281,
-    "y0": 140.25092,
-    "y1": 148.24492,
-    "mheight": 7.994,
-    "fontname": "BAAAAA+Sora-Bold",
-    "size": 7.994
-   },
-   "cx": 399.86,
-   "max_w": 130
+   "algn": "l",
+   "max_w": 150,
+   "desloca_sem_bateria": 22.33
   },
   {
-   "field": "bat_qtd",
    "page": 3,
-   "link": "TEXTO!C12",
-   "algn": "l",
-   "anchor": "ctr",
+   "field": "bat_qtd",
+   "box": {
+    "x0": 339.2,
+    "y0": 367.28,
+    "x1": 355.48,
+    "y1": 387.21
+   },
    "style": {
-    "size": 16.0,
+    "size": 15.82,
     "bold": true,
     "color": "089C83",
     "font": "Sora"
    },
-   "box": {
-    "x0": 337.38,
-    "x1": 365.83686,
-    "top": 468.41160377952804,
-    "bottom": 484.398603779528,
-    "y0": 357.49116000000004,
-    "y1": 373.47816,
-    "mheight": 15.986999999999966,
-    "fontname": "BAAAAA+Sora-Bold",
-    "size": 15.986999999999966
-   },
-   "cx": 351.61,
-   "max_w": 60
+   "algn": "l",
+   "max_w": null
   },
   {
-   "field": "bat_desc",
    "page": 3,
-   "link": "TEXTO!B12",
-   "algn": "c",
-   "anchor": "ctr",
+   "field": "bat_desc",
+   "box": {
+    "x0": 345.35,
+    "y0": 344.9,
+    "x1": 427.22,
+    "y1": 353.59
+   },
    "style": {
-    "size": 7.0,
+    "size": 6.9,
     "bold": false,
     "color": "000000",
     "font": "Sora"
    },
-   "box": {
-    "x0": 378.51,
-    "x1": 391.995852,
-    "top": 501.167403779528,
-    "bottom": 508.169403779528,
-    "y0": 333.72036,
-    "y1": 340.72236000000004,
-    "mheight": 7.0020000000000095,
-    "fontname": "GAAAAA+Sora-Regular",
-    "size": 7.0020000000000095
-   },
-   "cx": 385.25,
-   "max_w": 96.6
+   "algn": "c",
+   "max_w": 118,
+   "cx": 386.28
   },
   {
-   "field": "gar_bateria",
    "page": 3,
-   "link": "TEXTO!I3",
+   "field": "gar_bateria",
+   "box": {
+    "x0": 396.86,
+    "y0": 117.13,
+    "x1": 434.96,
+    "y1": 127.14
+   },
+   "style": {
+    "size": 7.95,
+    "bold": true,
+    "color": "004D94",
+    "font": "Sora"
+   },
    "algn": "l",
-   "anchor": "ctr",
-   "style": {
-    "size": 8.0,
-    "bold": true,
-    "color": "004D94",
-    "font": "Sora"
-   },
-   "box": {
-    "x0": 391.408,
-    "x1": 407.268096,
-    "top": 737.440843779528,
-    "bottom": 745.434843779528,
-    "y0": 96.45492,
-    "y1": 104.44892,
-    "mheight": 7.994,
-    "fontname": "BAAAAA+Sora-Bold",
-    "size": 7.994
-   },
-   "cx": 399.34,
-   "max_w": 130
+   "max_w": 150
   },
   {
-   "field": "nome_upper",
    "page": 5,
-   "link": "TEXTO!B4",
-   "algn": "c",
-   "anchor": "t",
-   "style": {
-    "size": 10.0,
-    "bold": true,
-    "color": "004D94",
-    "font": "Inter"
-   },
-   "box": {
-    "x0": 161.235,
-    "x1": 180.63663400000002,
-    "top": 761.122695779528,
-    "bottom": 771.128695779528,
-    "y0": 70.76106800000001,
-    "y1": 80.76706800000001,
-    "mheight": 10.006,
-    "fontname": "DAAAAA+Inter-Bold",
-    "size": 10.006
-   },
-   "cx": 170.94,
-   "max_w": 240
-  },
-  {
-   "field": "fatura_sem",
-   "page": 5,
-   "link": "'PLANILHA RESUMO'!L25",
-   "algn": "c",
-   "anchor": "ctr",
-   "style": {
-    "size": 14.0,
-    "bold": true,
-    "color": "089C83",
-    "font": "Sora"
-   },
-   "box": {
-    "x0": 89.943,
-    "x1": 117.920994,
-    "top": 559.193723779528,
-    "bottom": 573.196723779528,
-    "y0": 268.69304,
-    "y1": 282.69604,
-    "mheight": 14.002999999999986,
-    "fontname": "BAAAAA+Sora-Bold",
-    "size": 14.002999999999986
-   },
-   "cx": 103.93,
-   "max_w": 88.6
-  },
-  {
-   "field": "fatura_com",
-   "page": 5,
-   "link": "'PLANILHA RESUMO'!M25",
-   "algn": "c",
-   "anchor": "ctr",
-   "style": {
-    "size": 14.0,
-    "bold": true,
-    "color": "089C83",
-    "font": "Sora"
-   },
-   "box": {
-    "x0": 193.691,
-    "x1": 222.271123,
-    "top": 559.193723779528,
-    "bottom": 573.196723779528,
-    "y0": 268.69304,
-    "y1": 282.69604,
-    "mheight": 14.002999999999986,
-    "fontname": "BAAAAA+Sora-Bold",
-    "size": 14.002999999999986
-   },
-   "cx": 207.98,
-   "max_w": 88.6
-  },
-  {
-   "field": "economia_mensal",
-   "page": 5,
-   "link": "'PLANILHA RESUMO'!N25",
-   "algn": "c",
-   "anchor": "ctr",
-   "style": {
-    "size": 14.0,
-    "bold": true,
-    "color": "FFFFFF",
-    "font": "Sora"
-   },
-   "box": {
-    "x0": 298.261,
-    "x1": 325.720883,
-    "top": 559.193723779528,
-    "bottom": 573.196723779528,
-    "y0": 268.69304,
-    "y1": 282.69604,
-    "mheight": 14.002999999999986,
-    "fontname": "BAAAAA+Sora-Bold",
-    "size": 14.002999999999986
-   },
-   "cx": 311.99,
-   "max_w": 88.6
-  },
-  {
-   "field": "payback_txt",
-   "page": 5,
-   "link": "'PLANILHA RESUMO'!O20",
-   "algn": "l",
-   "anchor": "ctr",
-   "style": {
-    "size": 12.0,
-    "bold": true,
-    "color": "004D94",
-    "font": "Sora"
-   },
-   "box": {
-    "x0": 428.91,
-    "x1": 453.11982900000004,
-    "top": 542.051883779528,
-    "bottom": 554.042883779528,
-    "y0": 287.84688,
-    "y1": 299.83788000000004,
-    "mheight": 11.991000000000042,
-    "fontname": "BAAAAA+Sora-Bold",
-    "size": 11.991000000000042
-   },
-   "cx": 441.01,
-   "max_w": 110
-  },
-  {
-   "field": "retorno_25",
-   "page": 5,
-   "link": "'PLANILHA RESUMO'!O25",
-   "algn": "l",
-   "anchor": "ctr",
-   "style": {
-    "size": 12.0,
-    "bold": true,
-    "color": "004D94",
-    "font": "Sora"
-   },
-   "box": {
-    "x0": 428.91,
-    "x1": 453.35964900000005,
-    "top": 594.0958837795281,
-    "bottom": 606.0868837795281,
-    "y0": 235.80288,
-    "y1": 247.79387999999997,
-    "mheight": 11.990999999999985,
-    "fontname": "BAAAAA+Sora-Bold",
-    "size": 11.990999999999985
-   },
-   "cx": 441.13,
-   "max_w": 110
-  },
-  {
-   "field": "valor_venda",
-   "page": 5,
-   "link": "'PLANILHA RESUMO'!U35",
-   "algn": "c",
-   "anchor": "ctr",
-   "style": {
-    "size": 28.0,
-    "bold": true,
-    "color": "FFFFFF",
-    "font": "Sora"
-   },
-   "box": {
-    "x0": 274.904,
-    "x1": 334.192702,
-    "top": 257.6466837795281,
-    "bottom": 285.65268377952805,
-    "y0": 556.23708,
-    "y1": 584.24308,
-    "mheight": 28.005999999999972,
-    "fontname": "BAAAAA+Sora-Bold",
-    "size": 28.005999999999972
-   },
-   "cx": 304.55,
-   "max_w": 227.0
-  },
-  {
    "field": "disclaimer_data",
-   "page": 5,
-   "link": "(estático)",
-   "algn": "l",
-   "anchor": "t",
+   "box": {
+    "x0": 35.16,
+    "y0": 225.3,
+    "x1": 187.95,
+    "y1": 234.91
+   },
    "style": {
-    "size": 8.0,
+    "size": 7.95,
     "bold": false,
     "color": "434F5C",
     "font": "Inter"
    },
-   "box": {
-    "x0": 53.065,
-    "x1": 68.101714,
-    "top": 624.665831779528,
-    "bottom": 632.6598317795281,
-    "y0": 209.229932,
-    "y1": 217.223932,
-    "mheight": 7.994,
-    "fontname": "CAAAAA+Inter-Regular",
-    "size": 7.994
-   },
-   "cx": 60.58,
-   "max_w": 400
+   "algn": "l",
+   "max_w": 300
   },
   {
-   "field": "sb_qtd",
-   "page": 3,
-   "algn": "c",
-   "cx": 497.7,
-   "max_w": 96.6,
+   "page": 5,
+   "field": "nome_upper",
+   "box": {
+    "x0": 108.19,
+    "y0": 92.53,
+    "x1": 209.97,
+    "y1": 104.51
+   },
    "style": {
-    "size": 16.0,
+    "size": 9.9,
+    "bold": true,
+    "color": "004D94",
+    "font": "Inter"
+   },
+   "algn": "c",
+   "max_w": 190,
+   "cx": 159.08
+  },
+  {
+   "page": 5,
+   "field": "fatura_sem",
+   "box": {
+    "x0": 55.41,
+    "y0": 282.43,
+    "x1": 127.86,
+    "y1": 300.0
+   },
+   "style": {
+    "size": 13.95,
     "bold": true,
     "color": "089C83",
     "font": "Sora"
    },
-   "box": {
-    "x0": 453.4,
-    "x1": 542.0,
-    "top": 369.7,
-    "bottom": 385.7,
-    "y0": 456.21999999999997,
-    "y1": 472.21999999999997
-   }
+   "algn": "c",
+   "max_w": 105,
+   "cx": 91.63
   },
   {
-   "field": "sb_desc",
-   "page": 3,
-   "algn": "c",
-   "cx": 497.7,
-   "max_w": 96.6,
+   "page": 5,
+   "field": "fatura_com",
+   "box": {
+    "x0": 167.72,
+    "y0": 282.43,
+    "x1": 236.59,
+    "y1": 300.0
+   },
    "style": {
-    "size": 7.0,
-    "bold": false,
-    "color": "000000",
+    "size": 13.95,
+    "bold": true,
+    "color": "089C83",
     "font": "Sora"
    },
+   "algn": "c",
+   "max_w": 105,
+   "cx": 202.16
+  },
+  {
+   "page": 5,
+   "field": "economia_mensal",
    "box": {
-    "x0": 453.4,
-    "x1": 542.0,
-    "top": 402.4,
-    "bottom": 409.4,
-    "y0": 432.52,
-    "y1": 439.52
-   }
+    "x0": 277.64,
+    "y0": 282.43,
+    "x1": 347.77,
+    "y1": 300.0
+   },
+   "style": {
+    "size": 13.95,
+    "bold": true,
+    "color": "FFFFFF",
+    "font": "Sora"
+   },
+   "algn": "c",
+   "max_w": 105,
+   "cx": 312.71
+  },
+  {
+   "page": 5,
+   "field": "payback_txt",
+   "box": {
+    "x0": 436.67,
+    "y0": 300.83,
+    "x1": 496.17,
+    "y1": 315.85
+   },
+   "style": {
+    "size": 11.92,
+    "bold": true,
+    "color": "004D94",
+    "font": "Sora"
+   },
+   "algn": "l",
+   "max_w": 118
+  },
+  {
+   "page": 5,
+   "field": "retorno_25",
+   "box": {
+    "x0": 436.67,
+    "y0": 251.51,
+    "x1": 511.62,
+    "y1": 266.43
+   },
+   "style": {
+    "size": 11.85,
+    "bold": true,
+    "color": "004D94",
+    "font": "Sora"
+   },
+   "algn": "l",
+   "max_w": 118
+  },
+  {
+   "page": 5,
+   "field": "validade_txt",
+   "box": {
+    "x0": 436.67,
+    "y0": 202.1,
+    "x1": 476.7,
+    "y1": 217.02
+   },
+   "style": {
+    "size": 11.85,
+    "bold": true,
+    "color": "004D94",
+    "font": "Sora"
+   },
+   "algn": "l",
+   "max_w": 118
+  },
+  {
+   "page": 5,
+   "field": "valor_venda",
+   "box": {
+    "x0": 218.33,
+    "y0": 557.53,
+    "x1": 378.3,
+    "y1": 592.39
+   },
+   "style": {
+    "size": 27.67,
+    "bold": true,
+    "color": "FFFFFF",
+    "font": "Sora"
+   },
+   "algn": "c",
+   "max_w": 260,
+   "cx": 298.32
   }
  ],
  "chart_rect_pt_top": [
-  99.84,
-  204.48,
-  498.71999999999997,
-  376.8
+  78.74,
+  195.24,
+  519.54,
+  374.72
  ],
  "page_size": [
   595.32,
   841.92
  ],
  "cards_p3": {
-  "bateria": {
-   "x0": 329.4,
-   "x1": 434.0,
-   "top": 427.1,
-   "bottom": 514.7
-  },
-  "stringbox": {
-   "x0": 445.4,
-   "x1": 550.0,
-   "top": 328.4,
-   "bottom": 416.0
-  },
-  "sb_zonas_texto": [
-   {
-    "x0": 447,
-    "x1": 548,
-    "top": 366.5,
-    "bottom": 386
-   },
-   {
-    "x0": 447,
-    "x1": 548,
-    "top": 398,
-    "bottom": 413
-   }
-  ],
-  "homolog": {
-   "x0": 445.4,
-   "x1": 550.2,
-   "top": 427.1,
-   "bottom": 514.7
+  "regiao": {
+   "x0": 330.64,
+   "top": 228.98,
+   "x1": 565.35,
+   "bottom": 502.76
   },
   "gar_bateria_zona": {
-   "x0": 352.0,
-   "x1": 525.0,
-   "top": 703.0,
-   "bottom": 757.0
+   "x0": 348.0,
+   "x1": 531.0,
+   "top": 692.0,
+   "bottom": 736.0
   }
  }
 }

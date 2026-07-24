@@ -1,47 +1,24 @@
 {
- "timeline_p4": {
-  "page": 4,
-  "cy": 776.6,
-  "raio": 9.0,
-  "cor": "089C83",
-  "centros_x": [
-   79.9,
-   151.0,
-   222.1,
-   293.1,
-   364.2,
-   435.3,
-   506.4
-  ],
-  "linha": {
-   "x0": 79.9,
-   "x1": 506.4,
-   "y": 776.6,
-   "espessura": 1.6,
-   "cor": "089C83"
-  },
-  "cobrir": {
-   "x0": 44.0,
-   "x1": 560.0,
-   "top": 765.0,
-   "bottom": 788.0
-  }
- },
- "cover_panel_p1": {
-  "page": 1,
-  "arquivo": "cover/panel.jpg",
-  "x0_atual": 308.5,
-  "x1_atual": 556.4,
-  "top": 1.9,
-  "bottom": 618.4,
-  "x1_novo": 595.32,
-  "_nota": "estende a foto das placas até a borda direita da página (full bleed)"
- },
  "fotos_p3": {
   "page": 3,
   "_nota": "banda de fotos da pág. 3 (medida em pt do topo). 'cobrir' apaga as fotos genéricas chapadas no fundo (módulo 580W + inversor) sem tocar as GARANTIAS (x>=355) nem o quadro do card; 'modulo' e 'inversor' são os alvos das imagens coladas pelo usuário (encaixadas mantendo proporção, centralizadas).",
-  "cobrir": { "x0": 84.0, "x1": 346.0, "top": 534.0, "bottom": 772.0 },
-  "modulo": { "x0": 88.0, "x1": 210.0, "top": 538.0, "bottom": 768.0 },
-  "inversor": { "x0": 230.0, "x1": 336.0, "top": 548.0, "bottom": 762.0 }
+  "cobrir": {
+   "x0": 76.0,
+   "x1": 322.0,
+   "top": 523.0,
+   "bottom": 749.0
+  },
+  "modulo": {
+   "x0": 80.28,
+   "x1": 194.69,
+   "top": 526.1,
+   "bottom": 746.49
+  },
+  "inversor": {
+   "x0": 199.36,
+   "x1": 317.13,
+   "top": 576.54,
+   "bottom": 721.31
+  }
  }
 }

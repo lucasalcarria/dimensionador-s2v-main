@@ -38,10 +38,33 @@ FIBROCIMENTO, perfil 3.8, margem 16% →
 | `resumo_texto.py` | resumo salvo na pasta do cliente |
 | `teste_planilha.py` | suíte de validação contra a planilha |
 | `config.json` | parâmetros de negócio (editável pelo usuário) |
+| `ferramentas/html_para_fundo.py` | build: converte o HTML do design em `fundo.pdf` + `layout.json` + cartões |
+| `MAPA-PROPOSTA.md` | de onde sai cada número impresso na proposta |
 
-`assets/`: `fundo.pdf` (layout original), `layout.json` (posição de cada campo),
-`cards/` (tiles 600dpi dos cartões da pág. 3 + `layout_cards.json`),
-`deco.json` (timeline vetorial e sangria da capa), `fonts/`, `logo.png`.
+`assets/`: `fundo.pdf` (arte + textos fixos), `layout.json` (posição de cada
+campo), `cards/` (tiles 600dpi dos cartões da pág. 3 + `layout_cards.json`),
+`deco.json` (banda de fotos da pág. 3), `fonts/`, `logo.png`.
+`assets/_v1/` guarda o fundo/layout antigos, só como referência.
+
+## O layout vem do HTML do design
+
+`assets/fundo.pdf` e `assets/layout.json` **não são editados à mão**: são
+gerados a partir do HTML que o design entrega (`proposta_s2v.html`).
+
+```bash
+python ferramentas/html_para_fundo.py ~/Downloads/proposta_s2v.html
+```
+
+O HTML traz o SVG da arte em coordenadas de PDF (viewBox 595,32 × 841,92) e cada
+texto com `left`/`top` em px. O conversor: redesenha o SVG em vetor com
+ReportLab, calcula a linha de base pela regra do CSS `line-height:1`
+(`base = topo + k × tamanho`, com k medido nas fontes embutidas), separa os
+textos **fixos** (vão para o fundo) dos **calculados** (viram campos do
+`layout.json`), e recorta os 6 cartões da pág. 3 como peças soltas.
+
+Quando chegar um HTML novo, é só rodar o conversor de novo. Se aparecer um campo
+calculado novo, acrescente a linha correspondente em `CAMPOS` dentro dele.
+Só precisa de `pypdfium2`, `fontTools` e `brotli` — **no build, não no programa**.
 
 ## Decisões que NÃO devem ser revertidas
 

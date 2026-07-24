@@ -1,0 +1,171 @@
+{
+ "cards": {
+  "modulos": {
+   "w": 106.6,
+   "h": 81.8,
+   "qtd": {
+    "dx": 8.49,
+    "dbaseline": 25.0,
+    "cx": 25.84,
+    "size": 16.0,
+    "bold": true,
+    "color": "089C83",
+    "font": "Sora",
+    "max_w": 60,
+    "algn": "l"
+   },
+   "desc": {
+    "dx": 48.89,
+    "dbaseline": 48.6,
+    "cx": 55.91,
+    "size": 7.0,
+    "bold": false,
+    "color": "000000",
+    "font": "Sora",
+    "max_w": 96.6,
+    "algn": "c"
+   }
+  },
+  "estrutura": {
+   "w": 105.4,
+   "h": 81.8,
+   "qtd": {
+    "dx": 8.13,
+    "dbaseline": 25.0,
+    "cx": 20.73,
+    "size": 16.0,
+    "bold": true,
+    "color": "089C83",
+    "font": "Sora",
+    "max_w": 60,
+    "algn": "l"
+   },
+   "desc": {
+    "dx": 50.0,
+    "dbaseline": 48.85,
+    "cx": 56.06,
+    "size": 7.0,
+    "bold": false,
+    "color": "000000",
+    "font": "Sora",
+    "max_w": 96.6,
+    "algn": "c"
+   }
+  },
+  "inversor": {
+   "w": 105.4,
+   "h": 68.9,
+   "qtd": {
+    "dx": 8.32,
+    "dbaseline": 38.7,
+    "cx": 25.67,
+    "size": 16.0,
+    "bold": true,
+    "color": "089C83",
+    "font": "Sora",
+    "max_w": 60,
+    "algn": "l"
+   },
+   "desc": {
+    "dx": 49.68,
+    "dbaseline": 62.44,
+    "cx": 56.18,
+    "size": 7.0,
+    "bold": false,
+    "color": "000000",
+    "font": "Sora",
+    "max_w": 96.6,
+    "algn": "c"
+   }
+  },
+  "stringbox": {
+   "w": 105.4,
+   "h": 68.9,
+   "qtd": {
+    "dx": 8.32,
+    "dbaseline": 38.7,
+    "cx": 25.67,
+    "size": 16.0,
+    "bold": true,
+    "color": "089C83",
+    "font": "Sora",
+    "max_w": 60,
+    "algn": "l"
+   },
+   "desc": {
+    "dx": 8.3,
+    "dbaseline": 62.4,
+    "cx": 52.6,
+    "size": 7.0,
+    "bold": false,
+    "color": "000000",
+    "font": "Sora",
+    "max_w": 96.6,
+    "algn": "c"
+   }
+  },
+  "bateria": {
+   "w": 109.4,
+   "h": 88.3,
+   "qtd": {
+    "dx": 12.38,
+    "dbaseline": 57.73,
+    "cx": 26.61,
+    "size": 16.0,
+    "bold": true,
+    "color": "089C83",
+    "font": "Sora",
+    "max_w": 60,
+    "algn": "l"
+   },
+   "desc": {
+    "dx": 53.51,
+    "dbaseline": 81.5,
+    "cx": 60.25,
+    "size": 7.0,
+    "bold": false,
+    "color": "000000",
+    "font": "Sora",
+    "max_w": 96.6,
+    "algn": "c"
+   }
+  },
+  "homolog": {
+   "w": 105.3,
+   "h": 88.3
+  }
+ },
+ "slots": [
+  [
+   328.8,
+   262.0
+  ],
+  [
+   445.1,
+   262.0
+  ],
+  [
+   328.8,
+   347.0
+  ],
+  [
+   445.1,
+   347.0
+  ],
+  [
+   328.8,
+   432.0
+  ],
+  [
+   445.1,
+   432.0
+  ]
+ ],
+ "regiao": {
+  "x0": 320.0,
+  "x1": 556.0,
+  "top": 258.0,
+  "bottom": 520.0
+ },
+ "page_h": 841.92
+}

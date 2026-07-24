@@ -558,6 +558,8 @@ def _textos(e: Entradas, r: Resultado, config: dict) -> dict:
     hoje = date.today()
     t['disclaimer_data'] = (f'considerados são referentes a '
                             f'{MESES[hoje.month - 1]}/{hoje.year}.')
+    # prazo de validade impresso na pág. 5 (era fixo na arte antiga)
+    t['validade_txt'] = f"{int(config.get('validade_dias', 7))} DIAS"
     t['fin_txt'] = (f'EM {e.fin_parcelas}x SOB '
                     f"{_dec(fmt_general(e.fin_taxa_mes), br)}% AO MÊS")     # TX!I2
     return t

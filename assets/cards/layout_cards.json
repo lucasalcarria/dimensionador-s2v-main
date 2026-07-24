@@ -1,171 +1,182 @@
 {
- "cards": {
-  "modulos": {
-   "w": 106.6,
-   "h": 81.8,
-   "qtd": {
-    "dx": 8.49,
-    "dbaseline": 25.0,
-    "cx": 25.84,
-    "size": 16.0,
-    "bold": true,
-    "color": "089C83",
-    "font": "Sora",
-    "max_w": 60,
-    "algn": "l"
-   },
-   "desc": {
-    "dx": 48.89,
-    "dbaseline": 48.6,
-    "cx": 55.91,
-    "size": 7.0,
-    "bold": false,
-    "color": "000000",
-    "font": "Sora",
-    "max_w": 96.6,
-    "algn": "c"
-   }
-  },
-  "estrutura": {
-   "w": 105.4,
-   "h": 81.8,
-   "qtd": {
-    "dx": 8.13,
-    "dbaseline": 25.0,
-    "cx": 20.73,
-    "size": 16.0,
-    "bold": true,
-    "color": "089C83",
-    "font": "Sora",
-    "max_w": 60,
-    "algn": "l"
-   },
-   "desc": {
-    "dx": 50.0,
-    "dbaseline": 48.85,
-    "cx": 56.06,
-    "size": 7.0,
-    "bold": false,
-    "color": "000000",
-    "font": "Sora",
-    "max_w": 96.6,
-    "algn": "c"
-   }
-  },
-  "inversor": {
-   "w": 105.4,
-   "h": 68.9,
-   "qtd": {
-    "dx": 8.32,
-    "dbaseline": 38.7,
-    "cx": 25.67,
-    "size": 16.0,
-    "bold": true,
-    "color": "089C83",
-    "font": "Sora",
-    "max_w": 60,
-    "algn": "l"
-   },
-   "desc": {
-    "dx": 49.68,
-    "dbaseline": 62.44,
-    "cx": 56.18,
-    "size": 7.0,
-    "bold": false,
-    "color": "000000",
-    "font": "Sora",
-    "max_w": 96.6,
-    "algn": "c"
-   }
-  },
-  "stringbox": {
-   "w": 105.4,
-   "h": 68.9,
-   "qtd": {
-    "dx": 8.32,
-    "dbaseline": 38.7,
-    "cx": 25.67,
-    "size": 16.0,
-    "bold": true,
-    "color": "089C83",
-    "font": "Sora",
-    "max_w": 60,
-    "algn": "l"
-   },
-   "desc": {
-    "dx": 8.3,
-    "dbaseline": 62.4,
-    "cx": 52.6,
-    "size": 7.0,
-    "bold": false,
-    "color": "000000",
-    "font": "Sora",
-    "max_w": 96.6,
-    "algn": "c"
-   }
-  },
-  "bateria": {
-   "w": 109.4,
-   "h": 88.3,
-   "qtd": {
-    "dx": 12.38,
-    "dbaseline": 57.73,
-    "cx": 26.61,
-    "size": 16.0,
-    "bold": true,
-    "color": "089C83",
-    "font": "Sora",
-    "max_w": 60,
-    "algn": "l"
-   },
-   "desc": {
-    "dx": 53.51,
-    "dbaseline": 81.5,
-    "cx": 60.25,
-    "size": 7.0,
-    "bold": false,
-    "color": "000000",
-    "font": "Sora",
-    "max_w": 96.6,
-    "algn": "c"
-   }
-  },
-  "homolog": {
-   "w": 105.3,
-   "h": 88.3
-  }
+ "regiao": {
+  "x0": 327.64,
+  "top": 225.98,
+  "x1": 568.35,
+  "bottom": 505.76
  },
  "slots": [
   [
-   328.8,
-   262.0
+   330.64,
+   228.98
   ],
   [
-   445.1,
-   262.0
+   454.04,
+   228.98
   ],
   [
-   328.8,
-   347.0
+   330.64,
+   323.93
   ],
   [
-   445.1,
-   347.0
+   454.04,
+   323.93
   ],
   [
-   328.8,
-   432.0
+   330.9,
+   418.68
   ],
   [
-   445.1,
-   432.0
+   454.3,
+   418.68
   ]
  ],
- "regiao": {
-  "x0": 320.0,
-  "x1": 556.0,
-  "top": 258.0,
-  "bottom": 520.0
+ "margem": 3.0,
+ "alinhar": {
+  "centro_y": 346.95,
+  "top_min": 228.98
  },
- "page_h": 841.92
+ "cards": {
+  "modulos": {
+   "w": 117.05,
+   "h": 90.08,
+   "qtd": {
+    "dbaseline": 51.45,
+    "size": 15.82,
+    "bold": true,
+    "color": "089C83",
+    "font": "Sora",
+    "algn": "l",
+    "max_w": null,
+    "dx": 8.71
+   },
+   "desc": {
+    "dbaseline": 76.35,
+    "size": 6.9,
+    "bold": false,
+    "color": "000000",
+    "font": "Sora",
+    "algn": "c",
+    "max_w": 118,
+    "cx": 55.58
+   }
+  },
+  "estrutura": {
+   "w": 117.05,
+   "h": 90.08,
+   "qtd": {
+    "dbaseline": 51.45,
+    "size": 15.82,
+    "bold": true,
+    "color": "089C83",
+    "font": "Sora",
+    "algn": "l",
+    "max_w": null,
+    "dx": 8.5
+   },
+   "desc": {
+    "dbaseline": 76.57,
+    "size": 6.9,
+    "bold": false,
+    "color": "000000",
+    "font": "Sora",
+    "algn": "c",
+    "max_w": 118,
+    "cx": 55.05
+   }
+  },
+  "inversor": {
+   "w": 117.05,
+   "h": 90.08,
+   "titulo": {
+    "dbaseline": 65.3,
+    "size": 6.9,
+    "bold": true,
+    "color": "000000",
+    "font": "Sora",
+    "algn": "c",
+    "max_w": 118,
+    "cx": 55.69
+   },
+   "qtd": {
+    "dbaseline": 51.2,
+    "size": 15.82,
+    "bold": true,
+    "color": "089C83",
+    "font": "Sora",
+    "algn": "l",
+    "max_w": null,
+    "dx": 8.56
+   },
+   "desc": {
+    "dbaseline": 76.32,
+    "size": 6.9,
+    "bold": false,
+    "color": "000000",
+    "font": "Sora",
+    "algn": "c",
+    "max_w": 118,
+    "cx": 55.87
+   }
+  },
+  "stringbox": {
+   "w": 117.05,
+   "h": 90.08,
+   "qtd": {
+    "dbaseline": 51.27,
+    "size": 15.82,
+    "bold": true,
+    "color": "089C83",
+    "font": "Sora",
+    "algn": "l",
+    "max_w": null,
+    "dx": 8.5
+   },
+   "desc": {
+    "dbaseline": 76.62,
+    "size": 6.9,
+    "bold": false,
+    "color": "000000",
+    "font": "Sora",
+    "algn": "c",
+    "max_w": 118,
+    "cx": 55.0
+   }
+  },
+  "bateria": {
+   "w": 117.05,
+   "h": 90.08,
+   "qtd": {
+    "dbaseline": 51.37,
+    "size": 15.82,
+    "bold": true,
+    "color": "089C83",
+    "font": "Sora",
+    "algn": "l",
+    "max_w": null,
+    "dx": 8.3
+   },
+   "desc": {
+    "dbaseline": 76.34,
+    "size": 6.9,
+    "bold": false,
+    "color": "000000",
+    "font": "Sora",
+    "algn": "c",
+    "max_w": 118,
+    "cx": 55.38
+   }
+  },
+  "homolog": {
+   "w": 117.05,
+   "h": 90.08
+  }
+ },
+ "garantias": {
+  "x0": 348.0,
+  "top": 566.0,
+  "w": 183.0,
+  "h": 122.0,
+  "desloc_sem_bateria": 22.33
+ }
 }

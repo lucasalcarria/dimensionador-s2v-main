@@ -10,8 +10,8 @@
     "semantic_hash": "49a1dc71ba5f384d66a5cfbe06085903"
   },
   "config.json": {
-    "mtime": 1784900855.9703968,
-    "ast_hash": "b16f2748fcf34ac01c9fb093c3d6952d",
+    "mtime": 1784897509.9621952,
+    "ast_hash": "48d4f88f08b83dca6ef57168f42cdf1e",
     "semantic_hash": ""
   },
   "engine.py": {
@@ -120,8 +120,8 @@
     "semantic_hash": "9378bd03d56baaf78bd738ab3848f142"
   },
   "ferramentas/html_para_fundo.py": {
-    "mtime": 1784902453.3368416,
-    "ast_hash": "d822918924bae6409ceee075a4f30e18",
+    "mtime": 1784900740.6744545,
+    "ast_hash": "08cd121f8b836c6267dbf4e640b55997",
     "semantic_hash": ""
   },
   "MAPA-PROPOSTA.md": {

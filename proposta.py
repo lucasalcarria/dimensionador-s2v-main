@@ -126,11 +126,11 @@ def _registrar_fontes():
     for (fam, bold), arq in mapa.items():
         nome = _font_key(fam, bold)
         pdfmetrics.registerFont(TTFont(nome, os.path.join(FONTS, arq)))
-    # matplotlib (gráfico) usa Carlito, a mesma fonte do gráfico original
-    carlito = os.path.join(FONTS, 'Carlito-Regular.ttf')
-    if os.path.exists(carlito):
-        fm.fontManager.addfont(carlito)
-        plt.rcParams['font.family'] = 'Carlito'
+    # o gráfico (matplotlib) usa Inter, a mesma fonte do resto da proposta
+    inter = os.path.join(FONTS, 'Inter-Regular.ttf')
+    if os.path.exists(inter):
+        fm.fontManager.addfont(inter)
+        plt.rcParams['font.family'] = 'Inter'
     _fontes_ok = True
 
 
@@ -143,6 +143,7 @@ COR_CONSUMO = '#004D94'
 COR_GERACAO = '#089C83'
 COR_TEXTO = '#434F5C'
 COR_GRADE = '#F2F2F2'
+COR_EIXO = '#D9D9D9'
 
 
 def _unidade_eixo(vmax: float) -> float:
@@ -165,8 +166,10 @@ def _pdf_grafico(consumo_medio: float, geracao_mensal: list[float],
     meses = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun',
              'jul', 'ago', 'set', 'out', 'nov', 'dez']
     fig = plt.figure(figsize=(w_pt / 72.0, h_pt / 72.0))
-    # geometria medida do gráfico original (frações do retângulo)
-    ax = fig.add_axes([0.1024, 0.0714, 0.8976, 0.7985])
+    # frações medidas no layout novo: a área do gráfico vai de x 130,16 a 508,65
+    # e de y 349,96 (zero) a 230,08 (topo), dentro do retângulo 78,74–519,54 ×
+    # 195,24–374,72 pt. Assim as barras caem exatamente sobre a arte da página.
+    ax = fig.add_axes([0.11665, 0.13796, 0.85864, 0.66794])
 
     vmax = max([consumo_medio] + list(geracao_mensal) + [1.0])
     passo = _unidade_eixo(vmax)
@@ -188,14 +191,18 @@ def _pdf_grafico(consumo_medio: float, geracao_mensal: list[float],
                         for i in range(int(ymax / passo) + 1)])
     ax.set_xticks(list(xs))
     ax.set_xticklabels(meses)
-    ax.tick_params(axis='both', length=0, labelsize=10, colors=COR_TEXTO,
+    ax.tick_params(axis='both', length=0, labelsize=9.9, colors=COR_TEXTO,
                    pad=5)
-    ax.grid(axis='y', color=COR_GRADE, linewidth=0.9, zorder=0)
-    for sp in ax.spines.values():
-        sp.set_visible(False)
+    ax.grid(axis='y', color=COR_GRADE, linewidth=0.74, zorder=0)
+    for nome, sp in ax.spines.items():
+        if nome == 'bottom':          # a linha do zero é cinza, como na arte
+            sp.set_color(COR_EIXO)
+            sp.set_linewidth(0.99)
+        else:
+            sp.set_visible(False)
 
-    leg = fig.legend(loc='upper center', bbox_to_anchor=(0.525, 1.005),
-                     ncol=2, frameon=False, fontsize=10,
+    leg = fig.legend(loc='upper center', bbox_to_anchor=(0.5096, 0.9451),
+                     ncol=2, frameon=False, fontsize=9.9,
                      handlelength=0.9, handleheight=0.9, columnspacing=1.4,
                      handletextpad=0.5)
     for t in leg.get_texts():
@@ -257,6 +264,17 @@ def _slots_dinamicos(meta, n):
     pos = [(s[0], s[1]) for s in slots6[:n]]
     if n % 2 == 1:                       # última linha com um só cartão → centro
         pos[-1] = ('centro', slots6[n - 1][1])
+    # Bloco mais curto (sem string box nem bateria) desce para ficar centrado
+    # com a tabela de números ao lado, em vez de sobrar espaço embaixo.
+    al = meta.get('alinhar')
+    if al:
+        mg = meta.get('margem', 0.0)
+        alt = meta['cards']['modulos']['h'] - 2 * mg      # altura da moldura
+        topo = min(t for _, t in pos)
+        base = max(t for _, t in pos) + alt
+        desloc = max(0.0, al['centro_y'] - (topo + base) / 2.0)
+        if desloc > 0.5:
+            pos = [(x, t + desloc) for x, t in pos]
     return pos
 
 
@@ -281,13 +299,14 @@ def _desenhar_cards_p3(c, canvas_imagem, textos, resultado, page_h):
     ordem.append('homolog')
 
     # textos de cada cartão (qtd, desc)
+    # (quantidade, descrição, título). O título só varia no cartão do inversor.
     texto_de = {
-        'modulos': ('mod_qtd', 'mod_desc'),
-        'estrutura': ('estr_qtd', 'estr_desc'),
-        'inversor': ('inv_qtd', 'inv_desc'),
-        'stringbox': ('sb_qtd', 'sb_desc'),
-        'bateria': ('bat_qtd', 'bat_desc'),
-        'homolog': (None, None),
+        'modulos': ('mod_qtd', 'mod_desc', None),
+        'estrutura': ('estr_qtd', 'estr_desc', None),
+        'inversor': ('inv_qtd', 'inv_desc', 'inv_titulo'),
+        'stringbox': ('sb_qtd', 'sb_desc', None),
+        'bateria': ('bat_qtd', 'bat_desc', None),
+        'homolog': (None, None, None),
     }
 
     # 1) limpa a região dos cartões (fundo branco da página). O topo em
@@ -302,12 +321,18 @@ def _desenhar_cards_p3(c, canvas_imagem, textos, resultado, page_h):
     # 2) estampa cada cartão presente na posição calculada e escreve qtd/desc
     pos = _slots_dinamicos(meta, len(ordem))
     centro_x = (reg['x0'] + reg['x1']) / 2.0
+    mg = meta.get('margem', 0.0)
     for i, nome in enumerate(ordem):
         px, stop = pos[i]
         m = cards[nome]
-        sx0 = (centro_x - m['w'] / 2.0) if px == 'centro' else px
-        canvas_imagem(nome, sx0, stop, m['w'], m['h'])
-        fq, fd = texto_de[nome]
+        # o tile tem uma folga em volta para a borda cinza não ser cortada;
+        # `sx0`/`stop` são a moldura, então a estampa recua a folga
+        sx0 = (centro_x - m['w'] / 2.0 + mg) if px == 'centro' else px
+        canvas_imagem(nome, sx0 - mg, stop - mg, m['w'], m['h'])
+        fq, fd, ft = texto_de[nome]
+        if ft and 'titulo' in m:
+            _desenhar_campo_cartao(c, m['titulo'], sx0, stop,
+                                   textos.get(ft), page_h)
         if fq and 'qtd' in m:
             _desenhar_campo_cartao(c, m['qtd'], sx0, stop, textos.get(fq), page_h)
         if fd and 'desc' in m:
@@ -374,7 +399,7 @@ def gerar_proposta(resultado: dict, caminho_saida: str,
     cards = lay.get('cards_p3', {})
     # campos da página 3 que agora são desenhados pelo renderizador de cartões
     CAMPOS_CARTAO = {'mod_qtd', 'mod_desc', 'estr_qtd', 'estr_desc',
-                     'inv_qtd', 'inv_desc', 'sb_qtd', 'sb_desc',
+                     'inv_qtd', 'inv_titulo', 'inv_desc', 'sb_qtd', 'sb_desc',
                      'bat_qtd', 'bat_desc'}
 
     # 1) overlay de textos (reportlab)
@@ -396,7 +421,9 @@ def gerar_proposta(resultado: dict, caminho_saida: str,
             # chapada no fundo — sempre, mesmo sem imagem)
             _desenhar_fotos_p3(c, imagens, page_h)
 
-            # garantia da bateria: some com a linha quando não há bateria
+            # garantia da bateria: some com a linha quando não há bateria.
+            # Apaga ANTES de estampar o bloco das 3 fixas, senão comeria o pé
+            # dele — que, sem bateria, desce justamente para essa faixa.
             if 'bateria' in ocultar:
                 gz = cards.get('gar_bateria_zona')
                 if gz:
@@ -404,6 +431,18 @@ def gerar_proposta(resultado: dict, caminho_saida: str,
                     c.rect(gz['x0'], page_h - gz['bottom'],
                            gz['x1'] - gz['x0'], gz['bottom'] - gz['top'],
                            stroke=0, fill=1)
+
+            # bloco das 3 garantias fixas: desce quando não há a 4ª linha
+            gr = _carregar_cards().get('garantias')
+            if gr:
+                dg = gr['desloc_sem_bateria'] if 'bateria' in ocultar else 0.0
+                c.setFillColor(HexColor('#FFFFFF'))
+                c.rect(gr['x0'], page_h - (gr['top'] + gr['h'] + dg),
+                       gr['w'], gr['h'] + dg, stroke=0, fill=1)
+                c.drawImage(os.path.join(ASSETS, 'cards', 'garantias.png'),
+                            gr['x0'], page_h - (gr['top'] + dg + gr['h']),
+                            width=gr['w'], height=gr['h'], mask='auto',
+                            preserveAspectRatio=False)
         if pagina == 4:
             # redesenha a timeline de etapas com círculos perfeitos
             _redesenhar_timeline(c, page_h)
@@ -436,6 +475,8 @@ def gerar_proposta(resultado: dict, caminho_saida: str,
                     valor += '…'
             desc = pdfmetrics.getDescent(fonte, size)      # negativo, em pt
             baseline = box['y0'] - desc
+            if f.get('desloca_sem_bateria') and 'bateria' in ocultar:
+                baseline -= f['desloca_sem_bateria']
             c.setFont(fonte, size)
             c.setFillColor(HexColor('#' + st['color']))
             algn = f.get('algn', 'l')

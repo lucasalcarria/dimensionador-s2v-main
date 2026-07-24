@@ -313,11 +313,11 @@
       },
       "tarifas": {
         "B1": {
-          "te": 0.246,
-          "tusd": 0.352,
-          "resolucao": "REH 3.472/2025",
-          "vigencia": "24/06/2025–23/06/2026",
-          "obs": "vigência ANTERIOR — atualize com os valores do site da COPEL (REH 3.592/2026)"
+          "te": 0.31085,
+          "tusd": 0.45717,
+          "resolucao": "",
+          "vigencia": "",
+          "obs": "atualizado pela tela em 24/07/2026 10:47"
         },
         "B2": {
           "te": null,
@@ -345,5 +345,6 @@
       "id": "B3",
       "rotulo": "B3 – Demais classes"
     }
-  ]
+  ],
+  "validade_dias": 7
 }
