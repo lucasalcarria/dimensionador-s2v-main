@@ -117,8 +117,10 @@ Só precisa de `pypdfium2`, `fontTools` e `brotli` — **no build, não no progr
 `Entradas.inversores` é uma lista `[{marca,pot_kw,tensao,qtd}]`. Quando vazia,
 cai nos campos legados `marca_inversor/pot_inversor_kw/tensao_inversor` — é o que
 a planilha de validação usa, então `teste_planilha` continua idêntico. Use
-`e.lista_inversores()`, `e.qtd_inversores` e `e.tem_380v()`. O único ponto do
-cálculo que depende do inversor é `_trafo()` (autotrafo por inversor ≥12 kW/380 V,
+`e.lista_inversores()`, `e.qtd_inversores`, `e.tem_380v()` e `e.tem_micro()`.
+Cada inversor tem um **toggle micro/string** na tela (`iv.micro`); micro dá
+garantia padrão de 12 anos (`_marca_micro()` também detecta pela marca). O único
+ponto do cálculo que depende do inversor é `_trafo()` (autotrafo por inversor ≥12 kW/380 V,
 somado). Há ainda `Entradas.custo_380v`: custo manual em reais que entra na
 composição quando há inversor 380 V (campo condicional na tela, entre Entrada e
 Deslocamento). A UI manda os inversores como lista e repete o 1º nos campos

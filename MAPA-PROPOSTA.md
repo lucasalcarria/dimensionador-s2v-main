@@ -55,7 +55,9 @@ e, só se ainda assim estourar, a fonte diminui — nunca invade a coluna vizinh
 
 Cada cartão é uma peça independente. Quando falta string box e/ou bateria, os
 presentes **se reagrupam de cima para baixo, sem buracos** — e, se sobrar um
-sozinho na última linha, ele fica centralizado.
+sozinho na última linha, ele fica centralizado. Com só 4 cartões o bloco **desce
+para centralizar com a tabela ao lado**, e o título "KIT GERADOR FOTOVOLTAICO"
+acompanha o movimento (é dinâmico, guardado em `cards_p3.titulo`).
 
 | O que aparece | Chave | De onde vem |
 |---|---|---|
@@ -84,7 +86,7 @@ sozinho na última linha, ele fica centralizado.
 
 | Rótulo na arte | Chave | Regra |
 |---|---|---|
-| INVERSOR | `gar_inversor` | 15 se MICRO DEYE/HOYMILES, senão 10 |
+| INVERSOR | `gar_inversor` | **12 se micro-inversor** (marca "MICRO …", Hoymiles/APsystems/Enphase, ou conexão MICRO), senão 10 |
 | MÓDULOS | `gar_instalacao` | 20 AmeriSolar · 15 N-Type · senão 12 |
 | PERFORMANCE LINEAR | `gar_modulos` | 30 p/ Sunova/OSDA/AmeriSolar/N-Type, senão 25 |
 | BATERIA DE LÍTIO | `gar_bateria` | 10 anos — a linha **inteira some** sem bateria |

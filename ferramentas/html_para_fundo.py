@@ -632,6 +632,8 @@ DESLOC_TEXTO = {(3, 543.5, 412.6): (396.9 - 412.6, 0.0)}
 
 # Bloco das 3 garantias fixas (inversor / módulos / performance linear). Vira
 # uma peça solta porque desce quando não há a 4ª linha, a da bateria.
+# título do bloco de cartões — vira dinâmico p/ descer junto com eles
+TITULO_KIT = 'KIT GERADOR FOTOVOLTAICO'
 GARANTIAS_ZONA = {'x0': 348.0, 'top': 566.0, 'x1': 531.0, 'bottom': 688.0}
 # centraliza as 3 linhas no espaço que as 4 ocupavam (572,18 … 727,57)
 GARANTIAS_DESLOC = round(((727.57 - 572.18) - (682.92 - 572.18)) / 2, 2)
@@ -749,6 +751,18 @@ def _gerar_cartoes(pag3: dict) -> dict:
             os.path.join(destino, f'{nome}.png'))
         meta['cards'][nome] = info
 
+    # o título "KIT GERADOR FOTOVOLTAICO" vira dinâmico: quando o bloco encurta
+    # (só 4 cartões) ele desce junto com os cartões, acompanhando a tabela
+    for b in pag3['blocos']:
+        texto, est = b['trechos'][0]
+        if texto.strip().upper() == TITULO_KIT:
+            meta['titulo'] = {'text': texto, 'x': round(b['x'], 2),
+                              'base': round(b['base'], 2),
+                              'size': round(est['fs'], 2), 'bold': est['bold'],
+                              'color': est['cor'].lstrip('#').upper(),
+                              'font': est['fam']}
+            break
+
     meta['garantias'] = _gerar_garantias(pag3, destino)
     with open(os.path.join(destino, 'layout_cards.json'), 'w',
               encoding='utf-8') as f:
@@ -847,6 +861,8 @@ def converter(caminho_html: str) -> None:
                 continue  # rótulos do gráfico: o programa redesenha
             if n == 3 and (_no_cartao(caixa) or _nas_garantias(caixa)):
                 continue  # rótulos dos cartões/garantias: vão dentro do tile
+            if n == 3 and texto.strip().upper() == TITULO_KIT:
+                continue  # título do kit: desenhado dinâmico (segue os cartões)
 
             dx, dy = 0.0, 0.0
             for (pg, tp, px), (adx, ady) in DESLOC_TEXTO.items():

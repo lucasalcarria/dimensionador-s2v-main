@@ -172,6 +172,15 @@
    "h": 90.08
   }
  },
+ "titulo": {
+  "text": "KIT GERADOR FOTOVOLTAICO",
+  "x": 371.14,
+  "base": 219.0,
+  "size": 9.9,
+  "bold": true,
+  "color": "004D94",
+  "font": "Sora"
+ },
  "garantias": {
   "x0": 348.0,
   "top": 566.0,

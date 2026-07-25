@@ -244,17 +244,34 @@
   "degradacao_demais": 0.007,
   "_retorno_25": "Projeção de 25 anos (DADOS!Q43:Q67): tarifa reajusta 5% a.a.; geração cai 2,5% no 2º ano e 0,7% a.a. depois.",
   "garantias_fixas": {
-    "inversor": null,
+    "bateria": null,
     "instalacao": null,
-    "modulos": null,
-    "bateria": null
+    "inversor": null,
+    "modulos": null
   },
-  "_garantias_fixas": "Deixe null para usar as regras da planilha (DD!O30:O32: inversor 15 anos p/ MICRO DEYE/HOYMILES senão 10; 20/15/12 anos conforme módulo; módulos 30 anos p/ N-TYPE/SUNOVA/OSDA/AMERISOLAR senão 25). Preencha um número para fixar. A garantia da bateria (bateria) usa 10 anos quando null.",
+  "_garantias_fixas": "Deixe null para usar as regras da planilha (DD!O30:O32: inversor 12 anos p/ micro-inversor senão 10; 20/15/12 anos conforme módulo; módulos 30 anos p/ N-TYPE/SUNOVA/OSDA/AMERISOLAR senão 25). Preencha um número para fixar. A garantia da bateria (bateria) usa 10 anos quando null. Rótulos no editor batem com a proposta: Inversor / Módulos / Performance linear / Bateria.",
   "marcas_modulo": [
-    "SUNOVA N-TYPE\\nHONOR N-TYPE\\nOSDA N-TYPE\\nRONMA N-TYPE\\nERA SOLAR N-TYPE\\nDAH SOLAR N-TYPE\\nASTRONERGY N-TYPE\\nTRINA\\nSUNOVA\\nZNSHINE N-TYPE"
+    "SUNOVA N-TYPE",
+    "HONOR N-TYPE",
+    "OSDA N-TYPE",
+    "RONMA N-TYPE",
+    "ERA SOLAR N-TYPE",
+    "DAH SOLAR N-TYPE",
+    "ASTRONERGY N-TYPE",
+    "TRINA",
+    "SUNOVA",
+    "ZNSHINE N-TYPE"
   ],
   "marcas_inversor": [
-    "SAJ\\nMICRO SAJ\\nSOLIS\\nSUNGROW\\nGROWATT\\nMICRO DEYE\\nHOYMILES\\nCHINT\\nSOLPLANET"
+    "SAJ",
+    "MICRO SAJ",
+    "SOLIS",
+    "SUNGROW",
+    "GROWATT",
+    "MICRO DEYE",
+    "HOYMILES",
+    "CHINT",
+    "SOLPLANET"
   ],
   "_marcas": "Listas dos menus (DADOS!K25:K34 e M25:M33). Pode digitar outra marca livremente na tela.",
   "tarifas_padrao": {
@@ -267,8 +284,8 @@
   },
   "_tarifas_padrao": "Valores pré-preenchidos por UC (PR!D31:H31, M31). Cada UC pode ser ajustada na tela.",
   "financiamento_padrao": {
-    "taxa_mes": 1.99,
-    "parcelas": 60
+    "parcelas": 60,
+    "taxa_mes": 1.99
   },
   "_financiamento_padrao": "DADOS!M35:M36 — usado no texto 'EM 60x SOB 1,99% AO MÊS' e na parcela estimada.",
   "formato_ptbr": true,

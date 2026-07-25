@@ -126,7 +126,8 @@ def _montar_entradas(d: dict) -> engine.Entradas:
         inversores=[{'marca': (iv.get('marca') or '').strip(),
                      'pot_kw': _f(iv.get('pot_kw')),
                      'tensao': int(_f(iv.get('tensao'), 220)),
-                     'qtd': int(_f(iv.get('qtd'), 1))}
+                     'qtd': int(_f(iv.get('qtd'), 1)),
+                     'micro': bool(iv.get('micro'))}
                     for iv in (d.get('inversores') or [])],
         custo_380v=_f(d.get('custo_380v')),
         valor_kit=_f(d.get('valor_kit')),

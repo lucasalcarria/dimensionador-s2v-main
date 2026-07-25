@@ -49,8 +49,10 @@ button:disabled{opacity:.5;cursor:wait}
 .toggle{display:inline-flex;border:1px solid var(--borda);border-radius:8px;overflow:hidden;background:var(--card2)}
 .toggle button{background:transparent;color:var(--mudo);border:0;padding:6px 12px;font-size:12px;cursor:pointer;font-weight:600}
 .toggle button.on{background:var(--azul-forte);color:#fff}
-.inv-linha{display:grid;grid-template-columns:1fr 90px 100px 70px auto;gap:8px;align-items:end;margin-bottom:8px}
+.inv-linha{display:grid;grid-template-columns:1fr 78px 88px 56px 92px auto;gap:8px;align-items:end;margin-bottom:8px}
 .inv-linha .rm{color:var(--vermelho,#c0392b);cursor:pointer;font-size:12px;padding-bottom:8px}
+.iv-micro{height:36px;padding:0 8px;border:1px solid var(--borda);border-radius:8px;background:var(--card2);color:var(--mudo);cursor:pointer;font-size:12px;font-weight:600}
+.iv-micro.on{background:var(--verde-forte);color:#fff;border-color:var(--verde-forte)}
 .uc{border:1px solid var(--borda);border-radius:10px;padding:12px;margin-bottom:10px;background:var(--card2)}
 .uc h3{margin:0 0 10px;font-size:13px;color:var(--texto);display:flex;justify-content:space-between}
 .uc h3 .rm{color:#e46a5f;cursor:pointer;font-weight:600;font-size:12px}
@@ -190,7 +192,7 @@ small.auto{color:var(--mudo)}
 
     <label style="display:block;margin-top:12px">Inversores</label>
     <div class="inv-linha" style="color:var(--mudo);font-size:11px;margin-bottom:2px">
-      <span>Marca</span><span>Potência (kW)</span><span>Tensão</span><span>Qtd.</span><span></span></div>
+      <span>Marca</span><span>Potência (kW)</span><span>Tensão</span><span>Qtd.</span><span>Tipo</span><span></span></div>
     <div id="inversores"></div>
     <button class="bt-claro bt-mini" onclick="addInv()">+ adicionar inversor</button>
 
@@ -590,22 +592,28 @@ function addUC(){const box=document.getElementById('ucs');const n=box.children.l
  preencherConcSelects(box.lastElementChild); }
 
 // ---- inversores (1 ou vários, cada um com potência e tensão próprias) ----
-function invHTML(marca,pot,tensao,qtd){
+function _ehMicroMarca(m){m=(m||'').toUpperCase();
+ return m.includes('MICRO')||['HOYMILES','APSYSTEMS','AP SYSTEMS','ENPHASE'].includes(m);}
+function invHTML(marca,pot,tensao,qtd,micro){
  const opts=MARCAS_INV.map(m=>`<option ${m===marca?'selected':''}>${m}</option>`).join('')
    +`<option value="__outro__" ${marca&&!MARCAS_INV.includes(marca)?'selected':''}>Outro…</option>`;
+ const mic=micro==null?_ehMicroMarca(marca):!!micro;
  return `<div class="inv-linha">
-   <div><select class="iv-marca" onchange="invOutro(this)">${opts}</select>
+   <div><select class="iv-marca" onchange="invMarcaChange(this)">${opts}</select>
      <input class="iv-marca-x ${marca&&!MARCAS_INV.includes(marca)?'':'ocult'}" style="margin-top:6px"
        placeholder="digite a marca" value="${marca&&!MARCAS_INV.includes(marca)?marca:''}"></div>
    <div><input class="iv-pot" type="number" step="0.1" value="${pot}"></div>
    <div><select class="iv-tensao"><option ${tensao==220?'selected':''}>220</option><option ${tensao==380?'selected':''}>380</option></select></div>
    <div><input class="iv-qtd" type="number" min="1" value="${qtd}"></div>
+   <button type="button" class="iv-micro ${mic?'on':''}" data-micro="${mic?1:0}" onclick="toggleMicro(this)">${mic?'Micro':'String'}</button>
    <span class="rm" onclick="rmInv(this)">remover</span>
  </div>`;
 }
-function addInv(marca,pot,tensao,qtd){
+function setMicro(bt,on){bt.dataset.micro=on?'1':'0';bt.textContent=on?'Micro':'String';bt.classList.toggle('on',!!on);}
+function toggleMicro(bt){setMicro(bt,bt.dataset.micro!=='1');agendar();}
+function addInv(marca,pot,tensao,qtd,micro){
  const box=document.getElementById('inversores');
- box.insertAdjacentHTML('beforeend',invHTML(marca||'CHINT',pot??3,tensao||220,qtd||1));
+ box.insertAdjacentHTML('beforeend',invHTML(marca||'CHINT',pot??3,tensao||220,qtd||1,micro));
  const linha=box.lastElementChild; wire(linha);
  linha.querySelector('.iv-tensao').addEventListener('change',atualizar380);
  atualizar380();
@@ -614,13 +622,18 @@ function rmInv(el){const box=document.getElementById('inversores');
  if(box.children.length<=1)return; el.closest('.inv-linha').remove(); atualizar380(); agendar();}
 function invOutro(sel){const x=sel.closest('.inv-linha').querySelector('.iv-marca-x');
  const outro=sel.value==='__outro__'; x.classList.toggle('ocult',!outro); if(outro)x.focus(); agendar();}
+// ao trocar a marca, o toggle micro/string acompanha a marca escolhida
+function invMarcaChange(sel){invOutro(sel);
+ const marca=sel.value==='__outro__'?sel.closest('.inv-linha').querySelector('.iv-marca-x').value:sel.value;
+ setMicro(sel.closest('.inv-linha').querySelector('.iv-micro'),_ehMicroMarca(marca));}
 function lerInversores(){
  return [...document.querySelectorAll('#inversores .inv-linha')].map(el=>{
    const s=el.querySelector('.iv-marca');
    const marca=s.value==='__outro__'?el.querySelector('.iv-marca-x').value.trim():s.value;
    return {marca, pot_kw:numBR(el.querySelector('.iv-pot').value)||0,
      tensao:parseInt(el.querySelector('.iv-tensao').value)||220,
-     qtd:parseInt(el.querySelector('.iv-qtd').value)||1};
+     qtd:parseInt(el.querySelector('.iv-qtd').value)||1,
+     micro:el.querySelector('.iv-micro').dataset.micro==='1'};
  });
 }
 // mostra o campo de custo 380V só quando algum inversor é 380 V
@@ -954,10 +967,11 @@ function configHTML(c){
   </div>
   <p style="margin:2px 0 0;color:var(--mudo);font-size:12px">A NASA dá a irradiação global (horizontal). Essa perda a traz para a mesma base dos perfis pré-definidos (25 % faz Maringá 5,12 → ~3,8).</p>
   ${H('Garantias fixas (anos — vazio = regra automática da planilha)')}
+  <p style="margin:-2px 0 8px;color:var(--mudo);font-size:12px">Os nomes são os mesmos rótulos da página 3 da proposta.</p>
   <div class="grid g4">
    <div><label>Inversor</label><input id="cf-g-inv" type="number" value="${_esc(g.inversor)}"></div>
-   <div><label>Instalação</label><input id="cf-g-inst" type="number" value="${_esc(g.instalacao)}"></div>
-   <div><label>Módulos</label><input id="cf-g-mod" type="number" value="${_esc(g.modulos)}"></div>
+   <div><label>Módulos</label><input id="cf-g-inst" type="number" value="${_esc(g.instalacao)}"></div>
+   <div><label>Performance linear</label><input id="cf-g-mod" type="number" value="${_esc(g.modulos)}"></div>
    <div><label>Bateria</label><input id="cf-g-bat" type="number" value="${_esc(g.bateria)}"></div>
   </div>
   ${H('Tabela de material (× markup por faixa de kWp)')}
@@ -975,8 +989,8 @@ function configHTML(c){
   <div id="cf-bandeiras">${bnd}</div>
   ${H('Listas dos menus (uma marca por linha)')}
   <div class="grid g2">
-   <div><label>Marcas de módulo</label><textarea id="cf-marcas-mod" rows="6" style="width:100%">${(c.marcas_modulo||[]).join('\\n')}</textarea></div>
-   <div><label>Marcas de inversor</label><textarea id="cf-marcas-inv" rows="6" style="width:100%">${(c.marcas_inversor||[]).join('\\n')}</textarea></div>
+   <div><label>Marcas de módulo</label><textarea id="cf-marcas-mod" rows="6" style="width:100%">${(c.marcas_modulo||[]).join('\n')}</textarea></div>
+   <div><label>Marcas de inversor</label><textarea id="cf-marcas-inv" rows="6" style="width:100%">${(c.marcas_inversor||[]).join('\n')}</textarea></div>
   </div>
   ${H('Financiamento e proposta')}
   <div class="grid g3">
@@ -1010,8 +1024,8 @@ function salvarConfig(){
    material_extra_faixas:linhasVal('#cf-material',['mat-min','mat-max','mat-base']),
    trafos:linhasVal('#cf-trafos',['tr-min','tr-max','tr-kva','tr-preco']),
    bandeiras,
-   marcas_modulo:G('cf-marcas-mod').value.split('\n').map(s=>s.trim()).filter(Boolean),
-   marcas_inversor:G('cf-marcas-inv').value.split('\n').map(s=>s.trim()).filter(Boolean),
+   marcas_modulo:G('cf-marcas-mod').value.split(/[\r\n]+/).map(s=>s.trim()).filter(Boolean),
+   marcas_inversor:G('cf-marcas-inv').value.split(/[\r\n]+/).map(s=>s.trim()).filter(Boolean),
    financiamento_padrao:{taxa_mes:_n(G('cf-fin-taxa')),parcelas:_n(G('cf-fin-parc'))},
    validade_dias:_n(G('cf-validade')),
    fio_b_rs_mwh:_n(G('cf-fiob')),
@@ -1068,7 +1082,7 @@ function aplicar(d){
  const inv=document.getElementById('inversores'); inv.innerHTML='';
  const invs=(d.inversores&&d.inversores.length)?d.inversores
    :[{marca:d.marca_inversor,pot_kw:d.pot_inversor_kw,tensao:d.tensao_inversor,qtd:1}];
- invs.forEach(iv=>addInv(iv.marca,iv.pot_kw,iv.tensao,iv.qtd)); atualizar380();
+ invs.forEach(iv=>addInv(iv.marca,iv.pot_kw,iv.tensao,iv.qtd,iv.micro)); atualizar380();
  if(d.irradiacao_customizada){ irrCustom=d.irradiacao_customizada;
    document.getElementById('perfil').value='__custom__'; setIrrModo('internet'); }
  else { const p=document.getElementById('perfil');

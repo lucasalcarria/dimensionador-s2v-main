@@ -318,16 +318,18 @@ def _slots_dinamicos(meta, n):
         pos[-1] = ('centro', slots6[n - 1][1])
     # Bloco mais curto (sem string box nem bateria) desce para ficar centrado
     # com a tabela de números ao lado, em vez de sobrar espaço embaixo.
+    desloc = 0.0
     al = meta.get('alinhar')
     if al:
         mg = meta.get('margem', 0.0)
         alt = meta['cards']['modulos']['h'] - 2 * mg      # altura da moldura
         topo = min(t for _, t in pos)
         base = max(t for _, t in pos) + alt
-        desloc = max(0.0, al['centro_y'] - (topo + base) / 2.0)
-        if desloc > 0.5:
+        d = max(0.0, al['centro_y'] - (topo + base) / 2.0)
+        if d > 0.5:
+            desloc = d
             pos = [(x, t + desloc) for x, t in pos]
-    return pos
+    return pos, desloc
 
 
 def _desenhar_cards_p3(c, canvas_imagem, textos, resultado, page_h):
@@ -371,7 +373,14 @@ def _desenhar_cards_p3(c, canvas_imagem, textos, resultado, page_h):
            stroke=0, fill=1)
 
     # 2) estampa cada cartão presente na posição calculada e escreve qtd/desc
-    pos = _slots_dinamicos(meta, len(ordem))
+    pos, desloc = _slots_dinamicos(meta, len(ordem))
+    # o título "KIT GERADOR FOTOVOLTAICO" desce junto com o bloco (só 4 cartões)
+    tit = meta.get('titulo')
+    if tit:
+        fonte = _font_key(tit['font'], tit['bold'])
+        c.setFont(fonte, tit['size'])
+        c.setFillColor(HexColor('#' + tit['color']))
+        c.drawString(tit['x'], page_h - (tit['base'] + desloc), tit['text'])
     centro_x = (reg['x0'] + reg['x1']) / 2.0
     mg = meta.get('margem', 0.0)
     for i, nome in enumerate(ordem):

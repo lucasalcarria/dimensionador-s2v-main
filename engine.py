@@ -179,21 +179,25 @@ class Entradas:
     # ---- inversores (1 ou vários) --------------------------------------
     def lista_inversores(self) -> list:
         """Lista normalizada de inversores. Vazia => usa os campos legados
-        (marca/pot/tensão únicos), que é o caso da planilha de validação."""
+        (marca/pot/tensão únicos), que é o caso da planilha de validação.
+        Cada item traz `micro`: o toggle marcado na tela OU detecção pela marca."""
         if self.inversores:
             out = []
             for iv in self.inversores:
                 pot = float(iv.get('pot_kw') or 0)
+                marca = (iv.get('marca') or self.marca_inversor)
                 if not pot and not (iv.get('marca') or '').strip():
                     continue
-                out.append({'marca': (iv.get('marca') or self.marca_inversor),
-                            'pot_kw': pot,
+                out.append({'marca': marca, 'pot_kw': pot,
                             'tensao': int(iv.get('tensao') or 220),
-                            'qtd': int(iv.get('qtd') or 1)})
+                            'qtd': int(iv.get('qtd') or 1),
+                            'micro': bool(iv.get('micro'))
+                            or _marca_micro(marca)})
             if out:
                 return out
         return [{'marca': self.marca_inversor, 'pot_kw': self.pot_inversor_kw,
-                 'tensao': self.tensao_inversor, 'qtd': 1}]
+                 'tensao': self.tensao_inversor, 'qtd': 1,
+                 'micro': _marca_micro(self.marca_inversor)}]
 
     @property
     def qtd_inversores(self) -> int:
@@ -202,8 +206,18 @@ class Entradas:
     def tem_380v(self) -> bool:
         return any(iv['tensao'] == 380 for iv in self.lista_inversores())
 
+    def tem_micro(self) -> bool:
+        return ((self.conexao or '').upper() == 'MICRO'
+                or any(iv['micro'] for iv in self.lista_inversores()))
+
 
 # ---------------------------------------------------------------- resultados
+def _marca_micro(marca: str) -> bool:
+    """Detecta micro-inversor pela marca (garantia padrão de 12 anos)."""
+    m = (marca or '').upper()
+    return 'MICRO' in m or m in ('HOYMILES', 'APSYSTEMS', 'AP SYSTEMS', 'ENPHASE')
+
+
 def _excel_round(x: float, nd: int = 0) -> float:
     """ROUND do Excel (half away from zero)."""
     p = 10 ** nd
@@ -574,13 +588,23 @@ def _textos(e: Entradas, r: Resultado, config: dict) -> dict:
         return (f"{iv['marca']} {kw}kW"
                 + f" {mono_tri} {iv['tensao']}V ".title())
     t['inv_qtd'] = f'{e.qtd_inversores}x'                    # TX!C12
-    if len(invs) == 1:
+    # agrupa inversores idênticos: 2× CHINT iguais = uma descrição só (a
+    # quantidade já aparece no "2x"), evitando texto repetido no cartão
+    grupos = {}
+    ordem_g = []
+    for iv in invs:
+        k = (iv['marca'], iv['pot_kw'], iv['tensao'])
+        if k not in grupos:
+            grupos[k] = 0
+            ordem_g.append(k)
+        grupos[k] += iv['qtd']
+    if len(ordem_g) == 1:
         t['inv_desc'] = _inv_txt(invs[0])                   # idêntico à planilha
     else:
-        # vários modelos: lista cada um ("2x CHINT 5kW 220V + 1x GROWATT 8kW…")
+        # modelos diferentes: lista cada um ("CHINT 5kW 220V + GROWATT 8kW 380V")
         t['inv_desc'] = ' + '.join(
-            (f"{iv['qtd']}x " if iv['qtd'] > 1 else '') + _inv_txt(iv).strip()
-            for iv in invs)
+            _inv_txt({'marca': k[0], 'pot_kw': k[1], 'tensao': k[2]}).strip()
+            for k in ordem_g)
     if e.estrutura != 'SOLO':                                # TX!B13/C13
         t['estr_qtd'] = f'{math.ceil(e.qtd_modulos_kit / 4)}x'
         t['estr_desc'] = f'P/ 4 Mod. {e.estrutura.title()}'
@@ -588,10 +612,10 @@ def _textos(e: Entradas, r: Resultado, config: dict) -> dict:
         t['estr_qtd'] = f'{math.ceil(e.qtd_modulos_kit / 8)}x'
         t['estr_desc'] = 'Solo P/ 8 Mod.'
     g = config.get('garantias_fixas') or {}
-    minv = e.marca_inversor.upper()
     mmod = e.marca_modulo.upper()
-    gar_inv = g.get('inversor') or (15 if minv in ('MICRO DEYE', 'HOYMILES')
-                                    else 10)                 # DD!O30
+    # micro-inversor: garantia padrão de 12 anos (toggle na tela ou detecção
+    # pela marca / conexão MICRO). Os demais: 10.
+    gar_inv = g.get('inversor') or (12 if e.tem_micro() else 10)   # DD!O30
     gar_inst = g.get('instalacao') or (20 if mmod == 'AMERISOLAR'
                                        else 15 if 'N-TYPE' in mmod
                                        else 12)              # DD!O31
