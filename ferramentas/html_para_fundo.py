@@ -727,12 +727,16 @@ def _gerar_cartoes(pag3: dict) -> dict:
             if campo:            # valor calculado: guarda a posição, não pinta
                 chave = SLOT_NO_CARTAO.get(
                     campo, 'qtd' if campo.endswith('_qtd') else 'desc')
+                # o texto NUNCA pode passar da moldura do cartão: limita à
+                # largura interna (com uma folga p/ a borda arredondada)
+                cap_card = CARD_W - 12
+                lw = LARGURA.get(campo)
                 spec = {'dbaseline': round(b['base'] - ctop, 2),
                         'size': round(est['fs'], 2), 'bold': est['bold'],
                         'color': est['cor'].lstrip('#').upper(),
                         'font': est['fam'],
                         'algn': ALINHA.get(campo, 'l'),
-                        'max_w': LARGURA.get(campo)}
+                        'max_w': min(lw, cap_card) if lw else cap_card}
                 if spec['algn'] == 'c':
                     spec['cx'] = round(b['x'] + larg / 2 - cx0, 2)
                 else:

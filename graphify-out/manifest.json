@@ -15,8 +15,8 @@
     "semantic_hash": ""
   },
   "engine.py": {
-    "mtime": 1784988336.156649,
-    "ast_hash": "0bf597169a65ed732d050438e82d0d49",
+    "mtime": 1785008439.633303,
+    "ast_hash": "8889e219f4af4bebebae7fb963462517",
     "semantic_hash": ""
   },
   "iniciar.sh": {
@@ -60,8 +60,8 @@
     "semantic_hash": "e1340bd8d4385bbf357762afc20b5a82"
   },
   "templates/index.html": {
-    "mtime": 1784988485.6430027,
-    "ast_hash": "07c5d8fc9f1dfca05de55fbe06cb283e",
+    "mtime": 1785008517.3234878,
+    "ast_hash": "bdbdf45fd4597d421be3da7d06bd6ff3",
     "semantic_hash": ""
   },
   ".claude/settings.json": {
@@ -120,8 +120,8 @@
     "semantic_hash": "9378bd03d56baaf78bd738ab3848f142"
   },
   "ferramentas/html_para_fundo.py": {
-    "mtime": 1784988801.863543,
-    "ast_hash": "13cc5d5ee394d4f8c74fbb31b190b204",
+    "mtime": 1785008472.908108,
+    "ast_hash": "aa88ea99a669aaa69d1fc5a4a65bac5a",
     "semantic_hash": ""
   },
   "MAPA-PROPOSTA.md": {

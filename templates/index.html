@@ -49,9 +49,12 @@ button:disabled{opacity:.5;cursor:wait}
 .toggle{display:inline-flex;border:1px solid var(--borda);border-radius:8px;overflow:hidden;background:var(--card2)}
 .toggle button{background:transparent;color:var(--mudo);border:0;padding:6px 12px;font-size:12px;cursor:pointer;font-weight:600}
 .toggle button.on{background:var(--azul-forte);color:#fff}
-.inv-linha{display:grid;grid-template-columns:1fr 78px 88px 56px 92px auto;gap:8px;align-items:end;margin-bottom:8px}
+/* última coluna FIXA (não 'auto'): senão a célula vazia do cabeçalho e o
+   'remover' das linhas teriam larguras diferentes e desalinhariam os rótulos */
+.inv-linha{display:grid;grid-template-columns:88px 1fr 76px 76px 52px 62px;gap:8px;align-items:end;margin-bottom:8px}
+.inv-linha>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .inv-linha .rm{color:var(--vermelho,#c0392b);cursor:pointer;font-size:12px;padding-bottom:8px}
-.iv-micro{height:36px;padding:0 8px;border:1px solid var(--borda);border-radius:8px;background:var(--card2);color:var(--mudo);cursor:pointer;font-size:12px;font-weight:600}
+.iv-micro{width:100%;height:36px;padding:0 8px;border:1px solid var(--borda);border-radius:8px;background:var(--card2);color:var(--mudo);cursor:pointer;font-size:12px;font-weight:600}
 .iv-micro.on{background:var(--verde-forte);color:#fff;border-color:var(--verde-forte)}
 .uc{border:1px solid var(--borda);border-radius:10px;padding:12px;margin-bottom:10px;background:var(--card2)}
 .uc h3{margin:0 0 10px;font-size:13px;color:var(--texto);display:flex;justify-content:space-between}
@@ -192,7 +195,7 @@ small.auto{color:var(--mudo)}
 
     <label style="display:block;margin-top:12px">Inversores</label>
     <div class="inv-linha" style="color:var(--mudo);font-size:11px;margin-bottom:2px">
-      <span>Marca</span><span>Potência (kW)</span><span>Tensão</span><span>Qtd.</span><span>Tipo</span><span></span></div>
+      <span>Tipo</span><span>Marca</span><span>Pot. (kW)</span><span>Tensão</span><span>Qtd.</span><span></span></div>
     <div id="inversores"></div>
     <button class="bt-claro bt-mini" onclick="addInv()">+ adicionar inversor</button>
 
@@ -599,13 +602,13 @@ function invHTML(marca,pot,tensao,qtd,micro){
    +`<option value="__outro__" ${marca&&!MARCAS_INV.includes(marca)?'selected':''}>Outro…</option>`;
  const mic=micro==null?_ehMicroMarca(marca):!!micro;
  return `<div class="inv-linha">
+   <button type="button" class="iv-micro ${mic?'on':''}" data-micro="${mic?1:0}" onclick="toggleMicro(this)">${mic?'Micro':'String'}</button>
    <div><select class="iv-marca" onchange="invMarcaChange(this)">${opts}</select>
      <input class="iv-marca-x ${marca&&!MARCAS_INV.includes(marca)?'':'ocult'}" style="margin-top:6px"
        placeholder="digite a marca" value="${marca&&!MARCAS_INV.includes(marca)?marca:''}"></div>
    <div><input class="iv-pot" type="number" step="0.1" value="${pot}"></div>
    <div><select class="iv-tensao"><option ${tensao==220?'selected':''}>220</option><option ${tensao==380?'selected':''}>380</option></select></div>
    <div><input class="iv-qtd" type="number" min="1" value="${qtd}"></div>
-   <button type="button" class="iv-micro ${mic?'on':''}" data-micro="${mic?1:0}" onclick="toggleMicro(this)">${mic?'Micro':'String'}</button>
    <span class="rm" onclick="rmInv(this)">remover</span>
  </div>`;
 }
