@@ -72,6 +72,10 @@ class UC:
     pis: float = 0.0126               # PR!H31
     pct_noturno: float = 0.65         # PR!M31 (fração faturada/injetada)
     bandeira: str = 'VERDE'           # PR!P31
+    uc_numero: str = ''               # nº desta UC na concessionária
+    # modalidade de geração distribuída: GD2 paga o Fio B escalonado (Lei
+    # 14.300, padrão); GD1 é isenta de Fio B até 2045 (compensa TUSD integral).
+    gd: str = 'GD2'
 
     # ---- derivados
     @property
@@ -123,16 +127,20 @@ class UC:
 class Entradas:
     # cabeçalho ------------------------------------------------------ PR!3
     nome: str = ''
-    endereco: str = ''
+    endereco: str = ''                # só o logradouro
+    numero: str = ''                  # nº da casa (campo separado na tela)
     cidade: str = ''
-    uc_numero: str = ''
+    uc_numero: str = ''               # legado: hoje o nº fica em cada UC
     # unidades consumidoras (até 9) ---------------------------------- PR!6:14
     ucs: list = field(default_factory=list)
     # kit gerador ----------------------------------------------------- PR!20:21
     qtd_modulos_kit: int = 0          # PR!C21 (nº de módulos do kit)
-    marca_inversor: str = 'CHINT'     # PR!D21
-    pot_inversor_kw: float = 3.0      # PR!E21
-    tensao_inversor: int = 220        # PR!F21
+    marca_inversor: str = 'CHINT'     # PR!D21 (legado: 1 inversor)
+    pot_inversor_kw: float = 3.0      # PR!E21 (legado)
+    tensao_inversor: int = 220        # PR!F21 (legado)
+    # vários inversores, cada um com sua potência e tensão. Quando vazio, cai
+    # nos três campos legados acima (é o caso da planilha de validação).
+    inversores: list = field(default_factory=list)  # [{marca,pot_kw,tensao,qtd}]
     valor_kit: float = 0.0            # PR!G21
     conexao: str = 'HÍBRIDO'          # PR!H21
     # dimensionamento -------------------------------------------------- PR!U:Y
@@ -143,6 +151,7 @@ class Entradas:
     irradiacao_customizada: list | None = None  # 12 valores Wh/m²/dia (internet)
     # custos ------------------------------------------------------------
     entrada: float = 0.0              # PR!R21 (custo 'ENTRADA')
+    custo_380v: float = 0.0           # custo extra p/ inversor(es) 380 V (manual)
     desloc: float = 0.0               # PR!V21
     comissao_pct: float = 0.0         # PR!X21 (fração; V33 = preço_total × X21)
     seguro_pct: float = 0.0           # PR!Y21 (fração; DD!R36 = Y21 × preço_total)
@@ -166,6 +175,32 @@ class Entradas:
     sb_qtd: int = 1
     sb_marca: str = ''
     sb_es: str = ''                           # ex.: 2E/2S
+
+    # ---- inversores (1 ou vários) --------------------------------------
+    def lista_inversores(self) -> list:
+        """Lista normalizada de inversores. Vazia => usa os campos legados
+        (marca/pot/tensão únicos), que é o caso da planilha de validação."""
+        if self.inversores:
+            out = []
+            for iv in self.inversores:
+                pot = float(iv.get('pot_kw') or 0)
+                if not pot and not (iv.get('marca') or '').strip():
+                    continue
+                out.append({'marca': (iv.get('marca') or self.marca_inversor),
+                            'pot_kw': pot,
+                            'tensao': int(iv.get('tensao') or 220),
+                            'qtd': int(iv.get('qtd') or 1)})
+            if out:
+                return out
+        return [{'marca': self.marca_inversor, 'pot_kw': self.pot_inversor_kw,
+                 'tensao': self.tensao_inversor, 'qtd': 1}]
+
+    @property
+    def qtd_inversores(self) -> int:
+        return sum(iv['qtd'] for iv in self.lista_inversores())
+
+    def tem_380v(self) -> bool:
+        return any(iv['tensao'] == 380 for iv in self.lista_inversores())
 
 
 # ---------------------------------------------------------------- resultados
@@ -212,6 +247,9 @@ def calcular(e: Entradas, config: dict, ano: int | None = None) -> Resultado:
     tot_mes = [sum(u.consumos[m] for u in ucs_ativas) for m in range(12)]
     r['consumo_anual'] = sum(tot_mes)                       # PR!V9
     r['consumo_medio'] = r['consumo_anual'] / 12.0          # PR!U9
+    # o gráfico da pág. 4 mostra o consumo do jeito que foi digitado: reto
+    # quando veio da média rápida, variando quando veio mês a mês
+    r['consumo_mensal'] = list(tot_mes)
 
     # ---------------- irradiação / geração -------------------------- DD!3:9
     if e.irradiacao_customizada:
@@ -281,8 +319,8 @@ def calcular(e: Entradas, config: dict, ano: int | None = None) -> Resultado:
             comissao = preco * e.comissao_pct                # PR!V33
             seguro = preco * e.seguro_pct                    # DD!R36
             custo = (r['custo_mo'] + comissao + e.desloc + r['custo_trafo'] +
-                     r['custo_material'] + e.entrada + e.valor_kit +
-                     seguro + imposto)                       # DD!C83 / PR!X25
+                     r['custo_material'] + e.entrada + e.custo_380v +
+                     e.valor_kit + seguro + imposto)         # DD!C83 / PR!X25
             m = margem_fixa if margem_fixa is not None else margem_para(custo)
             novo = custo / (1 - m)                           # DD!B84 ×1000×kWp
             if abs(novo - preco) < 0.005:
@@ -310,7 +348,8 @@ def calcular(e: Entradas, config: dict, ano: int | None = None) -> Resultado:
     # PR!X25 — custo total
     r['custo_total'] = (r['custo_mo'] + r['custo_comissao'] + r['custo_desloc'] +
                         r['custo_imposto'] + r['custo_trafo'] + r['custo_material'] +
-                        r['custo_entrada'] + e.valor_kit + r['custo_seguro'])
+                        r['custo_entrada'] + e.custo_380v + e.valor_kit +
+                        r['custo_seguro'])
     # PR!U32 / PR!V32
     r['lucro_pct'] = ((r['preco_venda'] - r['custo_total']) / r['preco_venda']
                       if r['preco_venda'] else 0.0)
@@ -330,13 +369,16 @@ def calcular(e: Entradas, config: dict, ano: int | None = None) -> Resultado:
         maior = max(u.consumo_medio, ger_uc)                  # DD!G48
         fatura_sem += u.tarifa_cheia() * maior + u.ilum_publica  # DD!B48
 
+        # GD1 é isenta de Fio B (compensa a TUSD integral); GD2 paga o escalonado
+        fio_b_uc = 0.0 if u.gd == 'GD1' else fio_b
+
         # ---- fatura COM sistema ------------------------------------- PR!31:39
         pct_not = u.pct_noturno_efetivo                       # M31 / M32:M39
         faturado = _trunc(maior * pct_not, 0)                 # PR!N31
         compensado = faturado - u.disponibilidade             # PR!O31
         piso = u.disponibilidade * u.tarifa_cheia()
         liquido = (faturado * u.tarifa_cheia() -
-                   compensado * (u.abat_te() + u.abat_tusd(fio_b)))
+                   compensado * (u.abat_te() + u.abat_tusd(fio_b_uc)))
         taxa_min = max(piso, liquido)                         # PR!Q31
         band = config['bandeiras'].get(u.bandeira, 0.0)       # DD!J54:J57
         band_gross = band / ((1 - u.icms) * (1 - (u.cofins + u.pis)))  # DD!K55..
@@ -347,7 +389,7 @@ def calcular(e: Entradas, config: dict, ano: int | None = None) -> Resultado:
             geracao_rateada=ger_uc, maior=maior, pct_noturno=pct_not,
             faturado=faturado, disponibilidade=u.disponibilidade,
             compensado=compensado, tarifa=u.tarifa_cheia(),
-            abat_te=u.abat_te(), abat_tusd=u.abat_tusd(fio_b),
+            abat_te=u.abat_te(), abat_tusd=u.abat_tusd(fio_b_uc),
             piso=piso, liquido=liquido, taxa_min=taxa_min,
             bandeira=u.bandeira, extra_bandeira=extra_band,
             ilum_publica=u.ilum_publica, total=total_uc,
@@ -439,11 +481,11 @@ def _material_extra(kwp: float, config: dict) -> float:
     return 0.0
 
 
-def _trafo(e: Entradas, config: dict) -> tuple[float, str]:
-    """DD!R25:S34 — autotrafo 380/220 V p/ inversores ≥12 kW em 380 V."""
-    if not (e.pot_inversor_kw >= 12 and e.tensao_inversor == 380):
+def _trafo_de(pot_kw: float, tensao: int, config: dict) -> tuple[float, str]:
+    """Autotrafo de UM inversor (DD!R25:S34): só p/ ≥12 kW em 380 V."""
+    if not (pot_kw >= 12 and tensao == 380):
         return 0.0, ''
-    p = e.pot_inversor_kw / 0.8                               # DD!R25
+    p = pot_kw / 0.8                                          # DD!R25
     for lim_inf, lim_sup, kva, preco in config['trafos']:
         if lim_inf == lim_sup:                                # DD!S26 (p = 15)
             hit = abs(p - lim_inf) < 1e-9
@@ -454,6 +496,17 @@ def _trafo(e: Entradas, config: dict) -> tuple[float, str]:
         if hit:
             return float(preco), f'TRAFO {kva}KVA'
     return 0.0, ''
+
+
+def _trafo(e: Entradas, config: dict) -> tuple[float, str]:
+    """Soma o autotrafo de cada inversor (um sistema pode ter vários)."""
+    total, descrs = 0.0, []
+    for iv in e.lista_inversores():
+        preco, desc = _trafo_de(iv['pot_kw'], iv['tensao'], config)
+        if preco:
+            total += preco * iv['qtd']
+            descrs.append((f"{iv['qtd']}x " if iv['qtd'] > 1 else '') + desc)
+    return total, ' + '.join(descrs)
 
 
 # ------------------------------------------------------------------ formato
@@ -486,9 +539,14 @@ def _textos(e: Entradas, r: Resultado, config: dict) -> dict:
     t = {}
     t['nome_proper'] = e.nome.title()                        # TX!B2
     t['nome_upper'] = e.nome.upper()                         # TX!B4
-    t['endereco'] = e.endereco.title()                       # TX!B3
+    logradouro = ', '.join(x for x in (e.endereco.strip(),
+                                       e.numero.strip()) if x)
+    t['endereco'] = logradouro.title()                       # TX!B3
     t['cidade'] = e.cidade                                   # PR!U3
-    t['uc_numero'] = str(e.uc_numero)                        # PR!Y3
+    # a capa lista todas as UCs cadastradas: "12345, 23456, 34567"
+    numeros = [str(u.uc_numero).strip() for u in e.ucs
+               if u.ativa and str(u.uc_numero).strip()]
+    t['uc_numero'] = ', '.join(numeros) or str(e.uc_numero)  # PR!Y3
     kwp_txt = fmt_general(_roundup(r['kwp'], 2))             # TX!D3 (ROUNDUP)
     t['kwp_txt'] = _dec(kwp_txt, br) + ' kWp'
     t['area_txt'] = _dec(fmt_general(round(r['area_m2'], 6)), br) + ' m²'  # TX!D4
@@ -508,11 +566,21 @@ def _textos(e: Entradas, r: Resultado, config: dict) -> dict:
     t['mod_desc'] = (f'{e.marca_modulo} '
                      f'{fmt_general(e.pot_modulo_w)}').title() + 'W'     # TX!B10
     t['inv_titulo'] = f'INVERSOR {e.conexao}'                # TX!B9
-    t['inv_qtd'] = '1x'                                      # TX!C12
-    mono_tri = 'MONO' if e.pot_inversor_kw <= 10 else 'TRI'  # DD!B28
-    kw_txt = _dec(fmt_general(e.pot_inversor_kw), br)
-    t['inv_desc'] = (f'{e.marca_inversor} {kw_txt}kW' +
-                     f' {mono_tri} {e.tensao_inversor}V '.title())         # TX!B12
+    invs = e.lista_inversores()
+
+    def _inv_txt(iv):                                        # TX!B12 (DD!B28)
+        mono_tri = 'MONO' if iv['pot_kw'] <= 10 else 'TRI'
+        kw = _dec(fmt_general(iv['pot_kw']), br)
+        return (f"{iv['marca']} {kw}kW"
+                + f" {mono_tri} {iv['tensao']}V ".title())
+    t['inv_qtd'] = f'{e.qtd_inversores}x'                    # TX!C12
+    if len(invs) == 1:
+        t['inv_desc'] = _inv_txt(invs[0])                   # idêntico à planilha
+    else:
+        # vários modelos: lista cada um ("2x CHINT 5kW 220V + 1x GROWATT 8kW…")
+        t['inv_desc'] = ' + '.join(
+            (f"{iv['qtd']}x " if iv['qtd'] > 1 else '') + _inv_txt(iv).strip()
+            for iv in invs)
     if e.estrutura != 'SOLO':                                # TX!B13/C13
         t['estr_qtd'] = f'{math.ceil(e.qtd_modulos_kit / 4)}x'
         t['estr_desc'] = f'P/ 4 Mod. {e.estrutura.title()}'
@@ -546,9 +614,10 @@ def _textos(e: Entradas, r: Resultado, config: dict) -> dict:
         t['bat_qtd'] = f'{int(e.bat_qtd or 1)}x'              # cartão BATERIA
         cap = (f'{_dec(fmt_general(round(e.bat_kwh, 2)), br)} kWh'
                if e.bat_kwh else '')
-        desc_bat = ' '.join(x for x in (e.bat_marca.strip().title(), cap) if x)
-        t['bat_desc'] = desc_bat or t['inv_desc']             # (a planilha usava
-        #                                                        o texto do inversor)
+        # sem marca nem capacidade digitada o cartão fica só com a quantidade
+        # (antes caía no texto do inversor, o que confundia)
+        t['bat_desc'] = ' '.join(x for x in (e.bat_marca.strip().title(),
+                                             cap) if x)
         gb = (config.get('garantias_fixas') or {}).get('bateria')
         t['gar_bateria'] = f'{gb or 10} ANOS'                # garantia da bateria
     if e.tem_stringbox:

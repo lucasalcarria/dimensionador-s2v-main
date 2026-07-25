@@ -159,9 +159,13 @@ def _unidade_eixo(vmax: float) -> float:
     return 10 * mag
 
 
-def _pdf_grafico(consumo_medio: float, geracao_mensal: list[float],
+def _pdf_grafico(consumo_mensal: list[float], geracao_mensal: list[float],
                  w_pt: float, h_pt: float) -> bytes:
-    """Gera o gráfico da página 4 como PDF vetorial transparente."""
+    """Gera o gráfico da página 4 como PDF vetorial transparente.
+
+    `consumo_mensal` são os 12 meses como o usuário digitou: quando ele usou o
+    consumo médio rápido os doze vêm iguais e a barra sai reta; quando digitou
+    mês a mês, ela acompanha a variação."""
     import math
     meses = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun',
              'jul', 'ago', 'set', 'out', 'nov', 'dez']
@@ -171,7 +175,7 @@ def _pdf_grafico(consumo_medio: float, geracao_mensal: list[float],
     # 195,24–374,72 pt. Assim as barras caem exatamente sobre a arte da página.
     ax = fig.add_axes([0.11665, 0.13796, 0.85864, 0.66794])
 
-    vmax = max([consumo_medio] + list(geracao_mensal) + [1.0])
+    vmax = max(list(consumo_mensal) + list(geracao_mensal) + [1.0])
     passo = _unidade_eixo(vmax)
     ymax = math.ceil(vmax / passo) * passo
 
@@ -179,7 +183,7 @@ def _pdf_grafico(consumo_medio: float, geracao_mensal: list[float],
     # gapWidth 219 %, overlap −27 % (chart1.xml)
     bw = 1.0 / (2 + 0.27 + 2.19)
     off = bw * 1.27 / 2
-    ax.bar([x - off for x in xs], [consumo_medio] * 12, width=bw,
+    ax.bar([x - off for x in xs], list(consumo_mensal), width=bw,
            color=COR_CONSUMO, label='Consumo', zorder=3)
     ax.bar([x + off for x in xs], geracao_mensal, width=bw,
            color=COR_GERACAO, label='Geração', zorder=3)
@@ -213,6 +217,54 @@ def _pdf_grafico(consumo_medio: float, geracao_mensal: list[float],
     plt.close(fig)
     buf.seek(0)
     return buf.read()
+
+
+def _quebrar(valor, fonte, size, max_w):
+    """Quebra o texto em linhas que cabem em `max_w`, cortando nos espaços."""
+    linhas, atual = [], ''
+    for palavra in str(valor).split(' '):
+        teste = f'{atual} {palavra}'.strip()
+        if not atual or pdfmetrics.stringWidth(teste, fonte, size) <= max_w:
+            atual = teste
+        else:
+            linhas.append(atual)
+            atual = palavra
+    if atual:
+        linhas.append(atual)
+    return linhas
+
+
+def _ajustar_em_caixa(valor, fonte, size, max_w, linhas_max=1, min_ratio=0.62):
+    """Encaixa o texto na área reservada do layout.
+
+    Primeiro tenta o tamanho normal; se não couber, vai diminuindo a fonte e,
+    quando o campo permite mais de uma linha, quebra nos espaços. Só corta com
+    reticências se nem no menor tamanho couber — assim o nome de um cliente
+    comprido nunca invade a coluna do lado."""
+    valor = str(valor)
+    if not max_w:
+        return [valor], size
+    piso = size * min_ratio
+    s = size
+    while s >= piso:
+        linhas = _quebrar(valor, fonte, s, max_w)
+        if (len(linhas) <= linhas_max
+                and all(pdfmetrics.stringWidth(l, fonte, s) <= max_w
+                        for l in linhas)):
+            return linhas, s
+        s -= 0.25
+    s = piso
+    linhas = _quebrar(valor, fonte, s, max_w)
+    if len(linhas) > linhas_max:
+        linhas = linhas[:linhas_max]
+    ultima = linhas[-1]
+    if pdfmetrics.stringWidth(ultima, fonte, s) > max_w \
+            or len(_quebrar(valor, fonte, s, max_w)) > linhas_max:
+        while len(ultima) > 1 and pdfmetrics.stringWidth(
+                ultima + '…', fonte, s) > max_w:
+            ultima = ultima[:-1].rstrip()
+        linhas[-1] = ultima + '…'
+    return linhas, s
 
 
 def _texto_ajustado(c, valor, fonte, size, min_ratio, max_w):
@@ -459,20 +511,9 @@ def gerar_proposta(resultado: dict, caminho_saida: str,
             valor = str(valor)
             st = f['style']
             fonte = _font_key(st['font'], st['bold'])
-            size = st['size']
             box = f['box']
-            # encolhe a fonte se o texto não couber no contêiner…
-            max_w = f.get('max_w')
-            if max_w:
-                while size > st['size'] * 0.62 and \
-                        pdfmetrics.stringWidth(valor, fonte, size) > max_w:
-                    size -= 0.25
-                # …e, se ainda assim não couber, corta com reticências
-                if pdfmetrics.stringWidth(valor, fonte, size) > max_w:
-                    while len(valor) > 1 and pdfmetrics.stringWidth(
-                            valor + '…', fonte, size) > max_w:
-                        valor = valor[:-1].rstrip()
-                    valor += '…'
+            linhas, size = _ajustar_em_caixa(
+                valor, fonte, st['size'], f.get('max_w'), f.get('linhas', 1))
             desc = pdfmetrics.getDescent(fonte, size)      # negativo, em pt
             baseline = box['y0'] - desc
             if f.get('desloca_sem_bateria') and 'bateria' in ocultar:
@@ -480,13 +521,16 @@ def gerar_proposta(resultado: dict, caminho_saida: str,
             c.setFont(fonte, size)
             c.setFillColor(HexColor('#' + st['color']))
             algn = f.get('algn', 'l')
-            if algn == 'c':
-                c.drawCentredString(f.get('cx', (box['x0'] + box['x1']) / 2),
-                                    baseline, valor)
-            elif algn == 'r':
-                c.drawRightString(box['x1'], baseline, valor)
-            else:
-                c.drawString(box['x0'], baseline, valor)
+            for n_linha, texto_linha in enumerate(linhas):
+                y_linha = baseline - n_linha * size * 1.2
+                if algn == 'c':
+                    c.drawCentredString(
+                        f.get('cx', (box['x0'] + box['x1']) / 2),
+                        y_linha, texto_linha)
+                elif algn == 'r':
+                    c.drawRightString(box['x1'], y_linha, texto_linha)
+                else:
+                    c.drawString(box['x0'], y_linha, texto_linha)
         c.showPage()
     c.save()
     buf.seek(0)
@@ -495,8 +539,10 @@ def gerar_proposta(resultado: dict, caminho_saida: str,
     # 2) gráfico da página 4
     rx0, rtop, rx1, rbot = lay['chart_rect_pt_top']
     gw, gh = rx1 - rx0, rbot - rtop
+    consumo_mes = (resultado.get('consumo_mensal')
+                   or [resultado['consumo_medio']] * 12)
     graf_pdf = PdfReader(io.BytesIO(_pdf_grafico(
-        resultado['consumo_medio'], resultado['geracao_mensal'], gw, gh)))
+        consumo_mes, resultado['geracao_mensal'], gw, gh)))
     graf_page = graf_pdf.pages[0]
 
     # 3) mescla com o fundo

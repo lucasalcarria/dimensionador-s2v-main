@@ -1,7 +1,7 @@
 {
   "app.py": {
-    "mtime": 1784579269.9113715,
-    "ast_hash": "9761f3ced4858de893e49a6ca9ab4867",
+    "mtime": 1784939848.8662062,
+    "ast_hash": "0270faa412d3a0055a383ff27032eb60",
     "semantic_hash": ""
   },
   "conferencia_retorno.py": {
@@ -10,13 +10,13 @@
     "semantic_hash": "49a1dc71ba5f384d66a5cfbe06085903"
   },
   "config.json": {
-    "mtime": 1784900855.9703968,
-    "ast_hash": "b16f2748fcf34ac01c9fb093c3d6952d",
+    "mtime": 1784939840.105656,
+    "ast_hash": "321093c5dc0eaa45c21eac7fde469db3",
     "semantic_hash": ""
   },
   "engine.py": {
-    "mtime": 1784897501.6376905,
-    "ast_hash": "25d5209a3549c2f9a63a82847e1ee0e2",
+    "mtime": 1784938550.5448623,
+    "ast_hash": "e316f30cbeca33c5b2c2aadd140c7838",
     "semantic_hash": ""
   },
   "iniciar.sh": {
@@ -25,19 +25,19 @@
     "semantic_hash": "13f1a45c4afa12e981c795fbc5af7362"
   },
   "online.py": {
-    "mtime": 1784506017.0,
-    "ast_hash": "cb9cd5366cd6ec78a338d9b32589637c",
-    "semantic_hash": "cb9cd5366cd6ec78a338d9b32589637c"
+    "mtime": 1784939378.4941776,
+    "ast_hash": "8f39050a49215e6c5943e1c02316873d",
+    "semantic_hash": ""
   },
   "proposta.py": {
-    "mtime": 1784900630.5206432,
-    "ast_hash": "8ff92e2835340c327d0a2af49df87090",
+    "mtime": 1784920517.0335896,
+    "ast_hash": "277737192a8407a589b3380969bf661d",
     "semantic_hash": ""
   },
   "resumo_texto.py": {
-    "mtime": 1784506017.0,
-    "ast_hash": "9dd1962f1eb8de7a47bcd58ed97add3f",
-    "semantic_hash": "9dd1962f1eb8de7a47bcd58ed97add3f"
+    "mtime": 1784938665.235773,
+    "ast_hash": "b9efd35b8cb2accf40867a86dcd3f7ba",
+    "semantic_hash": ""
   },
   "teste_planilha.py": {
     "mtime": 1784506017.0,
@@ -45,8 +45,8 @@
     "semantic_hash": "5bf3015c6ae8836b2f28f980b978357e"
   },
   "CLAUDE.md": {
-    "mtime": 1784897725.1713064,
-    "ast_hash": "e0fa0d5760e6a14713293672b9838733",
+    "mtime": 1784939902.6162894,
+    "ast_hash": "235d2724fa7f16ceedd948cb41484120",
     "semantic_hash": ""
   },
   "LEIA-ME.md": {
@@ -60,8 +60,8 @@
     "semantic_hash": "e1340bd8d4385bbf357762afc20b5a82"
   },
   "templates/index.html": {
-    "mtime": 1784579370.3636198,
-    "ast_hash": "c0c1fb778bd0089cf57b7b8b22874a37",
+    "mtime": 1784939505.2481227,
+    "ast_hash": "ea0588cc5d9fe0869dfecbe727cc9cf8",
     "semantic_hash": ""
   },
   ".claude/settings.json": {
@@ -120,13 +120,13 @@
     "semantic_hash": "9378bd03d56baaf78bd738ab3848f142"
   },
   "ferramentas/html_para_fundo.py": {
-    "mtime": 1784902453.3368416,
-    "ast_hash": "d822918924bae6409ceee075a4f30e18",
+    "mtime": 1784920030.252202,
+    "ast_hash": "8c4d8938b0951f533809d41301963e04",
     "semantic_hash": ""
   },
   "MAPA-PROPOSTA.md": {
-    "mtime": 1784900794.8104572,
-    "ast_hash": "e7ba348ad89f565802faa8353626efb5",
+    "mtime": 1784920664.6580825,
+    "ast_hash": "6a206b524594cb113f0acdd0f3d2f70a",
     "semantic_hash": ""
   }
 }

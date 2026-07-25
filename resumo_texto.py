@@ -24,18 +24,22 @@ def resumo_texto(e: Entradas, cfg: dict, ano: int | None = None) -> str:
     add('=' * 60)
     add(f"Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
     add('')
+    logradouro = ', '.join(x for x in (e.endereco, e.numero) if x) or '—'
+    ucs_num = ', '.join(str(u.uc_numero) for u in e.ucs
+                        if u.ativa and str(u.uc_numero).strip()) or '—'
     add('CLIENTE')
     add(f"  Nome ......... {e.nome or '—'}")
-    add(f"  UC ........... {e.uc_numero or '—'}")
-    add(f"  Endereço ..... {e.endereco or '—'}")
+    add(f"  UCs .......... {ucs_num}")
+    add(f"  Endereço ..... {logradouro}")
     add(f"  Cidade ....... {e.cidade or '—'}")
     add('')
     add('UNIDADES CONSUMIDORAS')
     for i, u in enumerate(e.ucs):
         if not u.ativa:
             continue
-        add(f"  UC {i + 1} ({u.tipo}): consumo médio {u.consumo_medio:.0f} kWh/mês, "
-            f"ligação {u.ligacao}, bandeira {u.bandeira}")
+        rotulo = f"UC {i + 1}" + (f" (nº {u.uc_numero})" if u.uc_numero else "")
+        add(f"  {rotulo} ({u.tipo} · {u.gd}): consumo médio {u.consumo_medio:.0f} "
+            f"kWh/mês, ligação {u.ligacao}, bandeira {u.bandeira}")
         add(f"      TE R$ {u.te:.5f} · TUSD R$ {u.tusd:.5f} (sem impostos) · "
             f"ICMS {u.icms * 100:.1f}% · PIS {u.pis * 100:.2f}% · COFINS {u.cofins * 100:.2f}%")
         add(f"      tarifa cheia (c/ impostos) R$ {u.tarifa_cheia():.5f}/kWh")
@@ -62,6 +66,8 @@ def resumo_texto(e: Entradas, cfg: dict, ano: int | None = None) -> str:
     add(f"  Material extra ........... {m(r['custo_material'])}")
     if r['custo_trafo']:
         add(f"  Transformador ............ {m(r['custo_trafo'])} ({r['trafo_desc']})")
+    if e.custo_380v:
+        add(f"  Custo 380 V .............. {m(e.custo_380v)}")
     add(f"  Imposto ({r['aliquota_usada'] * 100:.0f}% s/ venda−kit) {m(r['custo_imposto'])}")
     if r['custo_comissao']:
         add(f"  Comissão ................. {m(r['custo_comissao'])}")

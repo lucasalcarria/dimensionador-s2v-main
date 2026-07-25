@@ -45,6 +45,12 @@ button{cursor:pointer;border:0;border-radius:8px;padding:9px 14px;font-size:14px
 .bt-claro{background:#223141;color:var(--azul)}
 .bt-mini{padding:5px 10px;font-size:12px}
 button:disabled{opacity:.5;cursor:wait}
+/* toggle de duas opções (rápido/detalhado, pré-definida/internet, …) */
+.toggle{display:inline-flex;border:1px solid var(--borda);border-radius:8px;overflow:hidden;background:var(--card2)}
+.toggle button{background:transparent;color:var(--mudo);border:0;padding:6px 12px;font-size:12px;cursor:pointer;font-weight:600}
+.toggle button.on{background:var(--azul-forte);color:#fff}
+.inv-linha{display:grid;grid-template-columns:1fr 90px 100px 70px auto;gap:8px;align-items:end;margin-bottom:8px}
+.inv-linha .rm{color:var(--vermelho,#c0392b);cursor:pointer;font-size:12px;padding-bottom:8px}
 .uc{border:1px solid var(--borda);border-radius:10px;padding:12px;margin-bottom:10px;background:var(--card2)}
 .uc h3{margin:0 0 10px;font-size:13px;color:var(--texto);display:flex;justify-content:space-between}
 .uc h3 .rm{color:#e46a5f;cursor:pointer;font-weight:600;font-size:12px}
@@ -114,24 +120,24 @@ small.auto{color:var(--mudo)}
 <body>
 <header>
   <div class="chip"><img src="/logo.png" alt="S2V Engenharia"></div>
-  <div><h1>DIMENSIONADOR S2V</h1><small>proposta comercial · energia solar fotovoltaica</small></div>
+  <div style="flex:1"><h1>DIMENSIONADOR S2V</h1><small>proposta comercial · energia solar fotovoltaica</small></div>
+  <button class="bt-claro bt-mini" onclick="abrirConfig()" title="editar os parâmetros herdados da planilha">⚙ Pré-definições</button>
 </header>
 <main>
 <div>
   <section>
     <h2>Cliente</h2>
-    <div class="grid g2">
-      <div><label>Nome do cliente</label><input id="nome" placeholder="Nome completo"></div>
-      <div><label>Nº da UC (proposta)</label><input id="uc_numero" class="digitos" inputmode="numeric" placeholder="somente números"></div>
+    <div class="linha" style="gap:10px">
+      <div style="flex:1"><label>Nome do cliente</label><input id="nome" placeholder="Nome completo"></div>
+      <div style="width:150px"><label>CEP</label><input id="cep" class="cep" inputmode="numeric" placeholder="00.000-000"></div>
+      <button class="bt-claro bt-mini" onclick="buscarCep()" title="Preenche endereço e cidade pela internet">buscar</button>
     </div>
-    <div class="grid g3" style="margin-top:10px">
-      <div class="linha" style="grid-column:span 2">
-        <div style="flex:1"><label>Endereço</label><input id="endereco" placeholder="Rua / Avenida, nº"></div>
-        <div style="width:140px"><label>CEP</label><input id="cep" class="cep" inputmode="numeric" placeholder="00.000-000"></div>
-        <button class="bt-claro bt-mini" onclick="buscarCep()" title="Preenche endereço e cidade pela internet">buscar</button>
-      </div>
-      <div><label>Cidade - UF</label><input id="cidade" placeholder="Cidade - UF"></div>
+    <div class="linha" style="gap:10px;margin-top:10px">
+      <div style="flex:1"><label>Logradouro</label><input id="endereco" placeholder="Rua / Avenida"></div>
+      <div style="width:90px"><label>Nº</label><input id="numero" placeholder="nº"></div>
+      <div style="flex:1"><label>Cidade - UF</label><input id="cidade" placeholder="Cidade - UF"></div>
     </div>
+    <p class="mudo" style="margin:8px 0 0;font-size:12px">O nº da UC de cada fatura fica em <b>Unidades consumidoras</b>; na proposta todos aparecem juntos na capa.</p>
   </section>
 
   <section>
@@ -141,16 +147,21 @@ small.auto{color:var(--mudo)}
   </section>
 
   <section>
-    <h2>Irradiação &amp; geração</h2>
+    <h2 style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">Irradiação &amp; geração
+      <span class="toggle" id="irr-modo" data-modo="perfil" style="font-size:12px">
+        <button type="button" class="on" onclick="setIrrModo('perfil')">Pré-definida</button>
+        <button type="button" onclick="setIrrModo('internet')">Buscar na internet</button></span>
+    </h2>
     <div class="grid g3">
-      <div><label>Perfil de irradiação (DADOS!B8)</label>
+      <div id="irr-box-perfil"><label>Perfil de irradiação (DADOS!B8)</label>
         <select id="perfil">
           {% for p in perfis %}<option value="{{p}}" {{'selected' if p=='3.8'}}>{{p}}</option>{% endfor %}
           <option value="__custom__">— pesquisada na internet —</option>
         </select></div>
-      <div class="linha" style="grid-column:span 2">
+      <div class="linha" id="irr-box-net" style="grid-column:span 2;display:none">
         <div style="flex:1"><label>Buscar irradiação da cidade (internet)</label>
           <input id="cidade-irr" placeholder="usa a cidade do cliente se vazio"></div>
+        <div style="width:90px"><label>Perda (%)</label><input id="perda-irr" type="number" step="1"></div>
         <button class="bt-claro" onclick="buscarIrradiacao()" id="bt-irr">buscar</button>
       </div>
     </div>
@@ -159,7 +170,15 @@ small.auto{color:var(--mudo)}
 
   <section>
     <h2>Kit gerador</h2>
-    <div class="grid g3">
+    <div class="grid g4">
+      <div><label>Conexão</label>
+        <select id="conexao" onchange="outro(this,'conexao_x')">
+          <option>HÍBRIDO</option><option>ON-GRID</option><option>MICRO</option>
+          <option value="__outro__">Outro (digitar)…</option>
+        </select>
+        <input id="conexao_x" class="ocult" style="margin-top:6px" placeholder="digite a conexão"></div>
+      <div><label>Qtd. de módulos <span id="sugestao" style="color:var(--verde)"></span></label>
+        <input id="qtd_modulos" type="number" value="0"></div>
       <div><label>Marca do módulo</label>
         <select id="marca_modulo" onchange="outro(this,'marca_modulo_x')">
           {% for m in cfg.marcas_modulo %}<option value="{{m}}" {{'selected' if m=='ASTRONERGY N-TYPE'}}>{{m}}</option>{% endfor %}
@@ -167,26 +186,15 @@ small.auto{color:var(--mudo)}
         </select>
         <input id="marca_modulo_x" class="ocult" style="margin-top:6px" placeholder="digite a marca do módulo"></div>
       <div><label>Potência do módulo (W)</label><input id="pot_modulo_w" type="number" value="620"></div>
-      <div><label>Qtd. de módulos <span id="sugestao" style="color:var(--verde)"></span></label>
-        <input id="qtd_modulos" type="number" value="0"></div>
     </div>
-    <div class="grid g4" style="margin-top:10px">
-      <div><label>Marca do inversor</label>
-        <select id="marca_inversor" onchange="outro(this,'marca_inversor_x')">
-          {% for m in cfg.marcas_inversor %}<option value="{{m}}" {{'selected' if m=='CHINT'}}>{{m}}</option>{% endfor %}
-          <option value="__outro__">Outro (digitar)…</option>
-        </select>
-        <input id="marca_inversor_x" class="ocult" style="margin-top:6px" placeholder="digite a marca do inversor"></div>
-      <div><label>Potência inversor (kW)</label><input id="pot_inversor_kw" type="number" step="0.1" value="3"></div>
-      <div><label>Tensão</label><select id="tensao"><option>220</option><option>380</option></select></div>
-      <div><label>Conexão</label>
-        <select id="conexao" onchange="outro(this,'conexao_x')">
-          <option>HÍBRIDO</option><option>ON-GRID</option><option>MICRO</option>
-          <option value="__outro__">Outro (digitar)…</option>
-        </select>
-        <input id="conexao_x" class="ocult" style="margin-top:6px" placeholder="digite a conexão"></div>
-    </div>
-    <div class="grid g3" style="margin-top:10px">
+
+    <label style="display:block;margin-top:12px">Inversores</label>
+    <div class="inv-linha" style="color:var(--mudo);font-size:11px;margin-bottom:2px">
+      <span>Marca</span><span>Potência (kW)</span><span>Tensão</span><span>Qtd.</span><span></span></div>
+    <div id="inversores"></div>
+    <button class="bt-claro bt-mini" onclick="addInv()">+ adicionar inversor</button>
+
+    <div class="grid g3" style="margin-top:12px">
       <div><label>Estrutura</label>
         <select id="estrutura" onchange="outro(this,'estrutura_x')">
           <option>FIBROCIMENTO</option><option>CERÂMICO</option><option>METÁLICO</option>
@@ -198,9 +206,9 @@ small.auto{color:var(--mudo)}
     </div>
 
     <div class="opt">
-      <div class="cab"><input type="checkbox" id="tem_stringbox" checked onchange="toggleOpt(this,'campos-sb')">
+      <div class="cab"><input type="checkbox" id="tem_stringbox" onchange="toggleOpt(this,'campos-sb')">
         <b>String box CC</b> <small class="auto">aparece na página 3 da proposta</small></div>
-      <div class="campos grid g3" id="campos-sb" style="display:grid">
+      <div class="campos grid g3" id="campos-sb" style="display:none">
         <div><label>Quantidade</label><input id="sb_qtd" type="number" value="1" min="1"></div>
         <div><label>Marca (opcional)</label><input id="sb_marca" placeholder="ex.: CLAMPER"></div>
         <div><label>Entradas/Saídas (opcional)</label><input id="sb_es" placeholder="ex.: 2E/2S"></div>
@@ -209,7 +217,7 @@ small.auto{color:var(--mudo)}
     <div class="opt">
       <div class="cab"><input type="checkbox" id="tem_bateria" onchange="toggleOpt(this,'campos-bat')">
         <b>Bateria de lítio</b> <small class="auto">marque para sistemas híbridos com armazenamento</small></div>
-      <div class="campos grid g3" id="campos-bat">
+      <div class="campos grid g3" id="campos-bat" style="display:none">
         <div><label>Quantidade</label><input id="bat_qtd" type="number" value="1" min="1"></div>
         <div><label>Marca</label><input id="bat_marca" placeholder="ex.: BYD"></div>
         <div><label>Capacidade (kWh)</label><input id="bat_kwh" class="kwh" inputmode="decimal" placeholder="0,00 kWh"></div>
@@ -245,18 +253,20 @@ small.auto{color:var(--mudo)}
         <input id="mo_manual" class="rs" inputmode="decimal" placeholder="automática"></div>
       <div><label>Material extra <small class="auto" id="mat-auto"></small></label>
         <input id="material_manual" class="rs" inputmode="decimal" placeholder="automático"></div>
-      <div><label>Alíquota de imposto</label>
-        <input id="aliquota_pct" class="pct" inputmode="decimal" value="{{ (cfg.aliquota_imposto*100)|round(2) }}"></div>
-      <div><label>Margem desejada <small class="auto">vazio = automática</small></label>
-        <input id="margem" class="pct" inputmode="decimal" value="16"></div>
+      <div><label>Entrada</label><input id="entrada" class="rs" inputmode="decimal" placeholder="R$ 0,00"></div>
+      <div id="box-380v" style="display:none"><label>Custo 380 V <small class="auto">inversor 380 V</small></label>
+        <input id="custo_380v" class="rs" inputmode="decimal" placeholder="R$ 0,00"></div>
     </div>
     <div class="grid g4" style="margin-top:10px">
-      <div><label>Entrada</label><input id="entrada" class="rs" inputmode="decimal" placeholder="R$ 0,00"></div>
       <div><label>Deslocamento</label><input id="desloc" class="rs" inputmode="decimal" placeholder="R$ 0,00"></div>
+      <div><label>Alíquota de imposto</label>
+        <input id="aliquota_pct" class="pct" inputmode="decimal" value="{{ (cfg.aliquota_imposto*100)|round(2) }}"></div>
       <div><label>Comissão (%)</label><input id="comissao" class="pct" inputmode="decimal" value="0"></div>
       <div><label>Seguro (%)</label><input id="seguro" class="pct" inputmode="decimal" value="0"></div>
     </div>
     <div class="grid g4" style="margin-top:10px">
+      <div><label>Margem desejada <small class="auto">vazio = automática</small></label>
+        <input id="margem" class="pct" inputmode="decimal" value="16"></div>
       <div><label>Financiamento (% a.m.)</label><input id="fin_taxa" class="pct" inputmode="decimal" value="{{cfg.financiamento_padrao.taxa_mes}}"></div>
       <div><label>Parcelas</label><input id="fin_parcelas" type="number" value="{{cfg.financiamento_padrao.parcelas}}"></div>
       <div><label>Preço/Wp manual <small class="auto">(avançado)</small></label><input id="wp_manual" inputmode="decimal" placeholder="auto"></div>
@@ -300,39 +310,43 @@ small.auto{color:var(--mudo)}
     <div class="erro" id="erro"></div>
     <div style="display:flex;gap:8px;margin-top:14px">
       <button class="bt-azul" style="flex:1" onclick="calc(true)">Calcular</button>
-      <button class="bt-verde" style="flex:1" onclick="gerar()" id="bt-pdf">Gerar proposta (PDF)</button>
+      <button class="bt-verde" style="flex:1" onclick="gerar()" id="bt-pdf">Gerar proposta e salvar</button>
     </div>
     <button class="bt-claro" style="width:100%;margin-top:8px" onclick="conferir()" id="bt-conf">🧮 Conferir contas do retorno financeiro</button>
-    <button class="bt-claro" style="width:100%;margin-top:8px" onclick="salvarResumo()" id="bt-salvar">💾 Salvar resumo na pasta do cliente</button>
+    <button class="bt-claro" style="width:100%;margin-top:8px" onclick="abrirImportar()" id="bt-importar">📂 Importar projeto salvo</button>
     <div class="ok-irr" id="salvo-ok"></div>
     <div class="aviso" id="aviso-kit">Informe a <b>quantidade de módulos</b> e o <b>valor do kit</b> para fechar a proposta.</div>
   </section>
 </div>
 </main>
 
-<div id="modal-atu" class="modal" onclick="if(event.target===this)fecharAtu()">
+<div id="modal-importar" class="modal" onclick="if(event.target===this)fecharImportar()">
   <div class="modal-cx" style="max-width:520px">
-    <div class="modal-cab"><b>Atualizar tarifas — <span id="atu-conc"></span> · <span id="atu-sub"></span></b>
-      <span class="modal-x" onclick="fecharAtu()">✕</span></div>
+    <div class="modal-cab"><b>Importar projeto salvo</b>
+      <span class="modal-x" onclick="fecharImportar()">✕</span></div>
     <p style="margin:0 0 10px;color:var(--mudo);font-size:13px">
-      Copie os valores de TUSD e TE do <a id="atu-link" href="#" target="_blank" style="color:var(--verde)">site da concessionária</a>
-      e cole abaixo. Se o site mostrar os valores <b>com impostos</b> (caso da COPEL), marque a opção —
-      a conversão para "sem impostos" usa as alíquotas da UC.
-      <span id="atu-verif" style="display:block;margin-top:6px"></span>
-      <button class="bt-claro bt-mini" style="margin-top:6px" onclick="verificarCopel()">verificar resolução/ICMS no site da COPEL</button>
-    </p>
-    <div class="grid g2">
-      <div><label>TE (R$/kWh)</label><input id="atu-te" inputmode="decimal" placeholder="0,0000"></div>
-      <div><label>TUSD (R$/kWh)</label><input id="atu-tusd" inputmode="decimal" placeholder="0,0000"></div>
-      <div><label>Resolução (opcional)</label><input id="atu-res" placeholder="REH 3.592/2026"></div>
-      <div><label>Vigência (opcional)</label><input id="atu-vig" placeholder="24/06/2026–23/06/2027"></div>
+      Escolha um projeto salvo para recarregar todos os dados na tela, ou
+      importe um arquivo <b>DADOS.json</b> do computador.</p>
+    <div style="margin:0 0 12px">
+      <button class="bt-claro bt-mini" onclick="document.getElementById('json-file').click()">📄 Importar JSON do computador…</button>
+      <input type="file" id="json-file" accept=".json,application/json" style="display:none" onchange="importarJsonArquivo(this)">
     </div>
-    <label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px">
-      <input type="checkbox" id="atu-comimp" checked> os valores colados estão <b>com impostos</b> (converter)</label>
-    <div id="atu-msg" style="margin-top:8px;color:var(--verde)"></div>
-    <div style="text-align:right;margin-top:10px">
-      <button class="bt-claro bt-mini" onclick="fecharAtu()">cancelar</button>
-      <button class="bt-azul bt-mini" onclick="salvarAtu()">salvar na tabela</button>
+    <div id="lista-resumos" style="max-height:50vh;overflow:auto"></div>
+  </div>
+</div>
+
+<div id="modal-config" class="modal" onclick="if(event.target===this)fecharConfig()">
+  <div class="modal-cx" style="max-width:640px">
+    <div class="modal-cab"><b>Pré-definições (herdadas da planilha)</b>
+      <span class="modal-x" onclick="fecharConfig()">✕</span></div>
+    <p style="margin:0 0 12px;color:var(--mudo);font-size:13px">
+      Valores de negócio usados em todos os cálculos. As tarifas das
+      concessionárias não ficam aqui — são atualizadas na aba de cada UC.</p>
+    <div id="config-corpo" style="max-height:64vh;overflow:auto"></div>
+    <div id="config-msg" style="margin-top:8px;color:var(--verde)"></div>
+    <div style="text-align:right;margin-top:12px">
+      <button class="bt-claro bt-mini" onclick="fecharConfig()">cancelar</button>
+      <button class="bt-verde bt-mini" onclick="salvarConfig()" id="bt-config">salvar pré-definições</button>
     </div>
   </div>
 </div>
@@ -360,6 +374,8 @@ Parâmetros de negócio editáveis em <b>config.json</b> · propostas salvas em 
 <script>
 const MESES=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
 const T={{ cfg.tarifas_padrao | tojson }};
+const MARCAS_INV={{ cfg.marcas_inversor | tojson }};
+const PERDA_PADRAO={{ cfg.perda_irradiacao | default(0.25) }};
 const PCT = x => Math.round(x*10000)/100;      // fração -> %
 let irrCustom=null;
 let CONC={};       // concessionárias (tarifas locais + alíquotas)
@@ -395,87 +411,50 @@ function preencherConcSelects(root){
    }
  });
 }
-// aplica TARIFAS locais + alíquotas do par concessionária+modalidade
-function aplicarConc(btn){
+// aplica TARIFAS locais (TE/TUSD) + busca o ICMS vigente no site da COPEL.
+// As tarifas em si não vêm do site: o painel da COPEL é um Power BI que não é
+// raspável — TE/TUSD ficam na tabela local (config.json), editável à mão.
+async function aplicarConc(btn){
  const uc=btn.closest('.uc');
  const nome=uc.querySelector('.u-conc').value;
  const c=CONC[nome]; const obs=uc.querySelector('.u-conc-obs');
  if(!c){ obs.textContent='Escolha a concessionária.'; return; }
  const sub=(uc.querySelector('.u-sub')||{}).value||'B1';
+ // 1) tarifas TE/TUSD da tabela local
+ const t=(c.tarifas||{})[sub];
+ let baseTar='';
+ if(t && t.te && t.tusd){
+   uc.querySelector('.u-te').value=String(t.te).replace('.',',');
+   uc.querySelector('.u-tusd').value=String(t.tusd).replace('.',',');
+   const alerta=(t.obs||'').toLowerCase().includes('anterior')?' ⚠ '+t.obs:'';
+   baseTar=`TE R$ ${String(t.te).replace('.',',')} + TUSD R$ ${String(t.tusd).replace('.',',')} /kWh (tabela local)${t.resolucao?(' · '+t.resolucao):''}${t.vigencia?(' · vig. '+t.vigencia):''}${alerta}`;
+ } else {
+   baseTar=`sem TE/TUSD cadastrado p/ ${sub} na tabela local — digite os valores manualmente`;
+ }
+ // 2) impostos locais como base
  const a=(c.impostos&&(c.impostos[sub]||c.impostos.padrao))||null;
  if(a){
    if(a.icms_pct!=null) uc.querySelector('.u-icms').value=a.icms_pct;
    if(a.cofins_pct!=null) uc.querySelector('.u-cofins').value=a.cofins_pct;
    if(a.pis_pct!=null) uc.querySelector('.u-pis').value=a.pis_pct;
  }
- const t=(c.tarifas||{})[sub];
- if(t && t.te && t.tusd){
-   uc.querySelector('.u-te').value=String(t.te).replace('.',',');
-   uc.querySelector('.u-tusd').value=String(t.tusd).replace('.',',');
-   const alerta = (t.obs||'').toLowerCase().includes('anterior') ? ' ⚠ '+t.obs : '';
-   obs.innerHTML=`✔ ${nome} · ${sub} · TE R$ ${String(t.te).replace('.',',')} + TUSD R$ ${String(t.tusd).replace('.',',')} /kWh (sem impostos) · ${t.resolucao||''} ${t.vigencia?('· vigência '+t.vigencia):''}${alerta}`;
- } else {
-   obs.innerHTML=`Alíquotas aplicadas. Sem tarifa cadastrada para ${sub} — use <b>atualizar valores…</b> com os números do site da concessionária.`;
+ // 3) ICMS ao vivo do site (só COPEL tem raspagem)
+ let notaImp='(impostos da tabela local)';
+ if(c.site_tributos){
+   obs.textContent='consultando o site da COPEL…';
+   try{
+     const r=await fetch('/api/copel-verificar'); const j=await r.json();
+     if(j.ok && j.icms_site && j.icms_site.icms!=null){
+       uc.querySelector('.u-icms').value=Math.round(j.icms_site.icms*10000)/100;
+       const rural=j.icms_site.icms_rural?(' (rural '+Math.round(j.icms_site.icms_rural*100)+'%)'):'';
+       let vig=j.vigencia_site?(' · '+j.vigencia_site.resolucao):'';
+       notaImp=`✔ ICMS ${Math.round(j.icms_site.icms*100)}%${rural} do site da COPEL${vig}`;
+     } else if(j.icms_erro){ notaImp='(site indisponível: '+j.icms_erro+' — usei os impostos da tabela local)'; }
+   }catch(e){ notaImp='(site indisponível — usei os impostos da tabela local)'; }
  }
+ obs.innerHTML=`✔ ${nome} · ${sub} · ${baseTar}<br><small class="mudo">${notaImp}</small>`;
  cheiaLocal(uc); agendar();
 }
-// ----- modal de atualização de tarifas -----
-let atuUC=null;
-function abrirAtu(btn){
- atuUC=btn.closest('.uc');
- const nome=atuUC.querySelector('.u-conc').value||Object.keys(CONC)[0]||'';
- const sub=(atuUC.querySelector('.u-sub')||{}).value||'B1';
- document.getElementById('atu-conc').textContent=nome;
- document.getElementById('atu-sub').textContent=sub;
- const c=CONC[nome]||{};
- const link=document.getElementById('atu-link');
- link.href=c.site_tarifas||'#'; link.style.display=c.site_tarifas?'inline':'none';
- document.getElementById('atu-te').value='';
- document.getElementById('atu-tusd').value='';
- document.getElementById('atu-res').value='';
- document.getElementById('atu-vig').value='';
- document.getElementById('atu-msg').textContent='';
- document.getElementById('modal-atu').classList.add('on');
-}
-function fecharAtu(){ document.getElementById('modal-atu').classList.remove('on'); }
-async function salvarAtu(){
- const nome=document.getElementById('atu-conc').textContent;
- const sub=document.getElementById('atu-sub').textContent;
- const msg=document.getElementById('atu-msg');
- const body={concessionaria:nome, subgrupo:sub,
-   te:numBR(document.getElementById('atu-te').value),
-   tusd:numBR(document.getElementById('atu-tusd').value),
-   com_impostos:document.getElementById('atu-comimp').checked,
-   icms:numBR(atuUC.querySelector('.u-icms').value)||0,
-   pis:numBR(atuUC.querySelector('.u-pis').value)||0,
-   cofins:numBR(atuUC.querySelector('.u-cofins').value)||0,
-   resolucao:document.getElementById('atu-res').value,
-   vigencia:document.getElementById('atu-vig').value};
- try{
-  const r=await fetch('/api/atualizar-tarifa',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(body)});
-  const j=await r.json(); if(!j.ok) throw j.erro;
-  await carregarConcessionarias(true);
-  msg.textContent=`✔ salvo: TE R$ ${String(j.te).replace('.',',')} + TUSD R$ ${String(j.tusd).replace('.',',')} /kWh (sem impostos)`;
-  aplicarConc(atuUC.querySelector('.u-conc'));
-  setTimeout(fecharAtu, 1200);
- }catch(e){ msg.textContent='Erro: '+e; }
-}
-async function verificarCopel(){
- const el=document.getElementById('atu-verif'); el.textContent='consultando o site da COPEL…';
- try{
-  const r=await fetch('/api/copel-verificar'); const j=await r.json();
-  if(!j.ok) throw j.erro;
-  const v=j.vigencia_site, i=j.icms_site;
-  let txt='';
-  if(v) txt+=`Site: ${v.resolucao}${v.vigencia?(' · '+v.vigencia):''}. `;
-  if(j.vigencia_erro) txt+='(vigência: '+j.vigencia_erro+') ';
-  if(i) txt+=`ICMS ${Math.round(i.icms*100)}%${i.icms_rural?(' / rural '+Math.round(i.icms_rural*100)+'%'):''}.`;
-  if(j.icms_erro) txt+='(ICMS: '+j.icms_erro+')';
-  el.textContent=txt||'sem dados';
- }catch(e){ el.textContent='Falha ao consultar: '+e; }
-}
-function fmtData(s){ if(!s) return '—'; const p=String(s).slice(0,10).split('-'); if(p.length===3&&p[0].length===4) return `${p[2]}/${p[1]}/${p[0]}`; return s; }
 
 // ---- máscaras e parsers (formato brasileiro) ----
 // converte texto mascarado em número (aceita "R$ 1.234,56", "12,5%", "5 kWh",
@@ -550,7 +529,19 @@ function toggleOpt(chk, id){
 
 function ucHTML(i){
  return `<div class="uc" data-i="${i}">
-  <h3>UC ${i+1} <span class="rm" onclick="rmUC(${i})" ${i==0?'style="display:none"':''}>remover</span></h3>
+  <h3 style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <span class="uc-rot">UC ${i+1}</span>
+    <input class="u-numero digitos" inputmode="numeric" placeholder="nº da UC"
+      style="width:130px;font-weight:400">
+    <select class="u-gd" style="width:auto;font-weight:400" title="modalidade de geração distribuída: GD2 paga o Fio B escalonado; GD1 é isenta até 2045">
+      <option value="GD2">GD2 (paga Fio B)</option>
+      <option value="GD1">GD1 (isenta)</option></select>
+    <span style="flex:1"></span>
+    <span class="toggle u-modo" data-modo="medio">
+      <button type="button" class="on" onclick="setModo(this,'medio')">Rápido</button>
+      <button type="button" onclick="setModo(this,'meses')">Detalhado</button></span>
+    <span class="rm" onclick="rmUC(${i})" ${i==0?'style="display:none"':''}>remover</span>
+  </h3>
   <div class="grid g4">
     <div><label>Tipo</label><select class="u-tipo">
       <option value="GERADORA" ${i==0?'selected':''}>GERADORA</option>
@@ -560,19 +551,15 @@ function ucHTML(i){
       <option value="BIFASICO">BIFÁSICO (50)</option>
       <option value="TRIFASICO">TRIFÁSICO (100)</option></select></div>
     <div><label>Ilum. pública</label><input class="u-ilum rs" inputmode="decimal" value="R$ 0,00"></div>
-    <div><label>Consumo médio (kWh)</label><input class="u-medio" type="number" placeholder="rápido"></div>
+    <div><label>% noturno <small class="auto u-not-obs"></small></label><input class="u-not" type="number" step="1" value="${PCT(T.pct_noturno)}"></div>
   </div>
-  <details><summary>consumo mês a mês</summary>
-    <div class="meses">${MESES.map(m=>`<input class="u-mes" placeholder="${m}" type="number">`).join('')}</div>
-  </details>
-  <details><summary>tarifas (sem impostos) e bandeira desta UC</summary>
+  <details style="margin-top:10px"><summary>tarifas (sem impostos) e bandeira desta UC</summary>
     <div class="linha" style="margin-top:8px;gap:8px;flex-wrap:wrap">
       <div style="flex:1;min-width:140px"><label>Concessionária</label>
         <select class="u-conc"><option value="">— selecione —</option></select></div>
       <div style="width:170px"><label>Modalidade</label>
         <select class="u-sub"></select></div>
-      <button type="button" class="bt-claro bt-mini" onclick="aplicarConc(this)">aplicar tarifas e impostos</button>
-      <button type="button" class="bt-claro bt-mini" onclick="abrirAtu(this)" title="colar os valores novos do site da concessionária">atualizar valores…</button>
+      <button type="button" class="bt-claro bt-mini" onclick="aplicarConc(this)" title="aplica a tabela local de TE/TUSD e busca o ICMS vigente no site da COPEL">aplicar tarifas e impostos</button>
     </div>
     <div class="tarifa-cheia u-conc-obs" style="color:var(--mudo)"></div>
     <div class="grid g4" style="margin-top:8px">
@@ -581,7 +568,6 @@ function ucHTML(i){
       <div><label>ICMS (%)</label><input class="u-icms" type="number" step="0.01" value="${PCT(T.icms)}"></div>
       <div><label>COFINS (%)</label><input class="u-cofins" type="number" step="0.01" value="${PCT(T.cofins)}"></div>
       <div><label>PIS (%)</label><input class="u-pis" type="number" step="0.01" value="${PCT(T.pis)}"></div>
-      <div><label>% noturno <small class="auto u-not-obs"></small></label><input class="u-not" type="number" step="1" value="${PCT(T.pct_noturno)}"></div>
       <div><label>Bandeira</label><select class="u-band">
         <option>VERDE</option><option>AMARELA</option>
         <option>VERMELHA P1</option><option>VERMELHA P2</option></select></div>
@@ -589,24 +575,93 @@ function ucHTML(i){
     <div class="tarifa-cheia u-cheia"></div>
     <div class="tarifa-cheia u-cheia-srv"></div>
   </details>
+  <div class="u-box-medio" style="margin-top:10px">
+    <label>Consumo médio (kWh/mês)</label><input class="u-medio" type="number" placeholder="kWh/mês">
+  </div>
+  <div class="u-box-meses" style="display:none;margin-top:10px">
+    <label>Consumo mês a mês (kWh)</label>
+    <div class="meses">${MESES.map(m=>`<input class="u-mes" placeholder="${m}" type="number">`).join('')}</div>
+  </div>
  </div>`;
 }
 function addUC(){const box=document.getElementById('ucs');const n=box.children.length;
  if(n>=9)return; box.insertAdjacentHTML('beforeend',ucHTML(n));
  document.getElementById('badge-ucs').textContent=n+1; wire(box.lastElementChild);
  preencherConcSelects(box.lastElementChild); }
+
+// ---- inversores (1 ou vários, cada um com potência e tensão próprias) ----
+function invHTML(marca,pot,tensao,qtd){
+ const opts=MARCAS_INV.map(m=>`<option ${m===marca?'selected':''}>${m}</option>`).join('')
+   +`<option value="__outro__" ${marca&&!MARCAS_INV.includes(marca)?'selected':''}>Outro…</option>`;
+ return `<div class="inv-linha">
+   <div><select class="iv-marca" onchange="invOutro(this)">${opts}</select>
+     <input class="iv-marca-x ${marca&&!MARCAS_INV.includes(marca)?'':'ocult'}" style="margin-top:6px"
+       placeholder="digite a marca" value="${marca&&!MARCAS_INV.includes(marca)?marca:''}"></div>
+   <div><input class="iv-pot" type="number" step="0.1" value="${pot}"></div>
+   <div><select class="iv-tensao"><option ${tensao==220?'selected':''}>220</option><option ${tensao==380?'selected':''}>380</option></select></div>
+   <div><input class="iv-qtd" type="number" min="1" value="${qtd}"></div>
+   <span class="rm" onclick="rmInv(this)">remover</span>
+ </div>`;
+}
+function addInv(marca,pot,tensao,qtd){
+ const box=document.getElementById('inversores');
+ box.insertAdjacentHTML('beforeend',invHTML(marca||'CHINT',pot??3,tensao||220,qtd||1));
+ const linha=box.lastElementChild; wire(linha);
+ linha.querySelector('.iv-tensao').addEventListener('change',atualizar380);
+ atualizar380();
+}
+function rmInv(el){const box=document.getElementById('inversores');
+ if(box.children.length<=1)return; el.closest('.inv-linha').remove(); atualizar380(); agendar();}
+function invOutro(sel){const x=sel.closest('.inv-linha').querySelector('.iv-marca-x');
+ const outro=sel.value==='__outro__'; x.classList.toggle('ocult',!outro); if(outro)x.focus(); agendar();}
+function lerInversores(){
+ return [...document.querySelectorAll('#inversores .inv-linha')].map(el=>{
+   const s=el.querySelector('.iv-marca');
+   const marca=s.value==='__outro__'?el.querySelector('.iv-marca-x').value.trim():s.value;
+   return {marca, pot_kw:numBR(el.querySelector('.iv-pot').value)||0,
+     tensao:parseInt(el.querySelector('.iv-tensao').value)||220,
+     qtd:parseInt(el.querySelector('.iv-qtd').value)||1};
+ });
+}
+// mostra o campo de custo 380V só quando algum inversor é 380 V
+function temInv380(){return lerInversores().some(iv=>iv.tensao===380);}
+function atualizar380(){
+ const box=document.getElementById('box-380v');
+ if(box) box.style.display=temInv380()?'':'none';
+}
+function setIrrModo(modo){
+ const tg=document.getElementById('irr-modo'); tg.dataset.modo=modo;
+ [...tg.children].forEach((b,k)=>b.classList.toggle('on',(k===0)===(modo==='perfil')));
+ document.getElementById('irr-box-perfil').style.display=modo==='perfil'?'':'none';
+ document.getElementById('irr-box-net').style.display=modo==='internet'?'':'none';
+ const p=document.getElementById('perfil');
+ if(modo==='perfil'&&p.value==='__custom__'){p.value='3.8';irrCustom=null;agendar();}
+}
 function rmUC(i){const box=document.getElementById('ucs');box.children[i].remove();
- [...box.children].forEach((el,k)=>{el.dataset.i=k;el.querySelector('h3').firstChild.textContent=`UC ${k+1} `;});
+ [...box.children].forEach((el,k)=>{el.dataset.i=k;el.querySelector('.uc-rot').textContent=`UC ${k+1}`;});
  document.getElementById('badge-ucs').textContent=box.children.length; calc();}
 
+function setModo(btn,modo){
+ const tg=btn.closest('.toggle'); tg.dataset.modo=modo;
+ [...tg.children].forEach(b=>b.classList.toggle('on',b===btn));
+ const uc=tg.closest('.uc'); const meses=modo==='meses';
+ uc.querySelector('.u-box-medio').style.display=meses?'none':'';
+ uc.querySelector('.u-box-meses').style.display=meses?'':'none';
+ agendar();
+}
 function lerUC(el){
- const meses=[...el.querySelectorAll('.u-mes')].map(x=>x.value);
- const medio=el.querySelector('.u-medio').value;
+ const modo=el.querySelector('.u-modo').dataset.modo||'medio';
  let consumos;
- if(meses.some(v=>v!=='')) consumos=meses.map(v=>v===''?0:numBR(v)||0);
- else consumos=Array(12).fill(medio===''?0:numBR(medio)||0);
+ if(modo==='meses'){
+  consumos=[...el.querySelectorAll('.u-mes')].map(x=>x.value===''?0:numBR(x.value)||0);
+ }else{
+  const medio=el.querySelector('.u-medio').value;
+  consumos=Array(12).fill(medio===''?0:numBR(medio)||0);
+ }
  const n=c=>{const x=numBR(el.querySelector(c).value); return isNaN(x)?'':x;};
- return {tipo:el.querySelector('.u-tipo').value, ligacao:el.querySelector('.u-lig').value,
+ return {uc_numero:el.querySelector('.u-numero').value.trim(),
+  gd:el.querySelector('.u-gd').value,
+  tipo:el.querySelector('.u-tipo').value, ligacao:el.querySelector('.u-lig').value,
   ilum_publica:n('.u-ilum'), consumos,
   te:n('.u-te'), tusd:n('.u-tusd'),
   icms:n('.u-icms'), cofins:n('.u-cofins'),
@@ -615,14 +670,18 @@ function lerUC(el){
 }
 function coletar(){
  const num=id=>{const x=numBR(v(id)); return isNaN(x)?'':x;};
- return {nome:v('nome'),endereco:v('endereco'),cidade:v('cidade'),uc_numero:v('uc_numero'),
+ const invs=lerInversores();
+ const iv0=invs[0]||{marca:'',pot_kw:'',tensao:220};
+ return {nome:v('nome'),endereco:v('endereco'),numero:v('numero'),cidade:v('cidade'),
   ucs:[...document.getElementById('ucs').children].map(lerUC),
   perfil_irradiacao:v('perfil')==='__custom__'?'3.8':v('perfil'),
   irradiacao_customizada:v('perfil')==='__custom__'?irrCustom:null,
   marca_modulo:selVal('marca_modulo'),pot_modulo_w:num('pot_modulo_w'),qtd_modulos_kit:num('qtd_modulos'),
-  marca_inversor:selVal('marca_inversor'),pot_inversor_kw:num('pot_inversor_kw'),
-  tensao_inversor:v('tensao'),conexao:selVal('conexao'),estrutura:selVal('estrutura'),valor_kit:num('valor_kit'),
-  entrada:num('entrada'),desloc:num('desloc'),comissao_pct:num('comissao'),seguro_pct:num('seguro'),
+  inversores:invs,
+  marca_inversor:iv0.marca,pot_inversor_kw:iv0.pot_kw,tensao_inversor:iv0.tensao,
+  conexao:selVal('conexao'),estrutura:selVal('estrutura'),valor_kit:num('valor_kit'),
+  entrada:num('entrada'),custo_380v:num('custo_380v'),desloc:num('desloc'),
+  comissao_pct:num('comissao'),seguro_pct:num('seguro'),
   margem_desejada:num('margem'),fin_taxa_mes:num('fin_taxa'),fin_parcelas:num('fin_parcelas'),
   wp_manual:num('wp_manual'),
   mo_manual:num('mo_manual'),material_manual:num('material_manual'),aliquota_pct:num('aliquota_pct'),
@@ -726,7 +785,7 @@ function wire(root){root.querySelectorAll('input,select').forEach(el=>{
     inp.addEventListener('input',()=>cheiaLocal(root)));}}
 
 async function gerar(){
- const bt=document.getElementById('bt-pdf'); bt.disabled=true; bt.textContent='Gerando…';
+ const bt=document.getElementById('bt-pdf'); bt.disabled=true; bt.textContent='Gerando e salvando…';
  try{
   const body=coletar(); body.img_modulo=fotoModulo; body.img_inversor=fotoInversor;
   const r=await fetch('/api/proposta',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -738,22 +797,28 @@ async function gerar(){
   const nome=m?decodeURIComponent(m[1]):'PROPOSTA.pdf';
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download=nome; a.click(); URL.revokeObjectURL(a.href);
+  const ok=document.getElementById('salvo-ok');
+  ok.innerHTML=`✔ proposta gerada e projeto salvo em <b>clientes/${(body.nome||'CLIENTE').trim()}/</b>`;
+  ok.style.display='block'; setTimeout(()=>{ok.style.display='none';},8000);
  }catch(e){const err=document.getElementById('erro');
    err.textContent='Falha ao gerar: '+e; err.style.display='block';}
- bt.disabled=false; bt.textContent='Gerar proposta (PDF)';
+ bt.disabled=false; bt.textContent='Gerar proposta e salvar';
 }
 
 async function buscarIrradiacao(){
  const bt=document.getElementById('bt-irr'); bt.disabled=true;
  try{
   const cidade=v('cidade-irr')||v('cidade');
+  const pe=document.getElementById('perda-irr').value;
+  const body={cidade}; if(pe!=='') body.perda=numBR(pe);
   const r=await fetch('/api/irradiacao',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({cidade})});
+    body:JSON.stringify(body)});
   const j=await r.json(); if(!j.ok) throw j.erro;
   irrCustom=j.mensal;
   document.getElementById('perfil').value='__custom__';
   const info=document.getElementById('irr-info');
-  info.innerHTML=`✔ ${j.cidade}/${j.uf}: média <b>${j.media_dia_kwh} kWh/m²/dia</b> (NASA POWER) aplicada como perfil.`;
+  const perdaPct=Math.round((j.perda||0)*100);
+  info.innerHTML=`✔ ${j.cidade}/${j.uf}: global <b>${j.ghi_dia_kwh} kWh/m²/dia</b> − ${perdaPct}% perda = <b>${j.media_dia_kwh}</b> (NASA POWER) aplicada como perfil.`;
   info.style.display='block'; agendar();
  }catch(e){const err=document.getElementById('erro');
    err.textContent='Irradiação: '+e; err.style.display='block';}
@@ -789,21 +854,250 @@ function copiarConf(){
  navigator.clipboard&&navigator.clipboard.writeText(t);
 }
 
-async function salvarResumo(){
- const bt=document.getElementById('bt-salvar'); bt.disabled=true; bt.textContent='Salvando…';
- const ok=document.getElementById('salvo-ok');
+// ---- importar um projeto salvo de volta para a tela ----
+async function abrirImportar(){
+ const modal=document.getElementById('modal-importar');
+ const lista=document.getElementById('lista-resumos');
+ lista.textContent='carregando…'; modal.classList.add('on');
  try{
-  const body=coletar(); body._incluir_conferencia=true;
-  const r=await fetch('/api/salvar-resumo',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(body)});
-  const j=await r.json();
+  const r=await fetch('/api/resumos-salvos'); const j=await r.json();
   if(!j.ok) throw j.erro;
-  ok.innerHTML=`✔ salvo em <b>clientes/${(body.nome||'CLIENTE').trim()}/</b>: ${j.arquivos.join(', ')}`;
-  ok.style.display='block';
-  setTimeout(()=>{ok.style.display='none';},8000);
+  if(!j.itens.length){ lista.textContent='Nenhum projeto salvo ainda.'; return; }
+  lista.innerHTML=j.itens.map(it=>
+    `<button class="bt-claro" style="width:100%;text-align:left;margin-bottom:6px"
+       onclick='importarResumo(${JSON.stringify(it.rel)})'>
+       <b>${it.cliente}</b> <span style="color:var(--mudo)">— ${it.projeto}</span></button>`
+  ).join('');
+ }catch(e){ lista.textContent='Falha ao listar: '+e; }
+}
+function fecharImportar(){ document.getElementById('modal-importar').classList.remove('on'); }
+async function importarResumo(rel){
+ try{
+  const r=await fetch('/api/importar-resumo',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({rel})});
+  const j=await r.json(); if(!j.ok) throw j.erro;
+  aplicar(j.dados); fecharImportar();
+  const ok=document.getElementById('salvo-ok');
+  ok.innerHTML=`✔ projeto carregado na tela`;
+  ok.style.display='block'; setTimeout(()=>{ok.style.display='none';},6000);
  }catch(e){const err=document.getElementById('erro');
-   err.textContent='Falha ao salvar: '+e; err.style.display='block';}
- bt.disabled=false; bt.textContent='💾 Salvar resumo na pasta do cliente';
+   err.textContent='Falha ao importar: '+e; err.style.display='block'; fecharImportar();}
+}
+// importa um DADOS.json escolhido no computador
+function importarJsonArquivo(input){
+ const file=input.files&&input.files[0]; if(!file) return;
+ const fr=new FileReader();
+ fr.onload=()=>{
+   try{ aplicar(JSON.parse(fr.result)); fecharImportar();
+     const ok=document.getElementById('salvo-ok');
+     ok.innerHTML=`✔ projeto carregado de <b>${file.name}</b>`;
+     ok.style.display='block'; setTimeout(()=>{ok.style.display='none';},6000);
+   }catch(e){const err=document.getElementById('erro');
+     err.textContent='JSON inválido: '+e; err.style.display='block'; fecharImportar();}
+ };
+ fr.readAsText(file); input.value='';
+}
+
+// ---- editor de pré-definições (parâmetros herdados da planilha) ----
+let CFG=null;
+async function abrirConfig(){
+ const modal=document.getElementById('modal-config');
+ const corpo=document.getElementById('config-corpo');
+ document.getElementById('config-msg').textContent='';
+ corpo.textContent='carregando…'; modal.classList.add('on');
+ try{
+  const r=await fetch('/api/config'); const j=await r.json();
+  if(!j.ok) throw j.erro; CFG=j.config; corpo.innerHTML=configHTML(CFG);
+ }catch(e){ corpo.textContent='Falha ao carregar: '+e; }
+}
+function fecharConfig(){ document.getElementById('modal-config').classList.remove('on'); }
+const _esc=s=>String(s==null?'':s).replace(/"/g,'&quot;');
+function configHTML(c){
+ const g=c.garantias_fixas||{}, fin=c.financiamento_padrao||{};
+ const linhasMat=(c.material_extra_faixas||[]).map((f,i)=>
+   `<div class="inv-linha" style="grid-template-columns:1fr 1fr 1fr auto">
+     <input class="mat-min" type="number" step="0.1" value="${_esc(f[0])}">
+     <input class="mat-max" type="number" step="0.1" value="${_esc(f[1])}">
+     <input class="mat-base" type="number" value="${_esc(f[2])}">
+     <span class="rm" onclick="this.closest('.inv-linha').remove()">×</span></div>`).join('');
+ const linhasTr=(c.trafos||[]).map(f=>
+   `<div class="inv-linha" style="grid-template-columns:1fr 1fr 1fr 1fr auto">
+     <input class="tr-min" type="number" value="${_esc(f[0])}">
+     <input class="tr-max" type="number" value="${_esc(f[1]==null?'':f[1])}">
+     <input class="tr-kva" type="number" value="${_esc(f[2])}">
+     <input class="tr-preco" type="number" value="${_esc(f[3])}">
+     <span class="rm" onclick="this.closest('.inv-linha').remove()">×</span></div>`).join('');
+ const bnd=Object.entries(c.bandeiras||{}).map(([k,v])=>
+   `<div class="inv-linha" style="grid-template-columns:1fr 1fr">
+     <input class="bn-k" value="${_esc(k)}"><input class="bn-v" type="number" step="0.001" value="${_esc(v)}"></div>`).join('');
+ const H=s=>`<h3 style="margin:16px 0 8px;font-size:13px;color:var(--verde)">${s}</h3>`;
+ return `
+  ${H('Imposto e mão de obra')}
+  <div class="grid g3">
+   <div><label>Imposto (% s/ venda−kit)</label><input id="cf-aliq" type="number" step="0.01" value="${_esc(Math.round(c.aliquota_imposto*10000)/100)}"></div>
+   <div><label>Mão de obra mínima (R$)</label><input id="cf-mo-min" type="number" value="${_esc(c.mao_de_obra_minima)}"></div>
+   <div><label>Mão de obra por módulo (R$)</label><input id="cf-mo-mod" type="number" value="${_esc(c.mao_de_obra_por_modulo)}"></div>
+  </div>
+  ${H('Impostos vigentes da COPEL (PIS/COFINS mudam todo mês — atualize aqui)')}
+  <p style="margin:-2px 0 8px;color:var(--mudo);font-size:12px">Não dá para puxar do site (o painel da COPEL é um Power BI). Copie os valores atuais e o botão <b>aplicar tarifas e impostos</b> de cada UC passa a usá-los.</p>
+  <div class="grid g4">
+   <div><label>PIS (%)</label><input id="cf-pis" type="number" step="0.01" value="${_esc((c.impostos_copel||{}).pis)}"></div>
+   <div><label>COFINS (%)</label><input id="cf-cofins" type="number" step="0.01" value="${_esc((c.impostos_copel||{}).cofins)}"></div>
+   <div><label>ICMS (%)</label><input id="cf-icms" type="number" step="0.01" value="${_esc((c.impostos_copel||{}).icms)}"></div>
+   <div><label>ICMS rural (%)</label><input id="cf-icms-rural" type="number" step="0.01" value="${_esc((c.impostos_copel||{}).icms_rural)}"></div>
+  </div>
+  ${H('Fio B e irradiação')}
+  <div class="grid g3">
+   <div><label>Valor do Fio B (R$/MWh)</label><input id="cf-fiob" type="number" step="0.01" value="${_esc(c.fio_b_rs_mwh)}"></div>
+   <div><label>Perda da irradiação da internet (%)</label><input id="cf-perda" type="number" step="1" value="${_esc(Math.round((c.perda_irradiacao||0)*10000)/100)}"></div>
+   <div><label>Performance ratio (fração)</label><input id="cf-pr" type="number" step="0.01" value="${_esc(c.performance_ratio)}"></div>
+  </div>
+  <p style="margin:2px 0 0;color:var(--mudo);font-size:12px">A NASA dá a irradiação global (horizontal). Essa perda a traz para a mesma base dos perfis pré-definidos (25 % faz Maringá 5,12 → ~3,8).</p>
+  ${H('Garantias fixas (anos — vazio = regra automática da planilha)')}
+  <div class="grid g4">
+   <div><label>Inversor</label><input id="cf-g-inv" type="number" value="${_esc(g.inversor)}"></div>
+   <div><label>Instalação</label><input id="cf-g-inst" type="number" value="${_esc(g.instalacao)}"></div>
+   <div><label>Módulos</label><input id="cf-g-mod" type="number" value="${_esc(g.modulos)}"></div>
+   <div><label>Bateria</label><input id="cf-g-bat" type="number" value="${_esc(g.bateria)}"></div>
+  </div>
+  ${H('Tabela de material (× markup por faixa de kWp)')}
+  <div><label>Markup do material (×)</label><input id="cf-mat-markup" type="number" step="0.01" style="max-width:120px" value="${_esc(c.material_markup)}"></div>
+  <div class="inv-linha" style="grid-template-columns:1fr 1fr 1fr auto;color:var(--mudo);font-size:11px;margin:8px 0 2px">
+    <span>kWp mín</span><span>kWp máx</span><span>custo base</span><span></span></div>
+  <div id="cf-material">${linhasMat}</div>
+  <button class="bt-claro bt-mini" onclick="addLinha('cf-material','mat')">+ faixa</button>
+  ${H('Autotransformador 380 V (por potência do inversor ÷ 0,8)')}
+  <div class="inv-linha" style="grid-template-columns:1fr 1fr 1fr 1fr auto;color:var(--mudo);font-size:11px;margin:0 0 2px">
+    <span>mín</span><span>máx</span><span>kVA</span><span>preço R$</span><span></span></div>
+  <div id="cf-trafos">${linhasTr}</div>
+  <button class="bt-claro bt-mini" onclick="addLinha('cf-trafos','tr')">+ trafo</button>
+  ${H('Bandeiras tarifárias (R$/kWh, sem impostos)')}
+  <div id="cf-bandeiras">${bnd}</div>
+  ${H('Listas dos menus (uma marca por linha)')}
+  <div class="grid g2">
+   <div><label>Marcas de módulo</label><textarea id="cf-marcas-mod" rows="6" style="width:100%">${(c.marcas_modulo||[]).join('\\n')}</textarea></div>
+   <div><label>Marcas de inversor</label><textarea id="cf-marcas-inv" rows="6" style="width:100%">${(c.marcas_inversor||[]).join('\\n')}</textarea></div>
+  </div>
+  ${H('Financiamento e proposta')}
+  <div class="grid g3">
+   <div><label>Financiamento (% a.m.)</label><input id="cf-fin-taxa" type="number" step="0.01" value="${_esc(fin.taxa_mes)}"></div>
+   <div><label>Parcelas padrão</label><input id="cf-fin-parc" type="number" value="${_esc(fin.parcelas)}"></div>
+   <div><label>Validade da proposta (dias)</label><input id="cf-validade" type="number" value="${_esc(c.validade_dias)}"></div>
+  </div>`;
+}
+function addLinha(id,tipo){
+ const box=document.getElementById(id);
+ if(tipo==='mat') box.insertAdjacentHTML('beforeend',
+   `<div class="inv-linha" style="grid-template-columns:1fr 1fr 1fr auto"><input class="mat-min" type="number" step="0.1"><input class="mat-max" type="number" step="0.1"><input class="mat-base" type="number"><span class="rm" onclick="this.closest('.inv-linha').remove()">×</span></div>`);
+ else box.insertAdjacentHTML('beforeend',
+   `<div class="inv-linha" style="grid-template-columns:1fr 1fr 1fr 1fr auto"><input class="tr-min" type="number"><input class="tr-max" type="number"><input class="tr-kva" type="number"><input class="tr-preco" type="number"><span class="rm" onclick="this.closest('.inv-linha').remove()">×</span></div>`);
+}
+function _n(el){const x=parseFloat(String(el.value).replace(',','.'));return isNaN(x)?null:x;}
+function salvarConfig(){
+ const bt=document.getElementById('bt-config'); bt.disabled=true;
+ const msg=document.getElementById('config-msg');
+ const G=id=>document.getElementById(id);
+ const gar=v=>{const x=_n(v);return x==null?null:x;};
+ const linhasVal=(sel,cls)=>[...document.querySelectorAll(sel+' .inv-linha')].map(l=>cls.map(c=>_n(l.querySelector('.'+c)))).filter(r=>r.some(x=>x!=null));
+ const bandeiras={};
+ document.querySelectorAll('#cf-bandeiras .inv-linha').forEach(l=>{
+   const k=l.querySelector('.bn-k').value.trim(); if(k) bandeiras[k]=_n(l.querySelector('.bn-v'))||0;});
+ const c={
+   aliquota_imposto:(_n(G('cf-aliq'))||0)/100,
+   mao_de_obra_minima:_n(G('cf-mo-min')), mao_de_obra_por_modulo:_n(G('cf-mo-mod')),
+   garantias_fixas:{inversor:gar(G('cf-g-inv')),instalacao:gar(G('cf-g-inst')),modulos:gar(G('cf-g-mod')),bateria:gar(G('cf-g-bat'))},
+   material_markup:_n(G('cf-mat-markup')),
+   material_extra_faixas:linhasVal('#cf-material',['mat-min','mat-max','mat-base']),
+   trafos:linhasVal('#cf-trafos',['tr-min','tr-max','tr-kva','tr-preco']),
+   bandeiras,
+   marcas_modulo:G('cf-marcas-mod').value.split('\n').map(s=>s.trim()).filter(Boolean),
+   marcas_inversor:G('cf-marcas-inv').value.split('\n').map(s=>s.trim()).filter(Boolean),
+   financiamento_padrao:{taxa_mes:_n(G('cf-fin-taxa')),parcelas:_n(G('cf-fin-parc'))},
+   validade_dias:_n(G('cf-validade')),
+   fio_b_rs_mwh:_n(G('cf-fiob')),
+   perda_irradiacao:(_n(G('cf-perda'))||0)/100,
+   performance_ratio:_n(G('cf-pr')),
+   impostos_copel:{pis:_n(G('cf-pis')),cofins:_n(G('cf-cofins')),icms:_n(G('cf-icms')),icms_rural:_n(G('cf-icms-rural'))},
+ };
+ fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(c)})
+  .then(r=>r.json()).then(async j=>{
+    if(!j.ok) throw j.erro;
+    await carregarConcessionarias(true);   // relê a tabela do config novo
+    // aplica os impostos novos a todas as UCs já abertas na tela
+    const ic=c.impostos_copel;
+    if(ic){
+      document.querySelectorAll('#ucs .uc').forEach(uc=>{
+        if(ic.icms!=null) uc.querySelector('.u-icms').value=ic.icms;
+        if(ic.cofins!=null) uc.querySelector('.u-cofins').value=ic.cofins;
+        if(ic.pis!=null) uc.querySelector('.u-pis').value=ic.pis;
+        cheiaLocal(uc);
+      });
+    }
+    msg.style.color='var(--verde)';
+    msg.textContent='✔ salvo e aplicado às UCs (recarregue a página para atualizar os menus de marca).';
+    setTimeout(()=>{fecharConfig();},1800); calc(false);
+  }).catch(e=>{msg.style.color='#e57373';msg.textContent='Erro: '+e;})
+  .finally(()=>{bt.disabled=false;});
+}
+// escreve num campo e dispara os eventos para máscara/recalcular reagirem
+function _set(id,val){
+ const el=document.getElementById(id); if(!el||val==null) return;
+ el.value=String(val).replace('.',','); el.dispatchEvent(new Event('input',{bubbles:true}));
+ el.dispatchEvent(new Event('blur',{bubbles:true}));
+}
+function _setSel(id,val){
+ const el=document.getElementById(id); if(!el||val==null) return;
+ const tem=[...el.options].some(o=>o.value===val);
+ if(tem){ el.value=val; }
+ else { el.value='__outro__'; const x=document.getElementById(id+'_x'); if(x) x.value=val; }
+ el.dispatchEvent(new Event('change',{bubbles:true}));
+}
+function _chk(id,val){
+ const el=document.getElementById(id); if(!el) return;
+ el.checked=!!val; el.dispatchEvent(new Event('change',{bubbles:true}));
+}
+function aplicar(d){
+ _set('nome',d.nome); _set('endereco',d.endereco); _set('numero',d.numero); _set('cidade',d.cidade);
+ _setSel('marca_modulo',d.marca_modulo); _set('pot_modulo_w',d.pot_modulo_w); _set('qtd_modulos',d.qtd_modulos_kit);
+ _setSel('conexao',d.conexao); _setSel('estrutura',d.estrutura);
+ _set('valor_kit',d.valor_kit); _set('entrada',d.entrada); _set('custo_380v',d.custo_380v); _set('desloc',d.desloc);
+ _set('comissao',d.comissao_pct); _set('seguro',d.seguro_pct); _set('margem',d.margem_desejada);
+ _set('fin_taxa',d.fin_taxa_mes); _set('fin_parcelas',d.fin_parcelas); _set('wp_manual',d.wp_manual);
+ _set('mo_manual',d.mo_manual); _set('material_manual',d.material_manual); _set('aliquota_pct',d.aliquota_pct);
+ // inversores (usa a lista salva; se faltar, cai nos campos legados)
+ const inv=document.getElementById('inversores'); inv.innerHTML='';
+ const invs=(d.inversores&&d.inversores.length)?d.inversores
+   :[{marca:d.marca_inversor,pot_kw:d.pot_inversor_kw,tensao:d.tensao_inversor,qtd:1}];
+ invs.forEach(iv=>addInv(iv.marca,iv.pot_kw,iv.tensao,iv.qtd)); atualizar380();
+ if(d.irradiacao_customizada){ irrCustom=d.irradiacao_customizada;
+   document.getElementById('perfil').value='__custom__'; setIrrModo('internet'); }
+ else { const p=document.getElementById('perfil');
+   if(d.perfil_irradiacao&&[...p.options].some(o=>o.value===d.perfil_irradiacao)) p.value=d.perfil_irradiacao;
+   setIrrModo('perfil'); }
+ _chk('tem_stringbox',d.tem_stringbox); _set('sb_qtd',d.sb_qtd); _set('sb_marca',d.sb_marca); _set('sb_es',d.sb_es);
+ _chk('tem_bateria',d.tem_bateria); _set('bat_qtd',d.bat_qtd); _set('bat_marca',d.bat_marca); _set('bat_kwh',d.bat_kwh);
+ // reconstrói as unidades consumidoras
+ const box=document.getElementById('ucs'); box.innerHTML='';
+ const ucs=(d.ucs&&d.ucs.length)?d.ucs:[{}];
+ ucs.forEach((u,i)=>{ box.insertAdjacentHTML('beforeend',ucHTML(i));
+   const el=box.lastElementChild; wire(el); preencherConcSelects(el); preencherUC(el,u); });
+ document.getElementById('badge-ucs').textContent=box.children.length;
+ calc(false);
+}
+function preencherUC(el,u){
+ const set=(c,v)=>{const x=el.querySelector(c); if(x&&v!=null){x.value=String(v).replace('.',',');
+   x.dispatchEvent(new Event('input',{bubbles:true})); x.dispatchEvent(new Event('blur',{bubbles:true}));}};
+ const sel=(c,v)=>{const x=el.querySelector(c); if(x&&v!=null){x.value=v; x.dispatchEvent(new Event('change',{bubbles:true}));}};
+ sel('.u-numero',u.uc_numero); sel('.u-gd',u.gd||'GD2'); sel('.u-tipo',u.tipo); sel('.u-lig',u.ligacao); sel('.u-band',u.bandeira);
+ set('.u-ilum',u.ilum_publica);
+ const cons=u.consumos||[]; const variam=cons.some((v,i)=>i>0&&v!==cons[0]);
+ const tg=el.querySelector('.u-modo');
+ setModo(tg.children[variam?1:0], variam?'meses':'medio');
+ if(variam){ const inp=el.querySelectorAll('.u-mes'); cons.forEach((v,i)=>{if(inp[i]) inp[i].value=v;}); }
+ else set('.u-medio',cons.length?cons[0]:'');
+ set('.u-te',u.te); set('.u-tusd',u.tusd); set('.u-icms',u.icms);
+ set('.u-cofins',u.cofins); set('.u-pis',u.pis); set('.u-not',u.pct_noturno);
+ syncNoturno(el); cheiaLocal(el);
 }
 
 // ---- fotos do módulo/inversor (página 3 da proposta) ----
@@ -846,7 +1140,8 @@ window.addEventListener('paste',e=>{
 });
 
 carregarConcessionarias();
-addUC(); wire(document);
+addUC(); addInv(); wire(document);
+document.getElementById('perda-irr').value=Math.round(PERDA_PADRAO*100);
 // bloco "usar no celular": só aparece se o servidor tiver IP de rede
 fetch('/api/rede').then(r=>r.json()).then(j=>{
  if(j.ok && !j.local){

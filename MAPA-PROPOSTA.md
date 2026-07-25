@@ -36,10 +36,14 @@ desenhar. Hoje são **34 posições**.
 | O que aparece | Chave | De onde vem |
 |---|---|---|
 | Neuza Zamferrari | `nome_proper` | nome digitado, em Caixa Alta Inicial |
-| 16285387 | `uc_numero` | nº da UC digitado |
-| Rua Manoel Saes, 213 | `endereco` | endereço digitado |
+| 12345, 23456, 34567 | `uc_numero` | os nº de UC de **todas** as faturas cadastradas, juntos |
+| Rua Manoel Saes, 213 | `endereco` | logradouro **+ número** (campos separados na tela) |
 | Mandaguaçu - PR | `cidade` | cidade digitada (ou vinda do CEP) |
 | 3,72 kWp | `kwp_txt` | `resultado['kwp']` arredondado p/ cima, 2 casas |
+
+Os quatro campos de dados da capa (nome, UC, local, sistema) ficam em colunas
+estreitas entre divisores. Se o texto não couber, ele **quebra em até 2 linhas**
+e, só se ainda assim estourar, a fonte diminui — nunca invade a coluna vizinha.
 
 ## Página 2 — "Como a energia flui"
 
@@ -63,7 +67,7 @@ sozinho na última linha, ele fica centralizado.
 | INVERSOR HÍBRIDO | `inv_titulo` | tipo de conexão (HÍBRIDO / ON GRID …) |
 | CHINT 3kW Mono 220V | `inv_desc` | marca, kW, MONO/TRI (≤10 kW = MONO), tensão |
 | 1x / Clamper 2E/2S | `sb_qtd` / `sb_desc` | só com string box |
-| 2x / Byd 5,12 kWh | `bat_qtd` / `bat_desc` | só com bateria |
+| 2x / Byd 5,12 kWh | `bat_qtd` / `bat_desc` | só com bateria — sem marca/kWh o card fica só com a quantidade |
 | HOMOLOGAÇÃO — 1x | *(fixo)* | está desenhado no cartão |
 
 ### Números do sistema
@@ -99,7 +103,7 @@ Todas podem ser travadas em `config.json → garantias_fixas`.
 
 | O que aparece | De onde vem |
 |---|---|
-| Barras azuis (Consumo) | `resultado['consumo_medio']` — linha reta nos 12 meses |
+| Barras azuis (Consumo) | `resultado['consumo_mensal']` — reto se o cliente usou o consumo médio; variando se digitou mês a mês |
 | Barras verdes (Geração) | `resultado['geracao_mensal']` — 12 valores, um por mês |
 | Escala do eixo Y, meses, legenda | calculados a partir do maior valor |
 

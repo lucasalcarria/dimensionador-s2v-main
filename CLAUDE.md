@@ -85,11 +85,85 @@ Só precisa de `pypdfium2`, `fontTools` e `brotli` — **no build, não no progr
    "com impostos" usando `sem = com × (1−ICMS) × (1−PIS−COFINS)`.
    Do site da COPEL raspamos só HTML de verdade: resolução/vigência e ICMS
    (a tabela de tarifas de lá é um Power BI embutido — não é raspável).
+   **O botão "aplicar tarifas e impostos" de cada UC** aplica a tabela local de
+   TE/TUSD *e* busca o ICMS vigente no site da COPEL (`/api/copel-verificar`);
+   se o site cair, usa o ICMS da tabela local. O antigo botão "atualizar
+   valores…" (modal de colar tarifas) foi removido — TE/TUSD se editam direto
+   nos campos da UC ou pelo `config.json`.
 6. **Cartões da pág. 3 se reagrupam** quando falta string box e/ou bateria
    (sem buracos), e a garantia "BATERIA DE LÍTIO" some sem bateria.
 7. **Valores medidos são sagrados**: geometrias em `layout.json`/`deco.json`
    (ex.: 7 círculos da timeline, raio 9pt, cy 776,6) foram medidas em pixels do
    PDF original. Se mexer, **remeça** — não chute.
+
+## Cliente, UCs e salvamento (app.py + index.html)
+
+- **Endereço** é dividido em dois campos: `endereco` (logradouro) e `numero`.
+  Na proposta eles voltam juntos ("Rua X, 123") em `_textos()`.
+- O **nº da UC** não fica mais em Cliente: cada Unidade Consumidora tem o seu
+  (`UC.uc_numero`). Na capa a proposta lista todos juntos ("12345, 23456, …").
+- Cada UC escolhe **consumo médio (rápido) OU mês a mês** — nunca os dois. O
+  gráfico da pág. 4 usa `resultado['consumo_mensal']` (reto ou variável conforme
+  o que foi digitado).
+- **Um único botão** ("Gerar proposta e salvar") faz tudo: calcula, gera o PDF e
+  grava o projeto. Cada projeto vai para uma **subpasta nomeada**
+  `clientes/<NOME>/<7,44KWP ONGRID CHINT 5K 220V COLONIAL>/` contendo
+  `RESUMO.txt`, `CONFERENCIA.txt`, `DADOS.json` e `<nome>.pdf`. O rótulo da pasta
+  sai de `app._nome_projeto()` (kWp + conexão + inversores + estrutura). O botão
+  **Importar projeto** lista essas pastas e repovoa a tela via `aplicar()`.
+
+## Inversores (1 ou vários)
+
+`Entradas.inversores` é uma lista `[{marca,pot_kw,tensao,qtd}]`. Quando vazia,
+cai nos campos legados `marca_inversor/pot_inversor_kw/tensao_inversor` — é o que
+a planilha de validação usa, então `teste_planilha` continua idêntico. Use
+`e.lista_inversores()`, `e.qtd_inversores` e `e.tem_380v()`. O único ponto do
+cálculo que depende do inversor é `_trafo()` (autotrafo por inversor ≥12 kW/380 V,
+somado). Há ainda `Entradas.custo_380v`: custo manual em reais que entra na
+composição quando há inversor 380 V (campo condicional na tela, entre Entrada e
+Deslocamento). A UI manda os inversores como lista e repete o 1º nos campos
+legados por segurança.
+
+## Editor de pré-definições (⚙ no cabeçalho)
+
+O botão **⚙ Pré-definições** abre um editor das constantes herdadas da planilha:
+imposto, mão de obra (mínima/por módulo), tabela de material (markup + faixas),
+garantias fixas, autotrafo 380 V, bandeiras, listas de marcas, financiamento,
+**Fio B (R$/MWh)** e os **impostos vigentes da COPEL (PIS/COFINS/ICMS)**.
+`GET/POST /api/config` gravam **só** as chaves em `CONFIG_EDITAVEL` (app.py); os
+impostos vão para `concessionarias.COPEL (PR).impostos` + `tarifas_padrao` **sem
+tocar em 'tarifas'**. O resto do `config.json` (comentários, tabela de tarifas) é
+preservado byte a byte. Importar projeto salvo também aceita um `DADOS.json` do
+computador.
+
+**PIS/COFINS mudam todo mês e NÃO são raspáveis** (a página de tributos da COPEL
+também é Power BI). Por isso ficam no editor de pré-definições, mantidos à mão; o
+botão "aplicar tarifas e impostos" da UC passa a usar esses valores. Ao salvar as
+pré-definições, os impostos novos são **aplicados a todas as UCs já abertas** na
+tela e a tabela de concessionárias é relida (antes o usuário precisava reabrir).
+Deixe os campos de **garantia vazios** para usar as regras automáticas da
+planilha — preencher fixa o valor. O `/api/config` grava com **indent=2** (mesmo
+formato do arquivo do usuário) para não gerar ruído de diff.
+
+## Irradiação da internet (perda editável)
+
+`online.buscar_irradiacao(cidade, perda)` busca a global horizontal (NASA POWER)
+e aplica a **perda** (`config.perda_irradiacao`, padrão 0,25 = 25 %), trazendo o
+valor para a mesma convenção dos perfis pré-definidos (Maringá GHI 5,02 × 0,75 ≈
+3,8). A perda é editável nas pré-definições e por busca (campo "Perda %" ao lado
+de "buscar"). Retorna também `ghi_dia_kwh` (bruto) e `perda`.
+
+## GD1 × GD2 por UC
+
+`UC.gd` ('GD1' ou 'GD2', padrão **GD2**). GD2 paga o Fio B escalonado (Lei
+14.300, comportamento validado). GD1 é isenta de Fio B até 2045 → compensa a TUSD
+integral (`fio_b_uc = 0` na fatura daquela UC). Cada UC escolhe na tela; a de
+validação usa o default GD2, então `teste_planilha` segue idêntico.
+
+## Próximo passo combinado
+
+Anexar **faturas de energia** (PDF da 2ª via ou foto) para extrair os dados da UC
+automaticamente (consumo, tarifas, nº da UC, ligação). Ainda não implementado.
 
 ## Dados do usuário (nunca versionar / nunca sobrescrever)
 

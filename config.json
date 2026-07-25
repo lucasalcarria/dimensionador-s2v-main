@@ -2,6 +2,8 @@
   "_comentario": "Parâmetros de negócio do dimensionador S2V. Edite à vontade — o programa lê este arquivo a cada cálculo. As referências indicam a célula de origem na planilha.",
   "performance_ratio": 0.75,
   "_performance_ratio": "Fator de desempenho do sistema usado na geração (DADOS!D22 usa 0,75).",
+  "perda_irradiacao": 0.25,
+  "_perda_irradiacao": "Perda aplicada à irradiação buscada na internet (NASA POWER dá a global horizontal). 0.25 = 25 %, faz Maringá 5,12 → ~3,8, na mesma convenção dos perfis pré-definidos.",
   "perfis_irradiacao": {
     "23° NORTE": [
       6070,
@@ -231,8 +233,8 @@
   },
   "_fio_b_escalonamento": "Percentual do Fio B pago pelo consumidor (Lei 14.300) — DADOS!J47:K52. A planilha fixava 2026 (60%); o programa escolhe pelo ano corrente.",
   "bandeiras": {
-    "VERDE": 0.0,
     "AMARELA": 0.01885,
+    "VERDE": 0,
     "VERMELHA P1": 0.04463,
     "VERMELHA P2": 0.07877
   },
@@ -249,35 +251,18 @@
   },
   "_garantias_fixas": "Deixe null para usar as regras da planilha (DD!O30:O32: inversor 15 anos p/ MICRO DEYE/HOYMILES senão 10; 20/15/12 anos conforme módulo; módulos 30 anos p/ N-TYPE/SUNOVA/OSDA/AMERISOLAR senão 25). Preencha um número para fixar. A garantia da bateria (bateria) usa 10 anos quando null.",
   "marcas_modulo": [
-    "SUNOVA N-TYPE",
-    "HONOR N-TYPE",
-    "OSDA N-TYPE",
-    "RONMA N-TYPE",
-    "ERA SOLAR N-TYPE",
-    "DAH SOLAR N-TYPE",
-    "ASTRONERGY N-TYPE",
-    "TRINA",
-    "SUNOVA",
-    "ZNSHINE N-TYPE"
+    "SUNOVA N-TYPE\\nHONOR N-TYPE\\nOSDA N-TYPE\\nRONMA N-TYPE\\nERA SOLAR N-TYPE\\nDAH SOLAR N-TYPE\\nASTRONERGY N-TYPE\\nTRINA\\nSUNOVA\\nZNSHINE N-TYPE"
   ],
   "marcas_inversor": [
-    "SAJ",
-    "MICRO SAJ",
-    "SOLIS",
-    "SUNGROW",
-    "GROWATT",
-    "MICRO DEYE",
-    "HOYMILES",
-    "CHINT",
-    "SOLPLANET"
+    "SAJ\\nMICRO SAJ\\nSOLIS\\nSUNGROW\\nGROWATT\\nMICRO DEYE\\nHOYMILES\\nCHINT\\nSOLPLANET"
   ],
   "_marcas": "Listas dos menus (DADOS!K25:K34 e M25:M33). Pode digitar outra marca livremente na tela.",
   "tarifas_padrao": {
     "te": 0.27575,
     "tusd": 0.36667,
     "icms": 0.19,
-    "cofins": 0.058,
-    "pis": 0.0126,
+    "cofins": 0.0643,
+    "pis": 0.013999999999999999,
     "pct_noturno": 0.65
   },
   "_tarifas_padrao": "Valores pré-preenchidos por UC (PR!D31:H31, M31). Cada UC pode ser ajustada na tela.",
@@ -297,18 +282,18 @@
       "impostos": {
         "B1": {
           "icms": 0.19,
-          "cofins": 0.058,
-          "pis": 0.0126
+          "cofins": 0.0643,
+          "pis": 0.013999999999999999
         },
         "B2": {
           "icms": 0.18,
-          "cofins": 0.058,
-          "pis": 0.0126
+          "cofins": 0.0643,
+          "pis": 0.013999999999999999
         },
         "padrao": {
           "icms": 0.19,
-          "cofins": 0.058,
-          "pis": 0.0126
+          "cofins": 0.0643,
+          "pis": 0.013999999999999999
         }
       },
       "tarifas": {
@@ -317,7 +302,7 @@
           "tusd": 0.45717,
           "resolucao": "",
           "vigencia": "",
-          "obs": "atualizado pela tela em 24/07/2026 10:47"
+          "obs": "atualizado pela tela em 24/07/2026 11:38"
         },
         "B2": {
           "te": null,

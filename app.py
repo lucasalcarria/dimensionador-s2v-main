@@ -33,6 +33,32 @@ def _clientes_dir() -> str:
     return CLIENTES
 
 
+def _limpar_nome(txt: str, padrao: str) -> str:
+    """Deixa um texto seguro para virar nome de pasta no Windows."""
+    txt = re.sub(r'[\\/:*?"<>|]', ' ', str(txt or ''))
+    txt = re.sub(r'\s+', ' ', txt).strip()
+    return txt or padrao
+
+
+def _nome_projeto(e: 'engine.Entradas', r: dict) -> str:
+    """Rótulo da pasta do projeto, ex.: '7,44KWP ONGRID CHINT 5K 220V COLONIAL'."""
+    kwp = engine.fmt_general(round(r['kwp'], 2)).replace('.', ',')
+    conexao = re.sub(r'[\s-]+', '', (e.conexao or '').upper())
+    invs = ' + '.join(
+        f"{iv['marca'].upper()} {engine.fmt_general(iv['pot_kw'])}K "
+        f"{iv['tensao']}V" for iv in e.lista_inversores())
+    partes = [f'{kwp}KWP', conexao, invs, (e.estrutura or '').upper()]
+    return _limpar_nome(' '.join(p for p in partes if p), 'PROJETO')
+
+
+def _pasta_projeto(e: 'engine.Entradas', r: dict) -> str:
+    """clientes/<NOME>/<7,44KWP ONGRID …>/ — cria e devolve o caminho."""
+    nome = _limpar_nome(e.nome, 'CLIENTE')
+    pasta = os.path.join(_clientes_dir(), nome, _nome_projeto(e, r))
+    os.makedirs(pasta, exist_ok=True)
+    return pasta
+
+
 # ------------------------------------------------------------------ helpers
 def _f(v, padrao=0.0):
     """Converte número vindo da tela (aceita vírgula) — vazio vira `padrao`."""
@@ -73,7 +99,9 @@ def _montar_entradas(d: dict) -> engine.Entradas:
             cofins=_f(u.get('cofins'), 5.8) / 100.0,
             pis=_f(u.get('pis'), 1.26) / 100.0,
             pct_noturno=_f(u.get('pct_noturno'), 65.0) / 100.0,
-            bandeira=u.get('bandeira') or 'VERDE'))
+            bandeira=u.get('bandeira') or 'VERDE',
+            uc_numero=str(u.get('uc_numero') or '').strip(),
+            gd=(u.get('gd') or 'GD2').strip().upper()))
     while len(ucs) < 9:
         ucs.append(engine.UC())
 
@@ -87,6 +115,7 @@ def _montar_entradas(d: dict) -> engine.Entradas:
     return engine.Entradas(
         nome=(d.get('nome') or '').strip(),
         endereco=(d.get('endereco') or '').strip(),
+        numero=str(d.get('numero') or '').strip(),
         cidade=(d.get('cidade') or '').strip(),
         uc_numero=str(d.get('uc_numero') or '').strip(),
         ucs=ucs,
@@ -94,6 +123,12 @@ def _montar_entradas(d: dict) -> engine.Entradas:
         marca_inversor=(d.get('marca_inversor') or '').strip(),
         pot_inversor_kw=_f(d.get('pot_inversor_kw')),
         tensao_inversor=int(_f(d.get('tensao_inversor'), 220)),
+        inversores=[{'marca': (iv.get('marca') or '').strip(),
+                     'pot_kw': _f(iv.get('pot_kw')),
+                     'tensao': int(_f(iv.get('tensao'), 220)),
+                     'qtd': int(_f(iv.get('qtd'), 1))}
+                    for iv in (d.get('inversores') or [])],
+        custo_380v=_f(d.get('custo_380v')),
         valor_kit=_f(d.get('valor_kit')),
         conexao=(d.get('conexao') or 'HÍBRIDO').strip(),
         marca_modulo=(d.get('marca_modulo') or '').strip(),
@@ -287,6 +322,79 @@ def api_atualizar_tarifa():
         return jsonify(ok=False, erro=str(exc)), 400
 
 
+# pré-definições herdadas da planilha que a tela pode editar (as demais chaves
+# do config.json — comentários, concessionárias/tarifas — nunca são tocadas)
+CONFIG_EDITAVEL = ('aliquota_imposto', 'mao_de_obra_minima',
+                   'mao_de_obra_por_modulo', 'material_markup',
+                   'material_extra_faixas', 'trafos', 'garantias_fixas',
+                   'faixas_margem', 'fio_b_rs_mwh', 'validade_dias',
+                   'financiamento_padrao', 'performance_ratio',
+                   'perda_irradiacao', 'marcas_modulo', 'marcas_inversor',
+                   'bandeiras', 'subgrupos')
+
+
+def _impostos_copel(cfg: dict) -> dict:
+    """Alíquotas atuais da COPEL (% já convertido) para o editor."""
+    imp = ((cfg.get('concessionarias') or {}).get('COPEL (PR)') or {}) \
+        .get('impostos') or {}
+    base = imp.get('B1') or imp.get('padrao') or {}
+    rural = imp.get('B2') or base
+    return {'pis': round(base.get('pis', 0) * 100, 4),
+            'cofins': round(base.get('cofins', 0) * 100, 4),
+            'icms': round(base.get('icms', 0) * 100, 2),
+            'icms_rural': round(rural.get('icms', 0) * 100, 2)}
+
+
+@app.get('/api/config')
+def api_config():
+    """Devolve só os parâmetros de negócio que a tela pode editar."""
+    try:
+        cfg = engine.carregar_config()
+        dados = {k: cfg.get(k) for k in CONFIG_EDITAVEL}
+        dados['impostos_copel'] = _impostos_copel(cfg)
+        return jsonify(ok=True, config=dados)
+    except Exception as exc:                                    # noqa: BLE001
+        return jsonify(ok=False, erro=str(exc)), 400
+
+
+@app.post('/api/config')
+def api_salvar_config():
+    """Grava as pré-definições editadas, preservando o resto do config.json
+    (comentários e a TABELA DE TARIFAS das concessionárias ficam intactos)."""
+    try:
+        novos = request.get_json(force=True) or {}
+        caminho = engine.caminho_config()
+        with open(caminho, encoding='utf-8') as f:
+            cfg = json.load(f)                      # mantém ordem e comentários
+        for k in CONFIG_EDITAVEL:
+            if k in novos:
+                cfg[k] = novos[k]
+        # impostos vigentes da COPEL: PIS/COFINS/ICMS não são raspáveis (Power
+        # BI), então são mantidos aqui à mão. Atualiza os impostos por subgrupo
+        # e o padrão das novas UCs — SEM tocar em 'tarifas'.
+        ic = novos.get('impostos_copel')
+        if ic:
+            pis = _f(ic.get('pis')) / 100.0
+            cofins = _f(ic.get('cofins')) / 100.0
+            icms = _f(ic.get('icms')) / 100.0
+            icms_rural = _f(ic.get('icms_rural'), ic.get('icms')) / 100.0
+            conc = cfg.setdefault('concessionarias', {}) \
+                      .setdefault('COPEL (PR)', {})
+            imp = conc.setdefault('impostos', {})
+            for sub in ('B1', 'padrao'):
+                imp.setdefault(sub, {}).update(
+                    {'icms': icms, 'cofins': cofins, 'pis': pis})
+            imp.setdefault('B2', {}).update(
+                {'icms': icms_rural, 'cofins': cofins, 'pis': pis})
+            tp = cfg.setdefault('tarifas_padrao', {})
+            tp['pis'], tp['cofins'], tp['icms'] = pis, cofins, icms
+        with open(caminho, 'w', encoding='utf-8') as f:      # 2 espaços: mesmo
+            json.dump(cfg, f, ensure_ascii=False, indent=2)  # formato do arquivo
+        return jsonify(ok=True)
+    except Exception as exc:                                    # noqa: BLE001
+        return jsonify(ok=False, erro=str(exc)), 400
+
+
 @app.get('/api/copel-verificar')
 def api_copel_verificar():
     """Raspagem leve do site da COPEL: resolução/vigência atual + ICMS."""
@@ -349,63 +457,78 @@ def qr_png():
         return ('', 404)
 
 
-@app.post('/api/salvar-resumo')
-def api_salvar_resumo():
-    """Salva o resumo dos resultados (e a conferência) na pasta do cliente."""
+@app.get('/api/resumos-salvos')
+def api_resumos_salvos():
+    """Lista os projetos que podem ser reabertos (cada pasta tem um DADOS.json)."""
+    base = _clientes_dir()
+    itens = []
+    for cliente in sorted(os.listdir(base)):
+        cam_cli = os.path.join(base, cliente)
+        if not os.path.isdir(cam_cli):
+            continue
+        for projeto in sorted(os.listdir(cam_cli), reverse=True):
+            cam_proj = os.path.join(cam_cli, projeto)
+            if not os.path.isdir(cam_proj):
+                continue
+            if os.path.isfile(os.path.join(cam_proj, 'DADOS.json')):
+                rel = os.path.join(cliente, projeto)
+                itens.append({'cliente': cliente, 'projeto': projeto,
+                              'rel': rel})
+    return jsonify(ok=True, itens=itens)
+
+
+@app.post('/api/importar-resumo')
+def api_importar_resumo():
+    """Devolve o payload de um projeto salvo, para repovoar a tela."""
     try:
-        import resumo_texto
-        import conferencia_retorno
-        cfg = engine.carregar_config()
         d = request.get_json(force=True)
-        incluir_conf = bool(d.pop('_incluir_conferencia', True))
-        e = _montar_entradas(d)
-        nome = re.sub(r'[^\w \-À-ÿ]', '', e.nome).strip() or 'CLIENTE'
-        pasta = os.path.join(_clientes_dir(), nome)
-        os.makedirs(pasta, exist_ok=True)
-        carimbo = datetime.now().strftime('%Y-%m-%d_%H%M')
-
-        arquivos = []
-        cam_res = os.path.join(pasta, f'RESUMO {carimbo}.txt')
-        with open(cam_res, 'w', encoding='utf-8') as f:
-            f.write(resumo_texto.resumo_texto(e, cfg))
-        arquivos.append(cam_res)
-
-        if incluir_conf:
-            cam_conf = os.path.join(pasta, f'CONFERENCIA {carimbo}.txt')
-            with open(cam_conf, 'w', encoding='utf-8') as f:
-                f.write(conferencia_retorno.relatorio_conferencia(e, cfg))
-            arquivos.append(cam_conf)
-
-        return jsonify(ok=True, pasta=pasta,
-                       arquivos=[os.path.basename(a) for a in arquivos])
-    except Exception as exc:                                   # noqa: BLE001
+        rel = str(d.get('rel') or '')
+        caminho = os.path.abspath(os.path.join(_clientes_dir(), rel,
+                                               'DADOS.json'))
+        if not caminho.startswith(os.path.abspath(_clientes_dir())):
+            raise ValueError('caminho inválido')
+        if not os.path.isfile(caminho):
+            raise ValueError('projeto não encontrado')
+        with open(caminho, encoding='utf-8') as f:
+            return jsonify(ok=True, dados=json.load(f))
+    except Exception as exc:                                    # noqa: BLE001
         return jsonify(ok=False, erro=str(exc)), 400
 
 
 @app.post('/api/proposta')
 def api_proposta():
+    """Ação única: calcula, salva o projeto inteiro (resumo, conferência, dados
+    e proposta) na pasta do cliente e devolve o PDF para download."""
     try:
+        import resumo_texto
+        import conferencia_retorno
         cfg = engine.carregar_config()
         d = request.get_json(force=True)
+        d.pop('_incluir_conferencia', None)
         e = _montar_entradas(d)
         r = engine.calcular(e, cfg)
-        nome = re.sub(r'[^\w \-À-ÿ]', '', e.nome).strip() or 'PROPOSTA'
-        # salva na pasta do cliente (e mantém cópia em propostas/)
-        pasta = os.path.join(_clientes_dir(), nome)
-        os.makedirs(pasta, exist_ok=True)
-        os.makedirs(PROPOSTAS, exist_ok=True)
-        destino = os.path.join(pasta, f'{nome}.pdf')
+
+        pasta = _pasta_projeto(e, r)        # clientes/<NOME>/<7,44KWP …>/
+        nome_pdf = _limpar_nome(e.nome, 'PROPOSTA')
         imagens = {'modulo': _img_bytes(d.get('img_modulo')),
                    'inversor': _img_bytes(d.get('img_inversor'))}
         imagens = {k: v for k, v in imagens.items() if v}
+
+        with open(os.path.join(pasta, 'RESUMO.txt'), 'w', encoding='utf-8') as f:
+            f.write(resumo_texto.resumo_texto(e, cfg))
+        with open(os.path.join(pasta, 'CONFERENCIA.txt'), 'w',
+                  encoding='utf-8') as f:
+            f.write(conferencia_retorno.relatorio_conferencia(e, cfg))
+        # DADOS.json repovoa a tela depois; as fotos (base64 grande) ficam fora
+        d_salvar = {k: v for k, v in d.items()
+                    if k not in ('img_modulo', 'img_inversor')}
+        with open(os.path.join(pasta, 'DADOS.json'), 'w', encoding='utf-8') as f:
+            json.dump(d_salvar, f, ensure_ascii=False, indent=1)
+
+        destino = os.path.join(pasta, f'{nome_pdf}.pdf')
         proposta.gerar_proposta(r, destino, imagens=imagens or None)
-        try:
-            import shutil
-            shutil.copy(destino, os.path.join(PROPOSTAS, f'{nome}.pdf'))
-        except OSError:
-            pass
         return send_file(destino, as_attachment=True,
-                         download_name=f'{nome}.pdf')
+                         download_name=f'{nome_pdf}.pdf')
     except Exception as exc:                                   # noqa: BLE001
         return jsonify(ok=False, erro=str(exc)), 400
 
@@ -414,10 +537,18 @@ def api_proposta():
 def api_irradiacao():
     try:
         import online
-        cidade = (request.get_json(force=True).get('cidade') or '').strip()
+        d = request.get_json(force=True)
+        cidade = (d.get('cidade') or '').strip()
         if not cidade:
             raise ValueError('Informe a cidade.')
-        return jsonify(ok=True, **online.buscar_irradiacao(cidade))
+        # perda: a enviada pela tela ou a padrão do config (25 %)
+        cfg = engine.carregar_config()
+        perda = d.get('perda')
+        if perda in (None, ''):
+            perda = cfg.get('perda_irradiacao', 0.25)
+        else:
+            perda = _f(perda) / 100.0
+        return jsonify(ok=True, **online.buscar_irradiacao(cidade, perda))
     except Exception as exc:                                   # noqa: BLE001
         return jsonify(ok=False, erro=f'Não foi possível buscar agora: {exc}'), 400
 

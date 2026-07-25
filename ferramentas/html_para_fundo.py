@@ -27,6 +27,7 @@ from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
+from reportlab.pdfgen.canvas import FILL_EVEN_ODD, FILL_NON_ZERO
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ASSETS = os.path.join(RAIZ, 'assets')
@@ -416,7 +417,12 @@ def desenhar_svg(c, svg: str, pular=lambda tag, attrs, bbox: False,
                     _attr(attrs, 'stroke-linecap'), 0))
                 c.setLineJoin({'round': 1, 'bevel': 2}.get(
                     _attr(attrs, 'stroke-linejoin'), 0))
-            par = 1 if _attr(attrs, 'fill-rule') == 'evenodd' else 0
+            # ATENÇÃO: no ReportLab FILL_EVEN_ODD=0 e FILL_NON_ZERO=1 — o
+            # inverso do que a intuição sugere. Trocar os dois abre buracos
+            # onde dois traços do mesmo desenho se sobrepõem (era o que fazia
+            # aparecer um ponto branco na junção das setas da pág. 2).
+            par = (FILL_EVEN_ODD if _attr(attrs, 'fill-rule') == 'evenodd'
+                   else FILL_NON_ZERO)
             c.drawPath(p, stroke=1 if traco else 0, fill=1 if preenche else 0,
                        fillMode=par)
 
@@ -532,6 +538,11 @@ CAMPOS = {
     (5, 738, 108): 'nome_upper',
 }
 
+# campos que podem ocupar mais de uma linha quando o texto é comprido (a fonte
+# só diminui depois de esgotar as linhas). A cidade fica logo abaixo, então o
+# endereço tem 2 linhas; nome e cidade, 2 também.
+LINHAS = {'nome_proper': 2, 'endereco': 2, 'cidade': 2, 'uc_numero': 2}
+
 # alinhamento de cada campo (l = pela esquerda, c = centralizado)
 ALINHA = {
     'mod_desc': 'c', 'estr_desc': 'c', 'inv_titulo': 'c', 'inv_desc': 'c',
@@ -540,9 +551,10 @@ ALINHA = {
     'economia_mensal': 'c', 'valor_venda': 'c',
 }
 
-# largura disponível para cada campo (o texto encolhe se passar disso)
+# largura disponível para cada campo (o texto encolhe se passar disso). Na capa
+# as colunas ficam entre divisores em x 177,5 / 282,6 / 445,4 — daí as larguras.
 LARGURA = {
-    'nome_proper': 135, 'uc_numero': 100, 'endereco': 155, 'cidade': 155,
+    'nome_proper': 104, 'uc_numero': 60, 'endereco': 122, 'cidade': 122,
     'kwp_txt': 105,
     'mod_desc': 118, 'estr_desc': 118, 'inv_titulo': 118, 'inv_desc': 118,
     'sb_desc': 118, 'bat_desc': 118,
@@ -819,6 +831,7 @@ def converter(caminho_html: str) -> None:
                               'font': est['fam']},
                     'algn': ALINHA.get(campo, 'l'),
                     'max_w': LARGURA.get(campo),
+                    'linhas': LINHAS.get(campo, 1),
                 }
                 if reg['algn'] == 'c':
                     reg['cx'] = round(b['x'] + largura / 2, 2)

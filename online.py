@@ -104,12 +104,17 @@ def geocodificar(cidade: str) -> dict:
                 lat=r['latitude'], lon=r['longitude'])
 
 
-def buscar_irradiacao(cidade: str) -> dict:
+def buscar_irradiacao(cidade: str, perda: float = 0.0) -> dict:
     """Irradiação média mensal (Wh/m²/dia) para a cidade, via NASA POWER.
 
-    Retorna {cidade, uf, lat, lon, mensal:[12 valores], media_dia_kwh}.
-    Os valores ficam na mesma unidade dos perfis da planilha (Wh/m²/dia),
-    prontos para usar como 'irradiação customizada'.
+    Busca a irradiação global (ALLSKY_SFC_SW_DWN) e aplica um fator de perda,
+    para ficar na MESMA convenção dos perfis pré-definidos da planilha — que
+    já vêm com perda embutida (ex.: Maringá 5,12 → 3,8, ~25 %). `perda` é a
+    fração descontada (0,25 = 25 %).
+
+    Retorna {cidade, uf, lat, lon, mensal:[12], media_dia_kwh, ghi_dia_kwh,
+    perda}. `mensal`/`media_dia_kwh` já saem COM a perda aplicada, prontos para
+    usar como 'irradiação customizada'; `ghi_dia_kwh` é a global bruta.
     """
     loc = geocodificar(cidade)
     url = ('https://power.larc.nasa.gov/api/temporal/climatology/point'
@@ -119,12 +124,15 @@ def buscar_irradiacao(cidade: str) -> dict:
     par = data['properties']['parameter']['ALLSKY_SFC_SW_DWN']
     ordem = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
              'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
-    mensal_kwh = [float(par[m]) for m in ordem]          # kWh/m²/dia
+    fator = max(0.0, 1.0 - float(perda or 0.0))
+    ghi_kwh = [float(par[m]) for m in ordem]             # kWh/m²/dia (bruto)
+    mensal_kwh = [v * fator for v in ghi_kwh]            # com perda
     mensal = [round(v * 1000.0, 1) for v in mensal_kwh]  # Wh/m²/dia
-    media = sum(mensal_kwh) / 12.0
     return dict(cidade=loc['nome'], uf=loc['uf'], lat=loc['lat'],
                 lon=loc['lon'], mensal=mensal,
-                media_dia_kwh=round(media, 2))
+                media_dia_kwh=round(sum(mensal_kwh) / 12.0, 2),
+                ghi_dia_kwh=round(sum(ghi_kwh) / 12.0, 2),
+                perda=round(float(perda or 0.0), 4))
 
 
 def buscar_cep(cep: str) -> dict:
