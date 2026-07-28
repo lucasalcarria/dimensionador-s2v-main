@@ -1,7 +1,7 @@
 # Graph Report - dimensionador-s2v-main  (2026-07-28)
 
 ## Corpus Check
-- 25 files · ~40,454 words
+- 25 files · ~40,524 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `691b007a`
+- Built from commit: `34bc87ec`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 

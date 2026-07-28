@@ -3,3 +3,4 @@ reportlab>=4.0
 pypdf>=4.0
 matplotlib>=3.8
 qrcode
+gunicorn>=21.0  ; sys_platform != "win32"  # servidor de produção (só no container Linux)

@@ -148,6 +148,23 @@ dependências novas — só `urllib`, no estilo do `online.py`.
 - **Nuvem**: a autorização única precisa de navegador (feita no PC); o refresh
   token resultante vale no Cloud Run também.
 
+## Cloud Run (rodar sem depender do PC)
+
+`engine.dir_execucao()` obedece a **`S2V_DATA_DIR`**: é a alavanca única — TODOS
+os arquivos mutáveis (config.json editável, `clientes/`, `google_oauth.json`,
+`google_token.json`, `acesso.json`) saem dela. No Cloud Run monta-se um **bucket
+do Cloud Storage** em `/data` e `S2V_DATA_DIR=/data`, então tudo persiste (o
+disco do Cloud Run é efêmero). Localmente a variável fica vazia → pasta do
+programa, comportamento igual ao de sempre.
+- **Dockerfile** + **.dockerignore** na raiz; `requirements.txt` inclui
+  `gunicorn` (só no container Linux — `sys_platform != win32`). CMD roda
+  `gunicorn … app:app` ligado a `$PORT`. O `python app.py` local (Flask dev +
+  browser) não é usado no container (gunicorn importa `app:app`, não roda
+  `__main__`).
+- **Segredos na nuvem**: `S2V_SENHA` + `S2V_SECRET` como variáveis de ambiente;
+  Drive lê `google_oauth.json`/`google_token.json` do bucket (data dir).
+- **Deploy**: `gcloud run deploy --source .` (Cloud Build) com o bucket montado.
+
 ## Inversores (1 ou vários)
 
 `Entradas.inversores` é uma lista `[{marca,pot_kw,tensao,qtd}]`. Quando vazia,

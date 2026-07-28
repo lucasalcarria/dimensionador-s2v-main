@@ -10,13 +10,13 @@
     "semantic_hash": "49a1dc71ba5f384d66a5cfbe06085903"
   },
   "config.json": {
-    "mtime": 1785240344.8803647,
+    "mtime": 1785240532.8885348,
     "ast_hash": "899c4cf67bf8ff0f9ab516ad066bef89",
     "semantic_hash": ""
   },
   "engine.py": {
-    "mtime": 1785114733.9182806,
-    "ast_hash": "67f52793f5e1a9920972a935fa9cb407",
+    "mtime": 1785241404.2244253,
+    "ast_hash": "2c2e293bc45c42e9126709478e17ae5a",
     "semantic_hash": ""
   },
   "iniciar.sh": {
@@ -55,9 +55,9 @@
     "semantic_hash": "5c96359d8a7f2495e06c08db51517322"
   },
   "requirements.txt": {
-    "mtime": 1784506017.0,
-    "ast_hash": "e1340bd8d4385bbf357762afc20b5a82",
-    "semantic_hash": "e1340bd8d4385bbf357762afc20b5a82"
+    "mtime": 1785241433.726912,
+    "ast_hash": "53f8347825e17fca1299edcbf2a099f0",
+    "semantic_hash": ""
   },
   "templates/index.html": {
     "mtime": 1785240301.9946053,

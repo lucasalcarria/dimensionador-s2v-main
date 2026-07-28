@@ -1,0 +1,16 @@
+# não copie dados/segredos/lixo para a imagem
+clientes/
+propostas/
+acesso.json
+google_oauth.json
+google_token.json
+tarifas_cache.json
+__pycache__/
+*.pyc
+.venv/
+venv/
+build/
+dist/
+.git/
+graphify-out/
+assets/_v1/

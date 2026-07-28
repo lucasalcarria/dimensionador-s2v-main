@@ -28,7 +28,17 @@ BASE = os.path.dirname(os.path.abspath(__file__))
 
 
 def dir_execucao() -> str:
-    """Pasta onde o usuário executa o programa (ao lado do .exe, se congelado)."""
+    """Pasta dos dados mutáveis (config editável, clientes/, tokens do Drive…).
+
+    `S2V_DATA_DIR` sobrepõe tudo: na nuvem (Cloud Run) apontamos essa variável
+    para um bucket montado, e aí config.json/clientes/google_token.json passam a
+    persistir lá — sem isso o disco do Cloud Run é temporário e some ao reiniciar.
+    Localmente ela fica vazia e usa a pasta do programa (ou do .exe, se congelado).
+    """
+    d = os.environ.get('S2V_DATA_DIR')
+    if d:
+        os.makedirs(d, exist_ok=True)
+        return d
     if getattr(sys, 'frozen', False):
         return os.path.dirname(sys.executable)
     return BASE
