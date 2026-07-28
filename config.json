@@ -244,12 +244,13 @@
   "degradacao_demais": 0.007,
   "_retorno_25": "Projeção de 25 anos (DADOS!Q43:Q67): tarifa reajusta 5% a.a.; geração cai 2,5% no 2º ano e 0,7% a.a. depois.",
   "garantias_fixas": {
-    "bateria": null,
-    "instalacao": null,
     "inversor": null,
-    "modulos": null
+    "inversor_micro": null,
+    "instalacao": null,
+    "modulos": null,
+    "bateria": null
   },
-  "_garantias_fixas": "Deixe null para usar as regras da planilha (DD!O30:O32: inversor 12 anos p/ micro-inversor senão 10; 20/15/12 anos conforme módulo; módulos 30 anos p/ N-TYPE/SUNOVA/OSDA/AMERISOLAR senão 25). Preencha um número para fixar. A garantia da bateria (bateria) usa 10 anos quando null. Rótulos no editor batem com a proposta: Inversor / Módulos / Performance linear / Bateria.",
+  "_garantias_fixas": "Deixe null para usar as regras da planilha. inversor = string (padrão 10); inversor_micro = micro (padrão 12); instalacao = rótulo Módulos (20/15/12 conforme módulo); modulos = rótulo Performance linear (30 p/ N-TYPE/SUNOVA/OSDA/AMERISOLAR senão 25); bateria = 10 quando null. Preencha um número para fixar.",
   "marcas_modulo": [
     "SUNOVA N-TYPE",
     "HONOR N-TYPE",
@@ -264,11 +265,10 @@
   ],
   "marcas_inversor": [
     "SAJ",
-    "MICRO SAJ",
     "SOLIS",
     "SUNGROW",
     "GROWATT",
-    "MICRO DEYE",
+    "DEYE",
     "HOYMILES",
     "CHINT",
     "SOLPLANET"
@@ -284,8 +284,8 @@
   },
   "_tarifas_padrao": "Valores pré-preenchidos por UC (PR!D31:H31, M31). Cada UC pode ser ajustada na tela.",
   "financiamento_padrao": {
-    "parcelas": 60,
-    "taxa_mes": 1.99
+    "taxa_mes": 1.99,
+    "parcelas": 60
   },
   "_financiamento_padrao": "DADOS!M35:M36 — usado no texto 'EM 60x SOB 1,99% AO MÊS' e na parcela estimada.",
   "formato_ptbr": true,
@@ -348,5 +348,7 @@
       "rotulo": "B3 – Demais classes"
     }
   ],
-  "validade_dias": 7
+  "validade_dias": 7,
+  "pasta_saida": "",
+  "pasta_drive": "S2V ENGENHARIA/ORÇAMENTOS"
 }

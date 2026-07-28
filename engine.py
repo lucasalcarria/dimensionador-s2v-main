@@ -585,7 +585,12 @@ def _textos(e: Entradas, r: Resultado, config: dict) -> dict:
     def _inv_txt(iv):                                        # TX!B12 (DD!B28)
         mono_tri = 'MONO' if iv['pot_kw'] <= 10 else 'TRI'
         kw = _dec(fmt_general(iv['pot_kw']), br)
-        return (f"{iv['marca']} {kw}kW"
+        # micro-inversor: o "MICRO" é prefixado aqui (a marca fica só "SAJ"; o
+        # toggle da tela é que define se vira "MICRO SAJ"). String não recebe nada.
+        marca = iv['marca']
+        if iv.get('micro') and not marca.upper().startswith('MICRO'):
+            marca = f'MICRO {marca}'
+        return (f"{marca} {kw}kW"
                 + f" {mono_tri} {iv['tensao']}V ".title())
     t['inv_qtd'] = f'{e.qtd_inversores}x'                    # TX!C12
     # agrupa inversores idênticos: 2× CHINT iguais = uma descrição só (a
@@ -593,7 +598,7 @@ def _textos(e: Entradas, r: Resultado, config: dict) -> dict:
     grupos = {}
     ordem_g = []
     for iv in invs:
-        k = (iv['marca'], iv['pot_kw'], iv['tensao'])
+        k = (iv['marca'], iv['pot_kw'], iv['tensao'], iv.get('micro', False))
         if k not in grupos:
             grupos[k] = 0
             ordem_g.append(k)
@@ -603,7 +608,8 @@ def _textos(e: Entradas, r: Resultado, config: dict) -> dict:
     else:
         # modelos diferentes: lista cada um ("CHINT 5kW 220V + GROWATT 8kW 380V")
         t['inv_desc'] = ' + '.join(
-            _inv_txt({'marca': k[0], 'pot_kw': k[1], 'tensao': k[2]}).strip()
+            _inv_txt({'marca': k[0], 'pot_kw': k[1], 'tensao': k[2],
+                      'micro': k[3]}).strip()
             for k in ordem_g)
     if e.estrutura != 'SOLO':                                # TX!B13/C13
         t['estr_qtd'] = f'{math.ceil(e.qtd_modulos_kit / 4)}x'
@@ -613,9 +619,13 @@ def _textos(e: Entradas, r: Resultado, config: dict) -> dict:
         t['estr_desc'] = 'Solo P/ 8 Mod.'
     g = config.get('garantias_fixas') or {}
     mmod = e.marca_modulo.upper()
-    # micro-inversor: garantia padrão de 12 anos (toggle na tela ou detecção
-    # pela marca / conexão MICRO). Os demais: 10.
-    gar_inv = g.get('inversor') or (12 if e.tem_micro() else 10)   # DD!O30
+    # garantia do inversor: micro tem padrão 12 anos e campo próprio
+    # (garantias_fixas.inversor_micro); string tem padrão 10 (garantias_fixas.
+    # inversor). Cada um sobrepõe só o seu tipo.
+    if e.tem_micro():
+        gar_inv = g.get('inversor_micro') or 12                # DD!O30 (micro)
+    else:
+        gar_inv = g.get('inversor') or 10                      # DD!O30 (string)
     gar_inst = g.get('instalacao') or (20 if mmod == 'AMERISOLAR'
                                        else 15 if 'N-TYPE' in mmod
                                        else 12)              # DD!O31

@@ -1,11 +1,11 @@
 # Graph Report - dimensionador-s2v-main  (2026-07-28)
 
 ## Corpus Check
-- 25 files · ~40,454 words
+- 25 files · ~40,194 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 398 nodes · 658 edges · 26 communities (16 shown, 10 thin omitted)
+- 393 nodes · 645 edges · 26 communities (16 shown, 10 thin omitted)
 - Extraction: 97% EXTRACTED · 3% INFERRED · 0% AMBIGUOUS · INFERRED: 21 edges (avg confidence: 0.84)
 - Token cost: 0 input · 0 output
 
@@ -46,9 +46,9 @@
 1. `calcular()` - 20 edges
 2. `Dimensionador S2V — proposta solar fotovoltaica (LEIA-ME)` - 20 edges
 3. `graphify (knowledge graph tool)` - 20 edges
-4. `UC` - 16 edges
-5. `Entradas` - 16 edges
-6. `carregar_config()` - 15 edges
+4. `carregar_config()` - 16 edges
+5. `UC` - 16 edges
+6. `Entradas` - 16 edges
 7. `_textos()` - 13 edges
 8. `gerar_proposta()` - 13 edges
 9. `api_proposta()` - 12 edges
@@ -78,31 +78,31 @@
 
 ### Community 0 - "Motor de Cálculo & Validação (engine.py)"
 Cohesion: 0.06
-Nodes (51): _resumo(), Dimensionador S2V (project), Regra número 1: engine.py réplica validada da planilha, Caso de validação NEUZA ZAMFERRARI (UC 16285387), % noturno: GERADORA usa valor informado, BENEFICIÁRIA sempre 100%, _exemplo_enunciado(), Reproduz o caso descrito: A=600 (geradora), B=400 (beneficiária),     geração ~1, relatorio_conferencia() (+43 more)
+Nodes (47): Dimensionador S2V (project), Regra número 1: engine.py réplica validada da planilha, Caso de validação NEUZA ZAMFERRARI (UC 16285387), % noturno: GERADORA usa valor informado, BENEFICIÁRIA sempre 100%, _exemplo_enunciado(), Reproduz o caso descrito: A=600 (geradora), B=400 (beneficiária),     geração ~1, relatorio_conferencia(), dict (+39 more)
 
 ### Community 1 - "Documentação do Skill Graphify"
 Cohesion: 0.05
 Nodes (42): /graphify command trigger (.claude/CLAUDE.md), /graphify add <url>, --watch folder monitor, Wiki Export (agent-crawlable), Confidence Score Rubric (discrete values), Node ID Format Rule ({stem}_{entity}), Extraction Subagent Prompt, graphify clone (+34 more)
 
 ### Community 2 - "Servidor Flask & API (app.py)"
-Cohesion: 0.14
-Nodes (10): api_drive_desconectar(), icones(), manifest(), oauth2_callback(), Descreve o app para o celular (nome, ícones, cor) — vira ícone na tela., Service worker. Servido da raiz (/sw.js) de propósito: só assim ele     controla, Ícones do app. send_from_directory impede acesso fora da pasta icons/., Recebe o código do Google e guarda o token. (+2 more)
+Cohesion: 0.12
+Nodes (15): api_drive_desconectar(), _exige_login(), icones(), login(), manifest(), oauth2_callback(), Descreve o app para o celular (nome, ícones, cor) — vira ícone na tela., Service worker. Servido da raiz (/sw.js) de propósito: só assim ele     controla (+7 more)
 
 ### Community 3 - "Geração de PDF da Proposta"
 Cohesion: 0.08
-Nodes (40): Cartões da pág. 3 se reagrupam (string box/bateria), O que ficou de fora (CÁLCULO DEMANDA, OFFGRID, SICREDI), Melhorias gráficas da proposta impressa, _ajustar_em_caixa(), _carregar_cards(), _carregar_deco(), _carregar_layout(), _desenhar_campo_cartao() (+32 more)
+Nodes (38): Cartões da pág. 3 se reagrupam (string box/bateria), _ajustar_em_caixa(), _carregar_cards(), _carregar_deco(), _carregar_layout(), _desenhar_campo_cartao(), _desenhar_cards_p3(), _desenhar_fotos_p3() (+30 more)
 
 ### Community 4 - "Dimensionador S2V — proposta solar fotovoltaica (LEIA-ME)"
 Cohesion: 0.08
-Nodes (23): ANEEL removida de propósito / tarifas em tabela local, Dados do usuário: nunca versionar/sobrescrever, Retorno de 25 anos (compat_planilha, bug do COUNTA corrigido), config.json (parâmetros de negócio), Usar no celular via QR code / mesma rede Wi-Fi, Parâmetros editáveis em config.json, Raspagem HTML do site da COPEL (sem Power BI), Dimensionador S2V — proposta solar fotovoltaica (LEIA-ME) (+15 more)
+Nodes (24): Dados do usuário: nunca versionar/sobrescrever, Retorno de 25 anos (compat_planilha, bug do COUNTA corrigido), config.json (parâmetros de negócio), Usar no celular via QR code / mesma rede Wi-Fi, Conferência do retorno financeiro, Parâmetros editáveis em config.json, Dimensionador S2V — proposta solar fotovoltaica (LEIA-ME), Estrutura de pastas do projeto (+16 more)
 
 ### Community 5 - "Interface do Usuário (JS da index.html)"
 Cohesion: 0.09
 Nodes (16): Tarifas da concessionária — tabela local sem depender de internet, addUC(), agendar(), aplicarConc(), aplicarMascaras(), blurKWH(), blurPCT(), calc() (+8 more)
 
 ### Community 6 - "Integração com Internet (online.py)"
-Cohesion: 0.15
-Nodes (18): NASA POWER irradiance API, ViaCEP API, buscar_cep(), buscar_irradiacao(), geocodificar(), _get_html(), _get_json(), _get_json_curl() (+10 more)
+Cohesion: 0.13
+Nodes (20): ANEEL removida de propósito / tarifas em tabela local, Raspagem HTML do site da COPEL (sem Power BI), NASA POWER irradiance API, ViaCEP API, buscar_cep(), buscar_irradiacao(), geocodificar(), _get_html() (+12 more)
 
 ### Community 7 - "UC"
 Cohesion: 0.10
@@ -129,16 +129,16 @@ Cohesion: 0.33
 Nodes (6): api_rede(), _ip_local(), qr_png(), IP desta máquina na rede local (para acesso pelo celular)., URL para acessar o programa pelo celular (mesma rede Wi-Fi)., QR code da URL de rede (requer o pacote opcional 'qrcode').
 
 ### Community 23 - "_montar_entradas"
-Cohesion: 0.18
-Nodes (13): api_calcular(), api_concessionarias(), api_conferencia(), api_copel_verificar(), api_irradiacao(), _f(), index(), _montar_entradas() (+5 more)
+Cohesion: 0.20
+Nodes (11): api_calcular(), api_concessionarias(), api_conferencia(), api_copel_verificar(), index(), _montar_entradas(), Devolve o detalhamento passo a passo do retorno financeiro., Concessionárias: tarifas locais por subgrupo + alíquotas + subgrupos. (+3 more)
 
 ### Community 24 - "_f"
-Cohesion: 0.19
-Nodes (13): _acesso_path(), api_atualizar_tarifa(), api_salvar_config(), _ler_acesso(), _obter_secret(), Grava TE/TUSD de uma concessionária+subgrupo na tabela local.      Aceita valore, Grava as pré-definições editadas, preservando o resto do config.json     (coment, Chave de sessão estável: env, senão acesso.json; cria e guarda se faltar     (pa (+5 more)
+Cohesion: 0.18
+Nodes (11): api_atualizar_tarifa(), api_irradiacao(), api_salvar_config(), _f(), Converte número vindo da tela (aceita vírgula) — vazio vira `padrao`., Grava TE/TUSD de uma concessionária+subgrupo na tabela local.      Aceita valore, Grava as pré-definições editadas, preservando o resto do config.json     (coment, caminho_config() (+3 more)
 
 ### Community 25 - "api_config"
-Cohesion: 0.29
-Nodes (7): api_config(), _exige_login(), _impostos_copel(), login(), Alíquotas atuais da COPEL (% já convertido) para o editor., Devolve só os parâmetros de negócio que a tela pode editar., _senha_acesso()
+Cohesion: 0.50
+Nodes (4): api_config(), _impostos_copel(), Alíquotas atuais da COPEL (% já convertido) para o editor., Devolve só os parâmetros de negócio que a tela pode editar.
 
 ## Ambiguous Edges - Review These
 - `Pendência: PWA (manifest.json + service worker)` → `PWA Service Worker Registration (sw.js)`  [AMBIGUOUS]
@@ -155,14 +155,14 @@ _Questions this graph is uniquely positioned to answer:_
 - **What is the exact relationship between `Pendência: PWA (manifest.json + service worker)` and `PWA Service Worker Registration (sw.js)`?**
   _Edge tagged AMBIGUOUS (relation: semantically_similar_to) - confidence is low._
 - **Why does `Regra número 1: engine.py réplica validada da planilha` connect `Motor de Cálculo & Validação (engine.py)` to `Documentação do Skill Graphify`?**
-  _High betweenness centrality (0.134) - this node is a cross-community bridge._
+  _High betweenness centrality (0.135) - this node is a cross-community bridge._
 - **Why does `Honesty Rules (never invent an edge)` connect `Documentação do Skill Graphify` to `Motor de Cálculo & Validação (engine.py)`?**
-  _High betweenness centrality (0.130) - this node is a cross-community bridge._
+  _High betweenness centrality (0.131) - this node is a cross-community bridge._
 - **What connects `iniciar.sh script`, `Como a proposta é montada`, `Página 1 — capa` to the rest of the system?**
   _50 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Motor de Cálculo & Validação (engine.py)` be split into smaller, more focused modules?**
-  _Cohesion score 0.05754475703324808 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.06298076923076923 - nodes in this community are weakly interconnected._
 - **Should `Documentação do Skill Graphify` be split into smaller, more focused modules?**
   _Cohesion score 0.05110336817653891 - nodes in this community are weakly interconnected._
 - **Should `Servidor Flask & API (app.py)` be split into smaller, more focused modules?**
-  _Cohesion score 0.14285714285714285 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.11578947368421053 - nodes in this community are weakly interconnected._

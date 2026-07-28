@@ -133,7 +133,7 @@ small.auto{color:var(--mudo)}
   <section>
     <h2>Cliente</h2>
     <div class="linha" style="gap:10px">
-      <div style="flex:1"><label>Nome do cliente</label><input id="nome" placeholder="Nome completo"></div>
+      <div style="flex:1"><label>Nome do cliente</label><input id="nome" placeholder="NOME COMPLETO" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"></div>
       <div style="width:150px"><label>CEP</label><input id="cep" class="cep" inputmode="numeric" placeholder="00.000-000"></div>
       <button class="bt-claro bt-mini" onclick="buscarCep()" title="Preenche endereço e cidade pela internet">buscar</button>
     </div>
@@ -141,6 +141,11 @@ small.auto{color:var(--mudo)}
       <div style="flex:1"><label>Logradouro</label><input id="endereco" placeholder="Rua / Avenida"></div>
       <div style="width:90px"><label>Nº</label><input id="numero" placeholder="nº"></div>
       <div style="flex:1"><label>Cidade - UF</label><input id="cidade" placeholder="Cidade - UF"></div>
+    </div>
+    <div class="linha" style="gap:10px;margin-top:10px">
+      <div style="flex:1"><label>Consultor / responsável <small class="auto">(vira a pasta onde o projeto é salvo — escolha uma ou digite um novo)</small></label>
+        <input id="consultor" list="lista-consultores" placeholder="ex.: nome do consultor ou da empresa" autocomplete="off">
+        <datalist id="lista-consultores"></datalist></div>
     </div>
     <p class="mudo" style="margin:8px 0 0;font-size:12px">O nº da UC de cada fatura fica em <b>Unidades consumidoras</b>; na proposta todos aparecem juntos na capa.</p>
   </section>
@@ -379,8 +384,11 @@ Parâmetros de negócio editáveis em <b>config.json</b> · propostas salvas em 
 <script>
 const MESES=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
 const T={{ cfg.tarifas_padrao | tojson }};
-const MARCAS_INV={{ cfg.marcas_inversor | tojson }};
-const PERDA_PADRAO={{ cfg.perda_irradiacao | default(0.25) }};
+// 'let' (não const): as listas de marcas podem ser atualizadas ao vivo quando
+// o usuário edita as pré-definições, sem precisar recarregar a página
+let MARCAS_INV={{ cfg.marcas_inversor | tojson }};
+let MARCAS_MOD={{ cfg.marcas_modulo | tojson }};
+let PERDA_PADRAO={{ cfg.perda_irradiacao | default(0.25) }};
 const PCT = x => Math.round(x*10000)/100;      // fração -> %
 let irrCustom=null;
 let CONC={};       // concessionárias (tarifas locais + alíquotas)
@@ -594,6 +602,23 @@ function addUC(){const box=document.getElementById('ucs');const n=box.children.l
  document.getElementById('badge-ucs').textContent=n+1; wire(box.lastElementChild);
  preencherConcSelects(box.lastElementChild); }
 
+// refaz as opções de um <select> de marca a partir de uma lista nova,
+// preservando o que estava escolhido (mesmo que a marca tenha saído da lista)
+function _rebuildMarcaSelect(sel,lista){
+ if(!sel) return; const cur=sel.value;
+ let opts=lista.map(m=>`<option value="${m}">${m}</option>`).join('');
+ if(cur && cur!=='__outro__' && !lista.includes(cur))
+   opts=`<option value="${cur}">${cur}</option>`+opts;   // não perde a seleção
+ opts+=`<option value="__outro__">Outro…</option>`;
+ sel.innerHTML=opts;
+ sel.value=cur||(lista[0]||'__outro__');
+}
+// atualiza os menus de marca (módulo e inversores) sem recarregar a página
+function rebuildMarcas(){
+ _rebuildMarcaSelect(document.getElementById('marca_modulo'),MARCAS_MOD);
+ document.querySelectorAll('#inversores .iv-marca')
+   .forEach(sel=>_rebuildMarcaSelect(sel,MARCAS_INV));
+}
 // ---- inversores (1 ou vários, cada um com potência e tensão próprias) ----
 function _ehMicroMarca(m){m=(m||'').toUpperCase();
  return m.includes('MICRO')||['HOYMILES','APSYSTEMS','AP SYSTEMS','ENPHASE'].includes(m);}
@@ -688,7 +713,7 @@ function coletar(){
  const num=id=>{const x=numBR(v(id)); return isNaN(x)?'':x;};
  const invs=lerInversores();
  const iv0=invs[0]||{marca:'',pot_kw:'',tensao:220};
- return {nome:v('nome'),endereco:v('endereco'),numero:v('numero'),cidade:v('cidade'),
+ return {nome:v('nome'),endereco:v('endereco'),numero:v('numero'),cidade:v('cidade'),consultor:v('consultor'),
   ucs:[...document.getElementById('ucs').children].map(lerUC),
   perfil_irradiacao:v('perfil')==='__custom__'?'3.8':v('perfil'),
   irradiacao_customizada:v('perfil')==='__custom__'?irrCustom:null,
@@ -813,9 +838,15 @@ async function gerar(){
   const nome=m?decodeURIComponent(m[1]):'PROPOSTA.pdf';
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download=nome; a.click(); URL.revokeObjectURL(a.href);
+  const aviso=r.headers.get('X-Drive-Aviso');
+  const enviado=r.headers.get('X-Drive-Enviado');
   const ok=document.getElementById('salvo-ok');
-  ok.innerHTML=`✔ proposta gerada e projeto salvo em <b>clientes/${(body.nome||'CLIENTE').trim()}/</b>`;
+  let extra = enviado ? ' e enviado ao <b>Google Drive</b> ✔' : '';
+  ok.innerHTML=`✔ proposta gerada e projeto salvo em <b>clientes/${(body.nome||'CLIENTE').trim()}/</b>${extra}`;
   ok.style.display='block'; setTimeout(()=>{ok.style.display='none';},8000);
+  if(aviso){const err=document.getElementById('erro');
+    err.innerHTML='⚠ A proposta foi gerada, mas <b>o envio ao Google Drive falhou</b>: '+aviso;
+    err.style.display='block';}
  }catch(e){const err=document.getElementById('erro');
    err.textContent='Falha ao gerar: '+e; err.style.display='block';}
  bt.disabled=false; bt.textContent='Gerar proposta e salvar';
@@ -924,9 +955,50 @@ async function abrirConfig(){
  try{
   const r=await fetch('/api/config'); const j=await r.json();
   if(!j.ok) throw j.erro; CFG=j.config; corpo.innerHTML=configHTML(CFG);
+  _atualizarDriveStatus();
  }catch(e){ corpo.textContent='Falha ao carregar: '+e; }
 }
-function fecharConfig(){ document.getElementById('modal-config').classList.remove('on'); }
+function fecharConfig(){ document.getElementById('modal-config').classList.remove('on'); if(_drivePoll){clearInterval(_drivePoll);_drivePoll=null;} }
+// ---- Google Drive (conexão OAuth) ----
+let _drivePoll=null;
+async function _atualizarDriveStatus(){
+ const el=document.getElementById('drive-status'); if(!el) return;
+ try{
+  const j=await (await fetch('/api/drive/status')).json();
+  const bC=document.getElementById('bt-drive-conectar'), bD=document.getElementById('bt-drive-desc');
+  if(!j.tem_credencial){
+    el.innerHTML='⚠ Falta o arquivo <b>google_oauth.json</b> na pasta do programa.';
+    bC.style.display='none'; bD.style.display='none';
+  }else if(j.conectado){
+    el.innerHTML=`✔ conectado como <b>${j.email||'conta Google'}</b>`;
+    bC.style.display='none'; bD.style.display='';
+    if(_drivePoll){clearInterval(_drivePoll);_drivePoll=null;}
+    carregarConsultores();
+  }else{
+    el.innerHTML='não conectado — clique em <b>Conectar Google Drive</b> (abre a autorização do Google).';
+    bC.style.display=''; bD.style.display='none';
+  }
+ }catch(e){ el.textContent='não foi possível verificar o status do Drive.'; }
+}
+function conectarDrive(){
+ window.open('/oauth2/start','_blank');
+ const el=document.getElementById('drive-status');
+ if(el) el.innerHTML='aguardando a autorização na outra aba…';
+ if(_drivePoll) clearInterval(_drivePoll);
+ let n=0; _drivePoll=setInterval(()=>{ n++; if(n>40){clearInterval(_drivePoll);_drivePoll=null;} _atualizarDriveStatus(); },2500);
+}
+async function desconectarDrive(){
+ await fetch('/api/drive/desconectar',{method:'POST'});
+ _atualizarDriveStatus(); carregarConsultores();
+}
+// preenche as sugestões do campo Consultor com as pastas já existentes no Drive
+async function carregarConsultores(){
+ const dl=document.getElementById('lista-consultores'); if(!dl) return;
+ try{
+  const j=await (await fetch('/api/drive/consultores')).json();
+  dl.innerHTML=(j.consultores||[]).map(n=>`<option value="${_esc(n)}">`).join('');
+ }catch(e){}
+}
 const _esc=s=>String(s==null?'':s).replace(/"/g,'&quot;');
 function configHTML(c){
  const g=c.garantias_fixas||{}, fin=c.financiamento_padrao||{};
@@ -971,8 +1043,9 @@ function configHTML(c){
   <p style="margin:2px 0 0;color:var(--mudo);font-size:12px">A NASA dá a irradiação global (horizontal). Essa perda a traz para a mesma base dos perfis pré-definidos (25 % faz Maringá 5,12 → ~3,8).</p>
   ${H('Garantias fixas (anos — vazio = regra automática da planilha)')}
   <p style="margin:-2px 0 8px;color:var(--mudo);font-size:12px">Os nomes são os mesmos rótulos da página 3 da proposta.</p>
-  <div class="grid g4">
-   <div><label>Inversor</label><input id="cf-g-inv" type="number" value="${_esc(g.inversor)}"></div>
+  <div class="grid" style="grid-template-columns:repeat(5,1fr);gap:10px">
+   <div><label>Inversor (string)</label><input id="cf-g-inv" type="number" value="${_esc(g.inversor)}"></div>
+   <div><label>Inversor (micro)</label><input id="cf-g-inv-micro" type="number" value="${_esc(g.inversor_micro)}"></div>
    <div><label>Módulos</label><input id="cf-g-inst" type="number" value="${_esc(g.instalacao)}"></div>
    <div><label>Performance linear</label><input id="cf-g-mod" type="number" value="${_esc(g.modulos)}"></div>
    <div><label>Bateria</label><input id="cf-g-bat" type="number" value="${_esc(g.bateria)}"></div>
@@ -1000,6 +1073,25 @@ function configHTML(c){
    <div><label>Financiamento (% a.m.)</label><input id="cf-fin-taxa" type="number" step="0.01" value="${_esc(fin.taxa_mes)}"></div>
    <div><label>Parcelas padrão</label><input id="cf-fin-parc" type="number" value="${_esc(fin.parcelas)}"></div>
    <div><label>Validade da proposta (dias)</label><input id="cf-validade" type="number" value="${_esc(c.validade_dias)}"></div>
+  </div>
+  ${H('Onde salvar os projetos (pasta local)')}
+  <div><label>Pasta base <small class="auto">(vazio = pasta "clientes" local; ex. Drive p/ Desktop: G:\\Meu Drive\\ORÇAMENTOS)</small></label>
+   <input id="cf-pasta" style="width:100%" placeholder="deixe vazio para salvar em clientes/ local" value="${_esc(c.pasta_saida||'')}"></div>
+  ${H('Google Drive (enviar as propostas para a nuvem)')}
+  <div id="drive-status" class="mudo" style="font-size:13px;margin-bottom:8px">verificando…</div>
+  <div class="linha" style="gap:10px;align-items:end">
+   <div style="flex:1"><label>Pasta no Drive <small class="auto">(caminho a partir do Meu Drive; use / p/ subpastas, ex.: S2V ENGENHARIA/ORÇAMENTOS)</small></label>
+    <input id="cf-pasta-drive" value="${_esc(c.pasta_drive||'')}" placeholder="ex.: S2V ENGENHARIA/ORÇAMENTOS"></div>
+   <button type="button" class="bt-claro bt-mini" id="bt-drive-conectar" onclick="conectarDrive()">Conectar Google Drive</button>
+   <button type="button" class="bt-claro bt-mini" id="bt-drive-desc" onclick="desconectarDrive()" style="display:none">Desconectar</button>
+  </div>
+  <p class="mudo" style="font-size:12px;margin:6px 0 0">A conexão é feita uma vez, aqui no computador. As propostas passam a ir também para essa pasta no seu Drive e aparecem no celular pelo app do Drive.</p>
+  ${H('Segurança (senha para acesso pela internet)')}
+  <p class="mudo" style="font-size:12px;margin:-2px 0 8px">Obrigatória se for usar o programa fora da sua rede (dados móveis). Sem senha, qualquer um com o link entra. ${c.tem_senha?'<b style="color:var(--verde)">🔒 senha definida.</b>':'<b style="color:#e57373">⚠ nenhuma senha definida.</b>'}</p>
+  <div class="linha" style="gap:12px;align-items:center">
+   <div style="flex:1"><label>${c.tem_senha?'Trocar a senha (vazio = manter)':'Definir senha'}</label>
+    <input id="cf-senha" type="password" autocomplete="new-password" placeholder="${c.tem_senha?'•••••• (deixe vazio para manter)':'digite uma senha'}"></div>
+   ${c.tem_senha?'<label style="display:flex;gap:6px;align-items:center;font-size:13px;white-space:nowrap"><input type="checkbox" id="cf-remover-senha"> remover senha</label>':''}
   </div>`;
 }
 function addLinha(id,tipo){
@@ -1022,7 +1114,7 @@ function salvarConfig(){
  const c={
    aliquota_imposto:(_n(G('cf-aliq'))||0)/100,
    mao_de_obra_minima:_n(G('cf-mo-min')), mao_de_obra_por_modulo:_n(G('cf-mo-mod')),
-   garantias_fixas:{inversor:gar(G('cf-g-inv')),instalacao:gar(G('cf-g-inst')),modulos:gar(G('cf-g-mod')),bateria:gar(G('cf-g-bat'))},
+   garantias_fixas:{inversor:gar(G('cf-g-inv')),inversor_micro:gar(G('cf-g-inv-micro')),instalacao:gar(G('cf-g-inst')),modulos:gar(G('cf-g-mod')),bateria:gar(G('cf-g-bat'))},
    material_markup:_n(G('cf-mat-markup')),
    material_extra_faixas:linhasVal('#cf-material',['mat-min','mat-max','mat-base']),
    trafos:linhasVal('#cf-trafos',['tr-min','tr-max','tr-kva','tr-preco']),
@@ -1031,15 +1123,26 @@ function salvarConfig(){
    marcas_inversor:G('cf-marcas-inv').value.split(/[\r\n]+/).map(s=>s.trim()).filter(Boolean),
    financiamento_padrao:{taxa_mes:_n(G('cf-fin-taxa')),parcelas:_n(G('cf-fin-parc'))},
    validade_dias:_n(G('cf-validade')),
+   pasta_saida:G('cf-pasta').value.trim(),
+   pasta_drive:G('cf-pasta-drive').value.trim(),
    fio_b_rs_mwh:_n(G('cf-fiob')),
    perda_irradiacao:(_n(G('cf-perda'))||0)/100,
    performance_ratio:_n(G('cf-pr')),
    impostos_copel:{pis:_n(G('cf-pis')),cofins:_n(G('cf-cofins')),icms:_n(G('cf-icms')),icms_rural:_n(G('cf-icms-rural'))},
  };
+ // senha: só envia quando muda (troca ou remoção); vazio = manter atual
+ const rem=G('cf-remover-senha')&&G('cf-remover-senha').checked;
+ const nova=G('cf-senha')?G('cf-senha').value:'';
+ if(rem) c.senha_acesso=''; else if(nova) c.senha_acesso=nova;
  fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(c)})
   .then(r=>r.json()).then(async j=>{
     if(!j.ok) throw j.erro;
     await carregarConcessionarias(true);   // relê a tabela do config novo
+    // atualiza as listas de marcas na memória e reconstrói os menus ao vivo
+    if(Array.isArray(c.marcas_inversor)) MARCAS_INV=c.marcas_inversor;
+    if(Array.isArray(c.marcas_modulo)) MARCAS_MOD=c.marcas_modulo;
+    if(c.perda_irradiacao!=null) PERDA_PADRAO=c.perda_irradiacao;
+    rebuildMarcas(); carregarConsultores();
     // aplica os impostos novos a todas as UCs já abertas na tela
     const ic=c.impostos_copel;
     if(ic){
@@ -1051,8 +1154,8 @@ function salvarConfig(){
       });
     }
     msg.style.color='var(--verde)';
-    msg.textContent='✔ salvo e aplicado às UCs (recarregue a página para atualizar os menus de marca).';
-    setTimeout(()=>{fecharConfig();},1800); calc(false);
+    msg.textContent='✔ salvo e aplicado (menus de marca atualizados).';
+    setTimeout(()=>{fecharConfig();},1500); calc(false);
   }).catch(e=>{msg.style.color='#e57373';msg.textContent='Erro: '+e;})
   .finally(()=>{bt.disabled=false;});
 }
@@ -1074,7 +1177,7 @@ function _chk(id,val){
  el.checked=!!val; el.dispatchEvent(new Event('change',{bubbles:true}));
 }
 function aplicar(d){
- _set('nome',d.nome); _set('endereco',d.endereco); _set('numero',d.numero); _set('cidade',d.cidade);
+ _set('nome',d.nome); _set('endereco',d.endereco); _set('numero',d.numero); _set('cidade',d.cidade); _set('consultor',d.consultor);
  _setSel('marca_modulo',d.marca_modulo); _set('pot_modulo_w',d.pot_modulo_w); _set('qtd_modulos',d.qtd_modulos_kit);
  _setSel('conexao',d.conexao); _setSel('estrutura',d.estrutura);
  _set('valor_kit',d.valor_kit); _set('entrada',d.entrada); _set('custo_380v',d.custo_380v); _set('desloc',d.desloc);
@@ -1157,6 +1260,7 @@ window.addEventListener('paste',e=>{
 });
 
 carregarConcessionarias();
+carregarConsultores();
 addUC(); addInv(); wire(document);
 document.getElementById('perda-irr').value=Math.round(PERDA_PADRAO*100);
 // bloco "usar no celular": só aparece se o servidor tiver IP de rede

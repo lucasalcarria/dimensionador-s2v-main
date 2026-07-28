@@ -1,7 +1,7 @@
 {
   "app.py": {
-    "mtime": 1785240238.3713536,
-    "ast_hash": "6cb46551d8e49a172d7f74855090a0fc",
+    "mtime": 1784988344.74613,
+    "ast_hash": "46e5345aaa7d50696ff15d35cd714c58",
     "semantic_hash": ""
   },
   "conferencia_retorno.py": {
@@ -10,13 +10,13 @@
     "semantic_hash": "49a1dc71ba5f384d66a5cfbe06085903"
   },
   "config.json": {
-    "mtime": 1785240344.8803647,
-    "ast_hash": "899c4cf67bf8ff0f9ab516ad066bef89",
+    "mtime": 1784988068.5406294,
+    "ast_hash": "59b4ed14acf45e8ee214913556f6e547",
     "semantic_hash": ""
   },
   "engine.py": {
-    "mtime": 1785114733.9182806,
-    "ast_hash": "67f52793f5e1a9920972a935fa9cb407",
+    "mtime": 1785008439.633303,
+    "ast_hash": "8889e219f4af4bebebae7fb963462517",
     "semantic_hash": ""
   },
   "iniciar.sh": {
@@ -45,8 +45,8 @@
     "semantic_hash": "5bf3015c6ae8836b2f28f980b978357e"
   },
   "CLAUDE.md": {
-    "mtime": 1785240388.3628356,
-    "ast_hash": "e933812461618ce44af41f0f851ac906",
+    "mtime": 1784989301.6251817,
+    "ast_hash": "5c8664f59e78cbf3c1af81733376423f",
     "semantic_hash": ""
   },
   "LEIA-ME.md": {
@@ -60,8 +60,8 @@
     "semantic_hash": "e1340bd8d4385bbf357762afc20b5a82"
   },
   "templates/index.html": {
-    "mtime": 1785240301.9946053,
-    "ast_hash": "cf2a1ef3796a9588f36d28f5f1f9f1b5",
+    "mtime": 1785008517.3234878,
+    "ast_hash": "bdbdf45fd4597d421be3da7d06bd6ff3",
     "semantic_hash": ""
   },
   ".claude/settings.json": {
@@ -127,11 +127,6 @@
   "MAPA-PROPOSTA.md": {
     "mtime": 1784989257.7924182,
     "ast_hash": "cb49f840b28fa673563490c4218c1081",
-    "semantic_hash": ""
-  },
-  "drive.py": {
-    "mtime": 1785239822.5381827,
-    "ast_hash": "1ba08335bcb9e8f3f2689b7bde42729a",
     "semantic_hash": ""
   }
 }

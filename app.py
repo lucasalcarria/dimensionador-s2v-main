@@ -14,11 +14,13 @@ import webbrowser
 import json
 from datetime import datetime
 
-from flask import (Flask, jsonify, render_template, request, send_file,
-                   send_from_directory)
+from flask import (Flask, jsonify, redirect, render_template,
+                   render_template_string, request, send_file,
+                   send_from_directory, session)
 
 import engine
 import proposta
+import drive
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 PROPOSTAS = os.path.join(engine.dir_execucao(), 'propostas')
@@ -28,9 +30,127 @@ PORTA = 8177
 app = Flask(__name__)
 
 
-def _clientes_dir() -> str:
+# ------------------------------------------------------------------ acesso
+# Login é OPCIONAL: só é exigido quando existe uma senha. A senha e a chave de
+# sessão ficam em `acesso.json` (NÃO versionado), fora do config.json (que é
+# versionado) — assim a senha nunca vaza no Git. Também aceita as variáveis de
+# ambiente S2V_SENHA / S2V_SECRET (úteis na nuvem). Sem senha, o uso local segue
+# sem pedir nada.
+def _acesso_path() -> str:
+    return os.path.join(engine.dir_execucao(), 'acesso.json')
+
+
+def _ler_acesso() -> dict:
+    try:
+        with open(_acesso_path(), encoding='utf-8') as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def _salvar_acesso(dados: dict) -> None:
+    with open(_acesso_path(), 'w', encoding='utf-8') as f:
+        json.dump(dados, f, ensure_ascii=False, indent=1)
+
+
+def _senha_acesso() -> str:
+    return (os.environ.get('S2V_SENHA')
+            or _ler_acesso().get('senha') or '').strip()
+
+
+def _obter_secret() -> str:
+    """Chave de sessão estável: env, senão acesso.json; cria e guarda se faltar
+    (para o login não cair a cada reinício do programa)."""
+    s = os.environ.get('S2V_SECRET')
+    if s:
+        return s
+    ac = _ler_acesso()
+    if not ac.get('secret'):
+        ac['secret'] = os.urandom(24).hex()
+        try:
+            _salvar_acesso(ac)
+        except OSError:
+            pass
+    return ac['secret']
+
+
+app.secret_key = _obter_secret()
+
+# caminhos liberados sem login (a própria tela de login e os estáticos)
+_LIVRE = {'/login', '/logo.png', '/manifest.webmanifest', '/sw.js', '/qr.png'}
+
+
+@app.before_request
+def _exige_login():
+    senha = _senha_acesso()
+    if not senha:                                   # sem senha => sem login
+        return None
+    if session.get('auth') is True:
+        return None
+    p = request.path
+    if p in _LIVRE or p.startswith('/icons/'):
+        return None
+    if p.startswith('/api/'):
+        return jsonify(ok=False, erro='sessão expirada — faça login'), 401
+    return redirect('/login')
+
+
+_LOGIN_HTML = """<!doctype html><meta charset=utf-8>
+<title>Entrar — Dimensionador S2V</title>
+<meta name=viewport content="width=device-width, initial-scale=1">
+<style>body{margin:0;min-height:100vh;display:flex;align-items:center;
+justify-content:center;background:#0b1220;font-family:system-ui,Arial}
+form{background:#101b28;border:1px solid #22303f;border-radius:14px;
+padding:26px;width:300px;max-width:90vw;color:#e6edf3}
+h1{font-size:16px;margin:0 0 4px}p{color:#8aa0b4;font-size:13px;margin:0 0 16px}
+input{width:100%;box-sizing:border-box;padding:10px;border-radius:8px;
+border:1px solid #22303f;background:#0b1220;color:#e6edf3;font-size:15px}
+button{width:100%;margin-top:12px;padding:10px;border:0;border-radius:8px;
+background:#1462ae;color:#fff;font-weight:600;font-size:15px;cursor:pointer}
+.erro{color:#e57373;font-size:13px;margin-top:10px}</style>
+<form method=post><h1>Dimensionador S2V</h1>
+<p>Digite a senha de acesso.</p>
+<input type=password name=senha autofocus placeholder="senha">
+<button>Entrar</button>
+{% if erro %}<div class=erro>{{ erro }}</div>{% endif %}</form>"""
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    import hmac
+    senha = _senha_acesso()
+    if not senha:                                   # login desativado
+        return redirect('/')
+    erro = ''
+    if request.method == 'POST':
+        if hmac.compare_digest(request.form.get('senha', ''), senha):
+            session['auth'] = True
+            session.permanent = True
+            return redirect('/')
+        erro = 'Senha incorreta.'
+    return render_template_string(_LOGIN_HTML, erro=erro)
+
+
+@app.get('/logout')
+def logout():
+    session.clear()
+    return redirect('/login')
+
+
+def _pasta_base() -> str:
+    """Pasta raiz onde os projetos são salvos. Por padrão a 'clientes/' local;
+    se 'pasta_saida' estiver definido no config (ex.: uma pasta do Google Drive
+    para Desktop), usa ela. Cai no local se o caminho configurado não existir."""
+    destino = (engine.carregar_config().get('pasta_saida') or '').strip()
+    if destino and os.path.isdir(os.path.dirname(destino) or destino):
+        os.makedirs(destino, exist_ok=True)
+        return destino
     os.makedirs(CLIENTES, exist_ok=True)
     return CLIENTES
+
+
+def _clientes_dir() -> str:
+    return _pasta_base()
 
 
 def _limpar_nome(txt: str, padrao: str) -> str:
@@ -51,10 +171,17 @@ def _nome_projeto(e: 'engine.Entradas', r: dict) -> str:
     return _limpar_nome(' '.join(p for p in partes if p), 'PROJETO')
 
 
-def _pasta_projeto(e: 'engine.Entradas', r: dict) -> str:
-    """clientes/<NOME>/<7,44KWP ONGRID …>/ — cria e devolve o caminho."""
-    nome = _limpar_nome(e.nome, 'CLIENTE')
-    pasta = os.path.join(_clientes_dir(), nome, _nome_projeto(e, r))
+def _pasta_projeto(e: 'engine.Entradas', r: dict, consultor: str = '') -> str:
+    """<base>/<consultor>/<NOME>/<7,44KWP ONGRID …>/ — cria e devolve o caminho.
+    O nível do consultor só entra quando informado (senão vai direto no cliente).
+    """
+    partes = [_pasta_base()]
+    cons = _limpar_nome(consultor, '').strip()
+    if cons:
+        partes.append(cons)
+    partes.append(_limpar_nome(e.nome, 'CLIENTE'))
+    partes.append(_nome_projeto(e, r))
+    pasta = os.path.join(*partes)
     os.makedirs(pasta, exist_ok=True)
     return pasta
 
@@ -331,7 +458,7 @@ CONFIG_EDITAVEL = ('aliquota_imposto', 'mao_de_obra_minima',
                    'faixas_margem', 'fio_b_rs_mwh', 'validade_dias',
                    'financiamento_padrao', 'performance_ratio',
                    'perda_irradiacao', 'marcas_modulo', 'marcas_inversor',
-                   'bandeiras', 'subgrupos')
+                   'bandeiras', 'subgrupos', 'pasta_saida', 'pasta_drive')
 
 
 def _impostos_copel(cfg: dict) -> dict:
@@ -353,6 +480,7 @@ def api_config():
         cfg = engine.carregar_config()
         dados = {k: cfg.get(k) for k in CONFIG_EDITAVEL}
         dados['impostos_copel'] = _impostos_copel(cfg)
+        dados['tem_senha'] = bool(_senha_acesso())
         return jsonify(ok=True, config=dados)
     except Exception as exc:                                    # noqa: BLE001
         return jsonify(ok=False, erro=str(exc)), 400
@@ -364,6 +492,16 @@ def api_salvar_config():
     (comentários e a TABELA DE TARIFAS das concessionárias ficam intactos)."""
     try:
         novos = request.get_json(force=True) or {}
+        # senha de acesso: vai para acesso.json (NÃO versionado), nunca para o
+        # config.json. String vazia remove a senha (volta a não exigir login).
+        if 'senha_acesso' in novos:
+            ac = _ler_acesso()
+            nova = (novos.get('senha_acesso') or '').strip()
+            if nova:
+                ac['senha'] = nova
+            else:
+                ac.pop('senha', None)
+            _salvar_acesso(ac)
         caminho = engine.caminho_config()
         with open(caminho, encoding='utf-8') as f:
             cfg = json.load(f)                      # mantém ordem e comentários
@@ -458,23 +596,84 @@ def qr_png():
         return ('', 404)
 
 
+# --------------------------------------------------------------- Google Drive
+def _redirect_uri() -> str:
+    return request.host_url.rstrip('/') + '/oauth2/callback'
+
+
+@app.get('/oauth2/start')
+def oauth2_start():
+    """Abre a autorização do Google (deve ser feita LOCALMENTE, no PC)."""
+    try:
+        if not drive.tem_credencial():
+            return ('Falta o arquivo google_oauth.json na pasta do programa.',
+                    400)
+        import secrets
+        session['oauth_state'] = secrets.token_urlsafe(16)
+        return redirect(drive.auth_url(_redirect_uri()))
+    except Exception as exc:                                    # noqa: BLE001
+        return (f'Erro ao iniciar: {exc}', 400)
+
+
+@app.get('/oauth2/callback')
+def oauth2_callback():
+    """Recebe o código do Google e guarda o token."""
+    erro = request.args.get('error')
+    code = request.args.get('code')
+    if erro:
+        return redirect('/?drive=erro')
+    try:
+        drive.trocar_codigo(code, _redirect_uri())
+        return redirect('/?drive=ok')
+    except Exception as exc:                                    # noqa: BLE001
+        return (f'Falha ao conectar o Drive: {exc}', 400)
+
+
+@app.get('/api/drive/status')
+def api_drive_status():
+    cfg = engine.carregar_config()
+    return jsonify(ok=True, tem_credencial=drive.tem_credencial(),
+                   conectado=drive.conectado(),
+                   email=drive.email_conectado(),
+                   pasta=cfg.get('pasta_drive', ''))
+
+
+@app.post('/api/drive/desconectar')
+def api_drive_desconectar():
+    drive.desconectar()
+    return jsonify(ok=True)
+
+
+@app.get('/api/drive/consultores')
+def api_drive_consultores():
+    """Pastas de consultor já existentes na pasta base do Drive (p/ o menu)."""
+    cfg = engine.carregar_config()
+    base = (cfg.get('pasta_drive') or '').strip()
+    if not (base and drive.conectado()):
+        return jsonify(ok=True, consultores=[])
+    try:
+        return jsonify(ok=True, consultores=drive.listar_subpastas(base))
+    except Exception as exc:                                    # noqa: BLE001
+        return jsonify(ok=False, erro=str(exc), consultores=[])
+
+
 @app.get('/api/resumos-salvos')
 def api_resumos_salvos():
-    """Lista os projetos que podem ser reabertos (cada pasta tem um DADOS.json)."""
+    """Lista os projetos que podem ser reabertos — qualquer pasta que tenha um
+    DADOS.json, em qualquer profundidade (com ou sem o nível do consultor)."""
     base = _clientes_dir()
     itens = []
-    for cliente in sorted(os.listdir(base)):
-        cam_cli = os.path.join(base, cliente)
-        if not os.path.isdir(cam_cli):
+    for raiz, _dirs, arqs in os.walk(base):
+        if 'DADOS.json' not in arqs:
             continue
-        for projeto in sorted(os.listdir(cam_cli), reverse=True):
-            cam_proj = os.path.join(cam_cli, projeto)
-            if not os.path.isdir(cam_proj):
-                continue
-            if os.path.isfile(os.path.join(cam_proj, 'DADOS.json')):
-                rel = os.path.join(cliente, projeto)
-                itens.append({'cliente': cliente, 'projeto': projeto,
-                              'rel': rel})
+        rel = os.path.relpath(raiz, base)
+        partes = rel.split(os.sep)
+        projeto = partes[-1]
+        cliente = partes[-2] if len(partes) >= 2 else projeto
+        itens.append({'cliente': cliente, 'projeto': projeto,
+                      'rel': rel.replace(os.sep, '/'),
+                      'caminho': rel.replace(os.sep, ' / ')})
+    itens.sort(key=lambda x: x['rel'], reverse=True)
     return jsonify(ok=True, itens=itens)
 
 
@@ -509,27 +708,60 @@ def api_proposta():
         e = _montar_entradas(d)
         r = engine.calcular(e, cfg)
 
-        pasta = _pasta_projeto(e, r)        # clientes/<NOME>/<7,44KWP …>/
+        consultor = (d.get('consultor') or '').strip()
+        pasta = _pasta_projeto(e, r, consultor)  # <base>/<consultor>/<cliente>/…
         nome_pdf = _limpar_nome(e.nome, 'PROPOSTA')
         imagens = {'modulo': _img_bytes(d.get('img_modulo')),
                    'inversor': _img_bytes(d.get('img_inversor'))}
         imagens = {k: v for k, v in imagens.items() if v}
 
-        with open(os.path.join(pasta, 'RESUMO.txt'), 'w', encoding='utf-8') as f:
-            f.write(resumo_texto.resumo_texto(e, cfg))
-        with open(os.path.join(pasta, 'CONFERENCIA.txt'), 'w',
-                  encoding='utf-8') as f:
-            f.write(conferencia_retorno.relatorio_conferencia(e, cfg))
+        txt_resumo = resumo_texto.resumo_texto(e, cfg)
+        txt_conf = conferencia_retorno.relatorio_conferencia(e, cfg)
         # DADOS.json repovoa a tela depois; as fotos (base64 grande) ficam fora
         d_salvar = {k: v for k, v in d.items()
                     if k not in ('img_modulo', 'img_inversor')}
+        txt_dados = json.dumps(d_salvar, ensure_ascii=False, indent=1)
+
+        with open(os.path.join(pasta, 'RESUMO.txt'), 'w', encoding='utf-8') as f:
+            f.write(txt_resumo)
+        with open(os.path.join(pasta, 'CONFERENCIA.txt'), 'w',
+                  encoding='utf-8') as f:
+            f.write(txt_conf)
         with open(os.path.join(pasta, 'DADOS.json'), 'w', encoding='utf-8') as f:
-            json.dump(d_salvar, f, ensure_ascii=False, indent=1)
+            f.write(txt_dados)
 
         destino = os.path.join(pasta, f'{nome_pdf}.pdf')
         proposta.gerar_proposta(r, destino, imagens=imagens or None)
-        return send_file(destino, as_attachment=True,
+
+        # envia ao Google Drive (se conectado e com pasta configurada). Falha no
+        # Drive não quebra a geração — o arquivo local + download continuam.
+        aviso_drive = None
+        enviado_drive = False
+        base_drive = (cfg.get('pasta_drive') or '').strip()
+        if base_drive and drive.conectado():
+            try:
+                with open(destino, 'rb') as f:
+                    pdf_bytes = f.read()
+                drive.enviar_projeto(
+                    base_drive, consultor, _limpar_nome(e.nome, 'CLIENTE'),
+                    _nome_projeto(e, r),
+                    [('RESUMO.txt', txt_resumo.encode('utf-8'), 'text/plain'),
+                     ('CONFERENCIA.txt', txt_conf.encode('utf-8'), 'text/plain'),
+                     ('DADOS.json', txt_dados.encode('utf-8'),
+                      'application/json'),
+                     (f'{nome_pdf}.pdf', pdf_bytes, 'application/pdf')])
+                enviado_drive = True
+            except Exception as exc:                           # noqa: BLE001
+                aviso_drive = str(exc)[:300]
+
+        resp = send_file(destino, as_attachment=True,
                          download_name=f'{nome_pdf}.pdf')
+        if enviado_drive:
+            resp.headers['X-Drive-Enviado'] = '1'
+        if aviso_drive:                       # cabeçalho HTTP só aceita ASCII
+            resp.headers['X-Drive-Aviso'] = \
+                aviso_drive.encode('ascii', 'replace').decode('ascii')
+        return resp
     except Exception as exc:                                   # noqa: BLE001
         return jsonify(ok=False, erro=str(exc)), 400
 

@@ -24,5 +24,10 @@
   "22": "_ip_local",
   "23": "_montar_entradas",
   "24": "_f",
-  "25": "api_config"
+  "25": "api_config",
+  "26": "api_atualizar_tarifa",
+  "27": "api_concessionarias",
+  "28": "icones",
+  "29": "service_worker",
+  "30": "Uso no celular via QR code / LAN"
 }

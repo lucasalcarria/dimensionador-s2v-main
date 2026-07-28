@@ -107,10 +107,46 @@ Só precisa de `pypdfium2`, `fontTools` e `brotli` — **no build, não no progr
   o que foi digitado).
 - **Um único botão** ("Gerar proposta e salvar") faz tudo: calcula, gera o PDF e
   grava o projeto. Cada projeto vai para uma **subpasta nomeada**
-  `clientes/<NOME>/<7,44KWP ONGRID CHINT 5K 220V COLONIAL>/` contendo
-  `RESUMO.txt`, `CONFERENCIA.txt`, `DADOS.json` e `<nome>.pdf`. O rótulo da pasta
-  sai de `app._nome_projeto()` (kWp + conexão + inversores + estrutura). O botão
-  **Importar projeto** lista essas pastas e repovoa a tela via `aplicar()`.
+  `<base>/<CONSULTOR>/<NOME>/<7,44KWP ONGRID CHINT 5K 220V COLONIAL>/` contendo
+  `RESUMO.txt`, `CONFERENCIA.txt`, `DADOS.json` e `<nome>.pdf`. O rótulo do
+  projeto sai de `app._nome_projeto()` (kWp + conexão + inversores + estrutura);
+  o **consultor** é um campo livre em Cliente (`app._pasta_projeto` insere esse
+  nível só quando preenchido). O botão **Importar projeto** varre a base em
+  qualquer profundidade (`os.walk`, procura `DADOS.json`) e repovoa via `aplicar()`.
+- **Pasta base configurável** (`config.pasta_saida`, editável nas pré-definições):
+  vazio = `clientes/` local; pode apontar para uma pasta do Google Drive para
+  Desktop (ex.: `G:\Meu Drive\ORÇAMENTOS`). Cai no local se o caminho não existir.
+
+## Acesso remoto / login (app.py)
+
+Para expor na internet (uso via dados móveis). Login é **opcional**: só é exigido
+quando há senha. A senha e a chave de sessão ficam em **`acesso.json`**
+(gitignored — NUNCA no `config.json`, que é versionado). Também aceita
+`S2V_SENHA`/`S2V_SECRET` por variável de ambiente (úteis na nuvem). A senha é
+editável na aba **⚙ Pré-definições → Segurança** (o POST `/api/config` grava a
+chave `senha_acesso` em `acesso.json`, não no config). Sem senha, o uso local não
+pede nada (e `teste_planilha`, que não usa HTTP, fica intacto).
+`@app.before_request` protege tudo; `/login`, estáticos e `/icons/` ficam livres;
+rotas `/api/*` sem sessão devolvem 401. `_obter_secret()` guarda uma chave de
+sessão estável em `acesso.json` (o login não cai a cada reinício).
+## Google Drive (OAuth) — `drive.py`
+
+Envia as propostas para uma pasta do Drive (para ver no celular). Sem
+dependências novas — só `urllib`, no estilo do `online.py`.
+- **Credencial**: `google_oauth.json` (tipo *Desktop*, do Google Cloud) na raiz
+  do projeto. Gitignored, junto com `google_token.json` (o refresh token).
+- **Conectar** (uma vez, no PC): botão nas pré-definições → `/oauth2/start`
+  (redirect ao Google) → `/oauth2/callback` troca o code por tokens
+  (`drive.trocar_codigo`). `_access_token()` renova sozinho pelo refresh token.
+- **Escopo**: `auth/drive` (achar ORÇAMENTOS pelo nome + criar/enviar) + email.
+- **Salvamento**: `/api/proposta` grava local (backup) **e**, se `pasta_drive`
+  (nome da pasta base no Drive, ex. "ORÇAMENTOS") estiver definido e o Drive
+  conectado, envia para `pasta_drive/<consultor>/<cliente>/<projeto>/` via
+  `drive.enviar_projeto`. Falha no Drive **não** quebra a geração (vai num
+  header `X-Drive-Aviso`). `/api/drive/status` e `/api/drive/desconectar`
+  cuidam do estado. Import ainda lê da pasta LOCAL.
+- **Nuvem**: a autorização única precisa de navegador (feita no PC); o refresh
+  token resultante vale no Cloud Run também.
 
 ## Inversores (1 ou vários)
 

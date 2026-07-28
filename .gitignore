@@ -3,6 +3,13 @@ clientes/
 propostas/
 tarifas_cache.json
 
+# --- segredos do Google Drive (OAuth) — NUNCA versionar ---
+google_oauth.json
+google_token.json
+
+# --- senha de acesso / chave de sessão — NUNCA versionar ---
+acesso.json
+
 # --- Python ---
 __pycache__/
 *.py[cod]
