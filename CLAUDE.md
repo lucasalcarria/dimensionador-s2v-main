@@ -165,6 +165,42 @@ programa, comportamento igual ao de sempre.
   Drive lê `google_oauth.json`/`google_token.json` do bucket (data dir).
 - **Deploy**: `gcloud run deploy --source .` (Cloud Build) com o bucket montado.
 
+### Deploy — EM ANDAMENTO (retomar daqui)
+
+Código já **commitado e no GitHub** (`github.com/lucasalcarria/dimensionador-s2v-main`,
+branch `main`, commit `1d624e3` "Prepara para Cloud Run"). Falta só o deploy, que
+roda na conta Google do usuário via **Cloud Shell** (nada instalado no PC).
+Projeto do Google Cloud: número **563167083292** (o mesmo do OAuth do Drive).
+Região escolhida: **southamerica-east1**. Bucket: **s2v-dimensionador-dados**
+(montar em **/data**).
+
+**BLOQUEIO ATUAL:** o projeto **não tem faturamento (billing) ativado** — o
+`gcloud services enable` e o `buckets create` deram `billing-enabled / 
+UREQ_PROJECT_BILLING_NOT_FOUND`. O usuário precisa **vincular uma conta de
+faturamento** (cartão) ao projeto no Console (Faturamento → Vincular conta).
+Cloud Run é grátis no volume dele, mas o Google exige cartão cadastrado.
+
+Passos que faltam (depois do billing):
+1. **Etapa 1** (refazer): no Cloud Shell, `git clone` do repo, `cd` nele,
+   `gcloud services enable run/cloudbuild/storage/artifactregistry`,
+   `gcloud storage buckets create gs://s2v-dimensionador-dados --location=southamerica-east1`,
+   e dar `roles/storage.objectAdmin` no bucket para o SA
+   `${PROJNUM}-compute@developer.gserviceaccount.com`.
+2. **Etapa 2**: subir ao bucket os 3 arquivos do PC — `config.json`,
+   `google_oauth.json`, `google_token.json` (os dois últimos são segredos,
+   gitignored; sobem pelo botão de upload do Cloud Shell + `gcloud storage cp … gs://…/`).
+3. **Etapa 3** (deploy):
+   `gcloud run deploy dimensionador --source . --region southamerica-east1
+   --allow-unauthenticated --memory 1Gi
+   --set-env-vars S2V_SECRET=<frase>,S2V_SENHA=<senha>
+   --add-volume name=dados,type=cloud-storage,bucket=s2v-dimensionador-dados
+   --add-volume-mount volume=dados,mount-path=/data`.
+   Dá um URL `https://…run.app` fixo → abre no celular, pede a senha.
+Notas: `--allow-unauthenticated` (protegido pela senha do app); reconectar o
+Drive tem de ser no PC (OAuth Desktop só aceita localhost) — o refresh token já
+existente vale na nuvem. Não consigo testar o deploy (conta do usuário): ir por
+etapas e ler os erros.
+
 ## Inversores (1 ou vários)
 
 `Entradas.inversores` é uma lista `[{marca,pot_kw,tensao,qtd}]`. Quando vazia,
