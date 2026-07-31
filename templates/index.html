@@ -31,7 +31,7 @@ main{display:grid;grid-template-columns:minmax(0,1fr) 390px;gap:18px;max-width:1
 section{background:var(--card);border:1px solid var(--borda);border-radius:12px;padding:16px 18px;margin-bottom:16px}
 section h2{margin:0 0 12px;font-size:12.5px;color:var(--verde);text-transform:uppercase;letter-spacing:1px}
 label{display:block;font-size:12px;color:var(--mudo);margin-bottom:3px}
-input,select{width:100%;padding:7px 9px;border:1px solid var(--borda);border-radius:7px;font-size:14px;
+input,select{width:100%;min-width:0;padding:7px 9px;border:1px solid var(--borda);border-radius:7px;font-size:14px;
  background:var(--card2);color:var(--texto)}
 input::placeholder{color:#5a6875}
 input:focus,select:focus{outline:2px solid #1e4d78;border-color:var(--azul)}
@@ -136,11 +136,18 @@ small.auto{color:var(--mudo)}
  .linha{flex-wrap:wrap}
  section{padding:12px}
  .painel{position:static !important;max-height:none !important}
- /* iOS dá zoom ao focar campos com fonte < 16px; os grids densos (.meses,
-    .inv-linha) têm regra própria com mais especificidade e não são afetados */
+ /* iOS dá zoom ao focar campos com fonte < 16px; o grid dos meses tem regra
+    própria (.meses input = 13px, mais específica) e não é afetado */
  input,select{font-size:16px}
  .combo-item,.combo-vazio{font-size:15px;padding:13px 12px}
  .combo-seta{width:44px;font-size:16px}
+ /* trava contra transbordo lateral (o header parecia não chegar na borda);
+    clip não cria contêiner de rolagem, então não quebra o sticky do painel */
+ html,body{overflow-x:clip}
+ /* a linha de inversores tinha colunas fixas ~354px que estouravam a tela;
+    cabeçalho e linhas usam a mesma classe, então seguem alinhados (6 colunas:
+    Tipo, Marca, Pot., Tensão, Qtd., remover) */
+ .inv-linha{grid-template-columns:50px minmax(0,1fr) 50px 44px 40px 48px;gap:6px}
 }
 </style>
 </head>
