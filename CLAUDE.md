@@ -165,41 +165,47 @@ programa, comportamento igual ao de sempre.
   Drive lê `google_oauth.json`/`google_token.json` do bucket (data dir).
 - **Deploy**: `gcloud run deploy --source .` (Cloud Build) com o bucket montado.
 
-### Deploy — EM ANDAMENTO (retomar daqui)
+### Deploy — CONCLUÍDO (no ar)
 
-Código já **commitado e no GitHub** (`github.com/lucasalcarria/dimensionador-s2v-main`,
-branch `main`, commit `1d624e3` "Prepara para Cloud Run"). Falta só o deploy, que
-roda na conta Google do usuário via **Cloud Shell** (nada instalado no PC).
-Projeto do Google Cloud: número **563167083292** (o mesmo do OAuth do Drive).
-Região escolhida: **southamerica-east1**. Bucket: **s2v-dimensionador-dados**
-(montar em **/data**).
+**URL de produção:** `https://dimensionador-563167083292.southamerica-east1.run.app`
+(302 → `/login`, protegida pela senha do app). Abrir no celular e digitar a senha.
 
-**BLOQUEIO ATUAL:** o projeto **não tem faturamento (billing) ativado** — o
-`gcloud services enable` e o `buckets create` deram `billing-enabled / 
-UREQ_PROJECT_BILLING_NOT_FOUND`. O usuário precisa **vincular uma conta de
-faturamento** (cartão) ao projeto no Console (Faturamento → Vincular conta).
-Cloud Run é grátis no volume dele, mas o Google exige cartão cadastrado.
+Projeto: ID **dimensionador-s2v** (número **563167083292**), dentro da organização
+**s2vengenharia.com** (org ID **750768823445**). Região **southamerica-east1**.
+Bucket **s2v-dimensionador-dados** montado em **/data**; contém `config.json`,
+`google_oauth.json`, `google_token.json` (e, em uso, `clientes/`, `acesso.json`).
 
-Passos que faltam (depois do billing):
-1. **Etapa 1** (refazer): no Cloud Shell, `git clone` do repo, `cd` nele,
-   `gcloud services enable run/cloudbuild/storage/artifactregistry`,
-   `gcloud storage buckets create gs://s2v-dimensionador-dados --location=southamerica-east1`,
-   e dar `roles/storage.objectAdmin` no bucket para o SA
-   `${PROJNUM}-compute@developer.gserviceaccount.com`.
-2. **Etapa 2**: subir ao bucket os 3 arquivos do PC — `config.json`,
-   `google_oauth.json`, `google_token.json` (os dois últimos são segredos,
-   gitignored; sobem pelo botão de upload do Cloud Shell + `gcloud storage cp … gs://…/`).
-3. **Etapa 3** (deploy):
-   `gcloud run deploy dimensionador --source . --region southamerica-east1
-   --allow-unauthenticated --memory 1Gi
+Como foi feito (Cloud Shell, na conta do usuário):
+1. **Billing**: vinculada conta de faturamento ao projeto (era o bloqueio antigo).
+2. **Serviços + bucket**: `gcloud services enable run/cloudbuild/storage/
+   artifactregistry`; `buckets create gs://s2v-dimensionador-dados
+   --location=southamerica-east1`; `roles/storage.objectAdmin` no bucket p/ o SA
+   `563167083292-compute@developer.gserviceaccount.com`.
+3. **Permissão de build**: o deploy por `--source` exigiu dar
+   **`roles/cloudbuild.builds.builder`** ao mesmo SA `…-compute@…` (senão dá 403
+   `storage.objects.get` no bucket `run-sources-…` durante "Uploading sources").
+4. **Dados no bucket**: `gcloud storage cp` dos 3 arquivos p/ `gs://…/`.
+5. **Deploy**: `gcloud run deploy dimensionador --source . --region
+   southamerica-east1 --allow-unauthenticated --memory 1Gi
    --set-env-vars S2V_SECRET=<frase>,S2V_SENHA=<senha>
    --add-volume name=dados,type=cloud-storage,bucket=s2v-dimensionador-dados
-   --add-volume-mount volume=dados,mount-path=/data`.
-   Dá um URL `https://…run.app` fixo → abre no celular, pede a senha.
-Notas: `--allow-unauthenticated` (protegido pela senha do app); reconectar o
-Drive tem de ser no PC (OAuth Desktop só aceita localhost) — o refresh token já
-existente vale na nuvem. Não consigo testar o deploy (conta do usuário): ir por
-etapas e ler os erros.
+   --add-volume-mount volume=dados,mount-path=/data`. **Usar o ID do projeto**
+   (`gcloud config set project dimensionador-s2v`) — com o número dá erro.
+6. **Acesso público**: `--allow-unauthenticated` foi barrado pela política de
+   organização **Domain Restricted Sharing** (`iam.allowedPolicyMemberDomains`),
+   que proíbe `allUsers`. Resolvido abrindo **exceção só neste projeto**: papel
+   `roles/orgpolicy.policyAdmin` ao usuário na org, depois `org-policies
+   set-policy` com `allowAll: true` em
+   `projects/563167083292/policies/iam.allowedPolicyMemberDomains`; então
+   `run services add-iam-policy-binding … --member=allUsers
+   --role=roles/run.invoker` (esperar 1–2 min a política propagar).
+
+**Reimplantar depois de mudar o código**: `git push`, e no Cloud Shell
+`cd dimensionador-s2v-main && git pull && gcloud run deploy dimensionador
+--source . --region southamerica-east1 …` repetindo os MESMOS `--set-env-vars`.
+**Mantenha o `S2V_SECRET` igual** entre deploys — se mudar, todos os logins caem.
+Notas: reconectar o Drive tem de ser no PC (OAuth Desktop só aceita localhost) —
+o refresh token existente vale na nuvem.
 
 ## Inversores (1 ou vários)
 

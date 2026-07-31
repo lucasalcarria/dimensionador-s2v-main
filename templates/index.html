@@ -88,6 +88,23 @@ summary{cursor:pointer;font-size:12px;color:var(--azul);font-weight:600}
 footer{max-width:1300px;margin:0 auto 26px;padding:0 16px;font-size:12px;color:#5f6d7c}
 .badge{display:inline-block;background:#223141;color:var(--azul);border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;margin-left:6px}
 small.auto{color:var(--mudo)}
+/* combobox do Consultor: substitui o <datalist> nativo (ilegível no iOS) por
+   uma seta grande, visível e com boa área de toque + lista rolável estilizada */
+.combo{position:relative}
+.combo>input{padding-right:42px}                 /* abre espaço para a seta */
+.combo-seta{position:absolute;top:0;right:0;height:100%;width:40px;padding:0;
+ display:flex;align-items:center;justify-content:center;background:transparent;
+ border:0;border-left:1px solid var(--borda);border-radius:0 7px 7px 0;
+ color:var(--azul);font-size:15px;line-height:1;transition:transform .15s,color .15s}
+.combo.aberto .combo-seta{transform:rotate(180deg);color:var(--verde)}
+.combo-lista{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:30;display:none;
+ background:var(--card);border:1px solid var(--borda);border-radius:8px;overflow:auto;
+ max-height:240px;box-shadow:0 10px 26px rgba(0,0,0,.45);-webkit-overflow-scrolling:touch}
+.combo.aberto .combo-lista{display:block}
+.combo-item{padding:11px 12px;font-size:14px;cursor:pointer;border-bottom:1px solid var(--borda)}
+.combo-item:last-child{border-bottom:0}
+.combo-item:hover,.combo-item:active{background:var(--card2)}
+.combo-vazio{padding:11px 12px;font-size:12.5px;color:var(--mudo)}
 .ocult{display:none}
 .fotos-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
 .foto-cx{position:relative;border:1.5px dashed var(--borda);border-radius:10px;background:var(--card2);
@@ -119,6 +136,11 @@ small.auto{color:var(--mudo)}
  .linha{flex-wrap:wrap}
  section{padding:12px}
  .painel{position:static !important;max-height:none !important}
+ /* iOS dá zoom ao focar campos com fonte < 16px; os grids densos (.meses,
+    .inv-linha) têm regra própria com mais especificidade e não são afetados */
+ input,select{font-size:16px}
+ .combo-item,.combo-vazio{font-size:15px;padding:13px 12px}
+ .combo-seta{width:44px;font-size:16px}
 }
 </style>
 </head>
@@ -144,8 +166,11 @@ small.auto{color:var(--mudo)}
     </div>
     <div class="linha" style="gap:10px;margin-top:10px">
       <div style="flex:1"><label>Consultor / responsável <small class="auto">(vira a pasta onde o projeto é salvo — escolha uma ou digite um novo)</small></label>
-        <input id="consultor" list="lista-consultores" placeholder="ex.: nome do consultor ou da empresa" autocomplete="off">
-        <datalist id="lista-consultores"></datalist></div>
+        <div class="combo" id="combo-consultor">
+          <input id="consultor" placeholder="ex.: nome do consultor ou da empresa" autocomplete="off">
+          <button type="button" class="combo-seta" tabindex="-1" aria-label="mostrar consultores salvos no Drive">▾</button>
+          <div class="combo-lista" id="lista-consultores"></div>
+        </div></div>
     </div>
     <p class="mudo" style="margin:8px 0 0;font-size:12px">O nº da UC de cada fatura fica em <b>Unidades consumidoras</b>; na proposta todos aparecem juntos na capa.</p>
   </section>
@@ -991,13 +1016,43 @@ async function desconectarDrive(){
  await fetch('/api/drive/desconectar',{method:'POST'});
  _atualizarDriveStatus(); carregarConsultores();
 }
-// preenche as sugestões do campo Consultor com as pastas já existentes no Drive
+// combobox do Consultor: guarda as pastas do Drive e monta a lista clicável.
+// (Antes era um <datalist> nativo; no iOS o gatilho era invisível e sem toque.)
+let _consultores=[];
 async function carregarConsultores(){
- const dl=document.getElementById('lista-consultores'); if(!dl) return;
  try{
   const j=await (await fetch('/api/drive/consultores')).json();
-  dl.innerHTML=(j.consultores||[]).map(n=>`<option value="${_esc(n)}">`).join('');
- }catch(e){}
+  _consultores=j.consultores||[];
+ }catch(e){ _consultores=[]; }
+ _renderConsultores();
+}
+// redesenha a lista, filtrando pelo que já foi digitado no campo
+function _renderConsultores(){
+ const cx=document.getElementById('lista-consultores'); if(!cx) return;
+ const q=(document.getElementById('consultor').value||'').trim().toLowerCase();
+ const itens=_consultores.filter(n=>!q||n.toLowerCase().includes(q));
+ cx.innerHTML = itens.length
+   ? itens.map(n=>`<div class="combo-item" role="option">${_esc(n)}</div>`).join('')
+   : `<div class="combo-vazio">${_consultores.length?'nenhuma pasta corresponde — digite um nome novo':'nenhuma pasta no Drive ainda — digite um nome novo'}</div>`;
+}
+// liga a seta, o foco/digitação e o clique nos itens (funciona no desktop e no toque)
+function _setupComboConsultor(){
+ const cx=document.getElementById('combo-consultor'); if(!cx) return;
+ const inp=document.getElementById('consultor');
+ const lista=document.getElementById('lista-consultores');
+ const seta=cx.querySelector('.combo-seta');
+ const abrir =()=>{ _renderConsultores(); cx.classList.add('aberto'); };
+ const fechar=()=>cx.classList.remove('aberto');
+ inp.addEventListener('focus',abrir);
+ inp.addEventListener('input',abrir);
+ seta.addEventListener('click',()=>{ if(cx.classList.contains('aberto')) fechar();
+                                     else { inp.focus(); abrir(); } });
+ lista.addEventListener('mousedown',e=>e.preventDefault()); // não perde o foco do input
+ lista.addEventListener('click',e=>{
+   const it=e.target.closest('.combo-item'); if(!it) return;
+   inp.value=it.textContent.trim(); fechar();
+ });
+ document.addEventListener('click',e=>{ if(!cx.contains(e.target)) fechar(); });
 }
 const _esc=s=>String(s==null?'':s).replace(/"/g,'&quot;');
 function configHTML(c){
@@ -1260,6 +1315,7 @@ window.addEventListener('paste',e=>{
 });
 
 carregarConcessionarias();
+_setupComboConsultor();
 carregarConsultores();
 addUC(); addInv(); wire(document);
 document.getElementById('perda-irr').value=Math.round(PERDA_PADRAO*100);
