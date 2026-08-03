@@ -9,7 +9,7 @@
  * ícones) para o app abrir rápido e, se faltar sinal por um instante, ainda
  * exibir a tela. Toda conta continua sendo feita no servidor.
  */
-const VERSAO = 's2v-v1';                 // troque para 's2v-v2' etc. ao mudar a casca
+const VERSAO = 's2v-v2';                 // troque para 's2v-v3' etc. ao mudar a casca
 const CASCA = [
   '/',
   '/manifest.webmanifest',
