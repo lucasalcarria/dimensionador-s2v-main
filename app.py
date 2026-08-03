@@ -212,6 +212,35 @@ def _img_bytes(dataurl):
         return None
 
 
+# ---- imagens PADRÃO de módulo/inversor (fallback global) -----------------
+# Ficam num arquivo de texto (o data URL inteiro) na pasta de dados
+# (dir_execucao → bucket no Cloud Run), NUNCA no config.json versionado: são
+# base64 grande e mudariam o arquivo a cada troca. Servem quando a UC não colar
+# a foto no fluxo normal de geração.
+def _caminho_img_padrao(qual: str) -> str:
+    nome = 'padrao_modulo.txt' if qual == 'modulo' else 'padrao_inversor.txt'
+    return os.path.join(engine.dir_execucao(), nome)
+
+
+def _ler_img_padrao(qual: str):
+    """Data URL salvo da imagem padrão do módulo/inversor, ou None."""
+    try:
+        with open(_caminho_img_padrao(qual), encoding='utf-8') as f:
+            return f.read().strip() or None
+    except OSError:
+        return None
+
+
+def _gravar_img_padrao(qual: str, dataurl) -> None:
+    """Grava (ou apaga, se vazio) o data URL da imagem padrão."""
+    caminho = _caminho_img_padrao(qual)
+    if dataurl:
+        with open(caminho, 'w', encoding='utf-8') as f:
+            f.write(str(dataurl))
+    elif os.path.exists(caminho):
+        os.remove(caminho)
+
+
 def _montar_entradas(d: dict) -> engine.Entradas:
     ucs = []
     for u in d.get('ucs', []):
@@ -534,6 +563,28 @@ def api_salvar_config():
         return jsonify(ok=False, erro=str(exc)), 400
 
 
+@app.get('/api/imagens-padrao')
+def api_imagens_padrao():
+    """Data URLs das imagens PADRÃO de módulo/inversor (para preencher o editor)."""
+    return jsonify(ok=True,
+                   modulo=_ler_img_padrao('modulo'),
+                   inversor=_ler_img_padrao('inversor'))
+
+
+@app.post('/api/imagens-padrao')
+def api_salvar_imagens_padrao():
+    """Salva/apaga as imagens padrão. Body: {modulo: dataURL|null, inversor: …}.
+    Uma chave ausente é ignorada; valor vazio remove aquela imagem."""
+    try:
+        d = request.get_json(force=True) or {}
+        for qual in ('modulo', 'inversor'):
+            if qual in d:
+                _gravar_img_padrao(qual, d.get(qual))
+        return jsonify(ok=True)
+    except Exception as exc:                                    # noqa: BLE001
+        return jsonify(ok=False, erro=str(exc)), 400
+
+
 @app.get('/api/copel-verificar')
 def api_copel_verificar():
     """Raspagem leve do site da COPEL: resolução/vigência atual + ICMS."""
@@ -711,8 +762,11 @@ def api_proposta():
         consultor = (d.get('consultor') or '').strip()
         pasta = _pasta_projeto(e, r, consultor)  # <base>/<consultor>/<cliente>/…
         nome_pdf = _limpar_nome(e.nome, 'PROPOSTA')
-        imagens = {'modulo': _img_bytes(d.get('img_modulo')),
-                   'inversor': _img_bytes(d.get('img_inversor'))}
+        # foto da UC quando houver; senão cai na imagem PADRÃO das pré-definições
+        img_mod = d.get('img_modulo') or _ler_img_padrao('modulo')
+        img_inv = d.get('img_inversor') or _ler_img_padrao('inversor')
+        imagens = {'modulo': _img_bytes(img_mod),
+                   'inversor': _img_bytes(img_inv)}
         imagens = {k: v for k, v in imagens.items() if v}
 
         txt_resumo = resumo_texto.resumo_texto(e, cfg)

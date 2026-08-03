@@ -987,7 +987,7 @@ async function abrirConfig(){
  try{
   const r=await fetch('/api/config'); const j=await r.json();
   if(!j.ok) throw j.erro; CFG=j.config; corpo.innerHTML=configHTML(CFG);
-  _atualizarDriveStatus();
+  _atualizarDriveStatus(); _carregarImgPadrao();
  }catch(e){ corpo.textContent='Falha ao carregar: '+e; }
 }
 function fecharConfig(){ document.getElementById('modal-config').classList.remove('on'); if(_drivePoll){clearInterval(_drivePoll);_drivePoll=null;} }
@@ -1136,6 +1136,24 @@ function configHTML(c){
    <div><label>Parcelas padrão</label><input id="cf-fin-parc" type="number" value="${_esc(fin.parcelas)}"></div>
    <div><label>Validade da proposta (dias)</label><input id="cf-validade" type="number" value="${_esc(c.validade_dias)}"></div>
   </div>
+  ${H('Imagens padrão do módulo e do inversor')}
+  <p class="mudo" style="font-size:12px;margin:-2px 0 8px">Usadas na página 3 da proposta quando você <b>não</b> colar uma foto na tela principal. Cole (Ctrl+V), arraste ou clique para enviar.</p>
+  <div class="fotos-grid">
+    <div class="foto-cx" id="cfoto-mod-cx" onclick="document.getElementById('cfoto-mod-file').click()">
+      <div class="foto-titulo">Módulo (padrão)</div>
+      <img id="cfoto-mod-img" class="foto-prev" alt="" style="display:none">
+      <div class="foto-dica" id="cfoto-mod-dica">clique para enviar,<br>arraste ou cole (Ctrl+V) o print do módulo</div>
+      <button type="button" class="foto-rm" id="cfoto-mod-rm" style="display:none" onclick="removerImgPadrao(event,'mod')">remover</button>
+      <input type="file" id="cfoto-mod-file" accept="image/*" style="display:none">
+    </div>
+    <div class="foto-cx" id="cfoto-inv-cx" onclick="document.getElementById('cfoto-inv-file').click()">
+      <div class="foto-titulo">Inversor (padrão)</div>
+      <img id="cfoto-inv-img" class="foto-prev" alt="" style="display:none">
+      <div class="foto-dica" id="cfoto-inv-dica">clique para enviar,<br>arraste ou cole (Ctrl+V) o print do inversor</div>
+      <button type="button" class="foto-rm" id="cfoto-inv-rm" style="display:none" onclick="removerImgPadrao(event,'inv')">remover</button>
+      <input type="file" id="cfoto-inv-file" accept="image/*" style="display:none">
+    </div>
+  </div>
   ${H('Onde salvar os projetos (pasta local)')}
   <div><label>Pasta base <small class="auto">(vazio = pasta "clientes" local; ex. Drive p/ Desktop: G:\\Meu Drive\\ORÇAMENTOS)</small></label>
    <input id="cf-pasta" style="width:100%" placeholder="deixe vazio para salvar em clientes/ local" value="${_esc(c.pasta_saida||'')}"></div>
@@ -1199,6 +1217,9 @@ function salvarConfig(){
  fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(c)})
   .then(r=>r.json()).then(async j=>{
     if(!j.ok) throw j.erro;
+    // imagens padrão (módulo/inversor): gravadas à parte (base64 grande, fora do config)
+    try{ await fetch('/api/imagens-padrao',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({modulo:imgPadraoMod,inversor:imgPadraoInv})}); }catch(e){}
     await carregarConcessionarias(true);   // relê a tabela do config novo
     // atualiza as listas de marcas na memória e reconstrói os menus ao vivo
     if(Array.isArray(c.marcas_inversor)) MARCAS_INV=c.marcas_inversor;
@@ -1313,10 +1334,53 @@ function _wireFoto(qual){
  cx.addEventListener('mouseleave',()=>{ if(fotoAlvo===qual) fotoAlvo=null; });
 }
 _wireFoto('mod'); _wireFoto('inv');
+
+// ---- imagens PADRÃO (pré-definições): fallback quando a UC não cola a foto ----
+let imgPadraoMod=null, imgPadraoInv=null, imgPadraoAlvo=null;
+function _setImgPadrao(qual, dataurl){
+ if(qual==='mod') imgPadraoMod=dataurl; else imgPadraoInv=dataurl;
+ const img=document.getElementById('cfoto-'+qual+'-img'); if(!img) return;
+ const dica=document.getElementById('cfoto-'+qual+'-dica');
+ const rm=document.getElementById('cfoto-'+qual+'-rm');
+ const cx=document.getElementById('cfoto-'+qual+'-cx');
+ if(dataurl){ img.src=dataurl; img.style.display='block'; dica.style.display='none';
+   rm.style.display='inline-block'; cx.classList.add('tem'); }
+ else { img.removeAttribute('src'); img.style.display='none'; dica.style.display='block';
+   rm.style.display='none'; cx.classList.remove('tem'); }
+}
+function removerImgPadrao(ev, qual){ ev.stopPropagation(); _setImgPadrao(qual, null); }
+function _lerImgPadrao(file, qual){
+ if(!file || !file.type || file.type.indexOf('image/')!==0) return;
+ const fr=new FileReader(); fr.onload=()=>_setImgPadrao(qual, fr.result); fr.readAsDataURL(file);
+}
+function _wireImgPadrao(qual){
+ const cx=document.getElementById('cfoto-'+qual+'-cx'); if(!cx) return;
+ const file=document.getElementById('cfoto-'+qual+'-file');
+ file.addEventListener('change',()=>{ if(file.files[0]) _lerImgPadrao(file.files[0], qual); });
+ cx.addEventListener('dragover',e=>{e.preventDefault();cx.classList.add('drag');});
+ cx.addEventListener('dragleave',()=>cx.classList.remove('drag'));
+ cx.addEventListener('drop',e=>{e.preventDefault();cx.classList.remove('drag');
+   if(e.dataTransfer.files[0]) _lerImgPadrao(e.dataTransfer.files[0], qual);});
+ cx.addEventListener('mouseenter',()=>imgPadraoAlvo=qual);
+ cx.addEventListener('mouseleave',()=>{ if(imgPadraoAlvo===qual) imgPadraoAlvo=null; });
+}
+async function _carregarImgPadrao(){
+ _wireImgPadrao('mod'); _wireImgPadrao('inv');
+ try{
+  const j=await (await fetch('/api/imagens-padrao')).json();
+  _setImgPadrao('mod', j.modulo||null); _setImgPadrao('inv', j.inversor||null);
+ }catch(e){}
+}
+
 window.addEventListener('paste',e=>{
  const items=e.clipboardData?e.clipboardData.items:[];
  let it=null; for(const i of items){ if(i.type && i.type.indexOf('image/')===0){ it=i; break; } }
  if(!it) return;
+ // pré-definições aberto: a colagem cai nas imagens PADRÃO, não nas da UC
+ if(document.getElementById('modal-config').classList.contains('on')){
+   const q=imgPadraoAlvo || (!imgPadraoMod?'mod':(!imgPadraoInv?'inv':'mod'));
+   _lerImgPadrao(it.getAsFile(), q); return;
+ }
  const qual=fotoAlvo || (!fotoModulo?'mod':(!fotoInversor?'inv':'mod'));
  _lerImg(it.getAsFile(), qual);
 });
