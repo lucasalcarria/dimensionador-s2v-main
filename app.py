@@ -77,7 +77,8 @@ def _obter_secret() -> str:
 app.secret_key = _obter_secret()
 
 # caminhos liberados sem login (a própria tela de login e os estáticos)
-_LIVRE = {'/login', '/logo.png', '/manifest.webmanifest', '/sw.js', '/qr.png'}
+_LIVRE = {'/login', '/logo.png', '/manifest.webmanifest', '/sw.js', '/qr.png',
+          '/favicon.ico'}
 
 
 @app.before_request
@@ -98,6 +99,8 @@ def _exige_login():
 _LOGIN_HTML = """<!doctype html><meta charset=utf-8>
 <title>Entrar — Dimensionador S2V</title>
 <meta name=viewport content="width=device-width, initial-scale=1">
+<link rel="icon" href="/icons/icon-192.png?v=2">
+<link rel="apple-touch-icon" href="/icons/icon-192.png?v=2">
 <style>body{margin:0;min-height:100vh;display:flex;align-items:center;
 justify-content:center;background:#0b1220;font-family:system-ui,Arial}
 form{background:#101b28;border:1px solid #22303f;border-radius:14px;
@@ -389,6 +392,14 @@ def service_worker():
 def icones(nome):
     """Ícones do app. send_from_directory impede acesso fora da pasta icons/."""
     return send_from_directory(os.path.join(BASE, 'assets', 'icons'), nome)
+
+
+@app.get('/favicon.ico')
+def favicon():
+    """Navegadores pedem /favicon.ico sozinhos (ex.: na tela de login, que não
+    tem <link rel=icon>). Serve o ícone do app em vez de devolver 404/redirect."""
+    return send_from_directory(os.path.join(BASE, 'assets', 'icons'),
+                               'icon-192.png')
 
 
 @app.post('/api/calcular')
