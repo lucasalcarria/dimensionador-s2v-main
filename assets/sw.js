@@ -13,8 +13,8 @@ const VERSAO = 's2v-v2';                 // troque para 's2v-v3' etc. ao mudar a
 const CASCA = [
   '/',
   '/manifest.webmanifest',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
+  '/icons/icon-192.png?v=2',
+  '/icons/icon-512.png?v=2',
   '/logo.png'
 ];
 
