@@ -4,6 +4,8 @@ propostas/
 tarifas_cache.json
 padrao_modulo.txt
 padrao_inversor.txt
+pacotes_imagens.json
+solicitacoes.json
 
 # --- segredos do Google Drive (OAuth) — NUNCA versionar ---
 google_oauth.json

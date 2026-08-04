@@ -76,6 +76,53 @@ def _obter_secret() -> str:
 
 app.secret_key = _obter_secret()
 
+
+# ------------------------------------------------------------------ papéis
+# Dois níveis de acesso: ADMIN (a senha de sempre, vê tudo) e CONSULTOR (entra
+# com nome + senha próprios, guardados em acesso.json → 'consultores'). O
+# consultor não vê custos/margem nem edita pré-definições; só monta a proposta a
+# partir dos PACOTES prontos do admin. Sem senha de admin (uso local), não há
+# login e todo mundo age como admin.
+def _consultores() -> list:
+    """Lista [{nome, senha}] cadastrada pelo admin (acesso.json)."""
+    return _ler_acesso().get('consultores') or []
+
+
+def _achar_consultor(nome: str, senha: str):
+    """Devolve o nome oficial do consultor se nome+senha baterem, senão None."""
+    import hmac
+    nome = (nome or '').strip()
+    for c in _consultores():
+        if (c.get('nome') or '').strip().lower() == nome.lower() and \
+           hmac.compare_digest(str(c.get('senha') or ''), senha or ''):
+            return (c.get('nome') or '').strip()
+    return None
+
+
+def _papel() -> str:
+    """'admin' ou 'consultor'. Sem senha de admin (local), tudo é admin."""
+    if not _senha_acesso():
+        return 'admin'
+    return session.get('papel') or 'admin'
+
+
+def _eh_consultor() -> bool:
+    return _papel() == 'consultor'
+
+
+def _rota_admin(req) -> bool:
+    """Rotas que só o ADMIN pode acessar (o consultor recebe 403/redirect)."""
+    p, m = req.path, req.method
+    if p == '/api/config':                      # ler ou gravar pré-definições
+        return True
+    if p in ('/api/imagens-padrao', '/api/atualizar-tarifa',
+             '/api/drive/desconectar') and m == 'POST':
+        return True
+    if p.startswith('/oauth2/'):                # conectar Google Drive
+        return True
+    return False
+
+
 # caminhos liberados sem login (a própria tela de login e os estáticos)
 _LIVRE = {'/login', '/logo.png', '/manifest.webmanifest', '/sw.js', '/qr.png',
           '/favicon.ico'}
@@ -87,6 +134,13 @@ def _exige_login():
     if not senha:                                   # sem senha => sem login
         return None
     if session.get('auth') is True:
+        # logado: o consultor ainda é barrado nas rotas de administração
+        if _eh_consultor() and _rota_admin(request):
+            if request.path.startswith('/api/') or \
+               request.path.startswith('/oauth2/'):
+                return jsonify(ok=False,
+                               erro='Sem permissão (acesso de consultor).'), 403
+            return redirect('/')
         return None
     p = request.path
     if p in _LIVRE or p.startswith('/icons/'):
@@ -112,8 +166,10 @@ button{width:100%;margin-top:12px;padding:10px;border:0;border-radius:8px;
 background:#1462ae;color:#fff;font-weight:600;font-size:15px;cursor:pointer}
 .erro{color:#e57373;font-size:13px;margin-top:10px}</style>
 <form method=post><h1>Dimensionador S2V</h1>
-<p>Digite a senha de acesso.</p>
-<input type=password name=senha autofocus placeholder="senha">
+<p>Consultor: digite seu nome e senha. Administrador: deixe o nome em branco.</p>
+<input name=usuario autofocus placeholder="nome do consultor (admin: em branco)"
+ autocomplete="username" style="margin-bottom:10px">
+<input type=password name=senha placeholder="senha" autocomplete="current-password">
 <button>Entrar</button>
 {% if erro %}<div class=erro>{{ erro }}</div>{% endif %}</form>"""
 
@@ -126,11 +182,25 @@ def login():
         return redirect('/')
     erro = ''
     if request.method == 'POST':
-        if hmac.compare_digest(request.form.get('senha', ''), senha):
-            session['auth'] = True
-            session.permanent = True
-            return redirect('/')
-        erro = 'Senha incorreta.'
+        usuario = (request.form.get('usuario') or '').strip()
+        digitada = request.form.get('senha', '')
+        if not usuario:                             # ADMIN: só senha
+            if hmac.compare_digest(digitada, senha):
+                session['auth'] = True
+                session['papel'] = 'admin'
+                session.pop('consultor', None)
+                session.permanent = True
+                return redirect('/')
+            erro = 'Senha incorreta.'
+        else:                                       # CONSULTOR: nome + senha
+            nome = _achar_consultor(usuario, digitada)
+            if nome:
+                session['auth'] = True
+                session['papel'] = 'consultor'
+                session['consultor'] = nome
+                session.permanent = True
+                return redirect('/')
+            erro = 'Nome ou senha incorretos.'
     return render_template_string(_LOGIN_HTML, erro=erro)
 
 
@@ -244,7 +314,51 @@ def _gravar_img_padrao(qual: str, dataurl) -> None:
         os.remove(caminho)
 
 
+# ----- imagens OPCIONAIS por pacote (num único arquivo, fora do config.json) -----
+# Um pacote pode ter foto própria do módulo/inversor; se não tiver, a proposta
+# usa a imagem PADRÃO. Guardadas por id estável em pacotes_imagens.json (data dir,
+# gitignored) para não inchar o config.json versionado.
+def _caminho_pac_imgs() -> str:
+    return os.path.join(engine.dir_execucao(), 'pacotes_imagens.json')
+
+
+def _ler_pac_imgs() -> dict:
+    try:
+        with open(_caminho_pac_imgs(), encoding='utf-8') as f:
+            return json.load(f) or {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _salvar_pac_imgs(d: dict) -> None:
+    with open(_caminho_pac_imgs(), 'w', encoding='utf-8') as f:
+        json.dump(d, f, ensure_ascii=False)
+
+
+def _ler_img_pacote(pid, qual: str):
+    """Data URL da imagem do pacote (qual='modulo'|'inversor'), ou None."""
+    if pid in (None, ''):
+        return None
+    return (_ler_pac_imgs().get(str(pid)) or {}).get(qual) or None
+
+
+def _gravar_img_pacote(pid, qual: str, dataurl) -> None:
+    """Grava/apaga a imagem de um pacote no arquivo único."""
+    if pid in (None, ''):
+        return
+    d = _ler_pac_imgs()
+    reg = d.setdefault(str(pid), {})
+    if dataurl:
+        reg[qual] = str(dataurl)
+    else:
+        reg.pop(qual, None)
+    if not reg:                              # sem imagens: remove o registro
+        d.pop(str(pid), None)
+    _salvar_pac_imgs(d)
+
+
 def _montar_entradas(d: dict) -> engine.Entradas:
+    d = _aplicar_pacote(d)          # consultor: injeta equipamento+custos do pacote
     ucs = []
     for u in d.get('ucs', []):
         ucs.append(engine.UC(
@@ -360,8 +474,151 @@ def _resumo(r: dict, cfg: dict) -> dict:
 @app.get('/')
 def index():
     cfg = engine.carregar_config()
+    papel = _papel()
+    pacotes = [_pacote_publico(p, i) for i, p in enumerate(_pacotes(cfg))]
     return render_template('index.html', cfg=cfg,
-                           perfis=list(cfg['perfis_irradiacao'].keys()))
+                           perfis=list(cfg['perfis_irradiacao'].keys()),
+                           papel=papel,
+                           consultor_nome=session.get('consultor', ''),
+                           pacotes_pub=pacotes)
+
+
+@app.get('/api/pacotes')
+def api_pacotes():
+    """Lista pública de pacotes (sem custos) — para o seletor do consultor."""
+    try:
+        cfg = engine.carregar_config()
+        pacs = [_pacote_publico(p, i) for i, p in enumerate(_pacotes(cfg))]
+        return jsonify(ok=True, pacotes=pacs)
+    except Exception as exc:                                    # noqa: BLE001
+        return jsonify(ok=False, erro=str(exc)), 400
+
+
+@app.get('/api/pacotes/precos')
+def api_listar_precos():
+    """Só id/nome/valor_kit dos pacotes — para a tela de atualização rápida de
+    preços do admin (não traz imagens nem o resto). Só admin."""
+    if _eh_consultor():
+        return jsonify(ok=False, erro='Sem permissão.'), 403
+    try:
+        cfg = engine.carregar_config()
+        itens = [{'id': _pacote_id(p, i),
+                  'nome': p.get('nome') or f'Pacote {i + 1}',
+                  'valor_kit': p.get('valor_kit')}
+                 for i, p in enumerate(_pacotes(cfg))]
+        return jsonify(ok=True, pacotes=itens)
+    except Exception as exc:                                    # noqa: BLE001
+        return jsonify(ok=False, erro=str(exc)), 400
+
+
+@app.post('/api/pacotes/precos')
+def api_atualizar_precos():
+    """Atualiza APENAS o valor do kit de pacotes existentes, preservando todo o
+    resto (equipamento, imagens, string box/bateria…). Body: {precos:[{id,
+    valor_kit}]}. Só admin. (Futuro: alimentar isto pela API das distribuidoras.)"""
+    if _eh_consultor():
+        return jsonify(ok=False, erro='Sem permissão.'), 403
+    try:
+        d = request.get_json(force=True) or {}
+        precos = {str(x.get('id')): x for x in (d.get('precos') or [])}
+        caminho = engine.caminho_config()
+        with open(caminho, encoding='utf-8') as f:
+            cfg = json.load(f)                      # preserva o resto do arquivo
+        n = 0
+        for i, p in enumerate(cfg.get('pacotes') or []):
+            pid = str(p.get('id') or i)
+            if pid in precos and precos[pid].get('valor_kit') not in (None, ''):
+                p['valor_kit'] = _f(precos[pid].get('valor_kit'))
+                n += 1
+        with open(caminho, 'w', encoding='utf-8') as f:
+            json.dump(cfg, f, ensure_ascii=False, indent=2)
+        return jsonify(ok=True, atualizados=n)
+    except Exception as exc:                                    # noqa: BLE001
+        return jsonify(ok=False, erro=str(exc)), 400
+
+
+# ----------------------------------------------------------- solicitações
+# O consultor pede uma cotação de kit ao admin (cliente + kWp desejado +
+# telhado). Fica guardado em solicitacoes.json (data dir, gitignored) e o admin
+# vê a lista/contador na tela (um "inbox", não push por e-mail).
+def _caminho_solic() -> str:
+    return os.path.join(engine.dir_execucao(), 'solicitacoes.json')
+
+
+def _ler_solic() -> list:
+    try:
+        with open(_caminho_solic(), encoding='utf-8') as f:
+            return json.load(f) or []
+    except (OSError, ValueError):
+        return []
+
+
+def _salvar_solic(lst: list) -> None:
+    with open(_caminho_solic(), 'w', encoding='utf-8') as f:
+        json.dump(lst, f, ensure_ascii=False, indent=1)
+
+
+@app.post('/api/solicitacoes')
+def api_criar_solic():
+    """O consultor (ou admin) registra um pedido de cotação de kit."""
+    try:
+        import secrets as _s
+        d = request.get_json(force=True) or {}
+        consultor = (session.get('consultor') if _eh_consultor()
+                     else (d.get('consultor') or '')).strip() or '—'
+        reg = {'id': 's' + _s.token_hex(4),
+               'criada_em': datetime.now().strftime('%d/%m/%Y %H:%M'),
+               'consultor': consultor,
+               'cliente': (d.get('cliente') or '').strip(),
+               'cidade': (d.get('cidade') or '').strip(),
+               'telhado': (d.get('telhado') or '').strip(),
+               'kwp': _f(d.get('kwp')),
+               'consumo_medio': _f(d.get('consumo_medio')),
+               'obs': (d.get('obs') or '').strip(),
+               'status': 'pendente'}
+        lst = _ler_solic()
+        lst.append(reg)
+        _salvar_solic(lst)
+        return jsonify(ok=True, id=reg['id'])
+    except Exception as exc:                                    # noqa: BLE001
+        return jsonify(ok=False, erro=str(exc)), 400
+
+
+@app.get('/api/solicitacoes')
+def api_listar_solic():
+    """Admin vê todas; consultor vê só as suas. Devolve o total de pendentes."""
+    try:
+        lst = _ler_solic()
+        if _eh_consultor():
+            nome = (session.get('consultor') or '')
+            lst = [s for s in lst if s.get('consultor') == nome]
+        lst = list(reversed(lst))               # mais recentes primeiro
+        pend = sum(1 for s in lst if s.get('status') != 'atendida')
+        return jsonify(ok=True, solicitacoes=lst, pendentes=pend)
+    except Exception as exc:                                    # noqa: BLE001
+        return jsonify(ok=False, erro=str(exc)), 400
+
+
+@app.post('/api/solicitacoes/atender')
+def api_atender_solic():
+    """Admin marca como atendida ou remove uma solicitação."""
+    if _eh_consultor():
+        return jsonify(ok=False, erro='Sem permissão.'), 403
+    try:
+        d = request.get_json(force=True) or {}
+        sid = d.get('id')
+        acao = (d.get('acao') or 'atender').strip()
+        lst = _ler_solic()
+        if acao == 'remover':
+            lst = [s for s in lst if s.get('id') != sid]
+        else:
+            for s in lst:
+                if s.get('id') == sid:
+                    s['status'] = 'atendida'
+        _salvar_solic(lst)
+        return jsonify(ok=True)
+    except Exception as exc:                                    # noqa: BLE001
+        return jsonify(ok=False, erro=str(exc)), 400
 
 
 @app.get('/logo.png')
@@ -422,6 +679,38 @@ def api_conferencia():
         e = _montar_entradas(request.get_json(force=True))
         texto = conferencia_retorno.relatorio_conferencia(e, cfg)
         return jsonify(ok=True, texto=texto)
+    except Exception as exc:                                   # noqa: BLE001
+        return jsonify(ok=False, erro=str(exc)), 400
+
+
+@app.post('/api/sugestao')
+def api_sugestao():
+    """Potência FV necessária p/ abater 100% do consumo (DD!B21). NÃO precisa de
+    pacote — depende só do consumo + irradiação. O consultor usa para pedir uma
+    cotação ao administrador antes de existir um kit."""
+    try:
+        d = request.get_json(force=True) or {}
+        cfg = engine.carregar_config()
+        # consumo anual das UCs ativas (as que têm tipo preenchido)
+        consumo_anual = 0.0
+        for u in (d.get('ucs') or []):
+            if not (u.get('tipo') or '').strip():
+                continue
+            consumo_anual += sum(_f(x) for x in (u.get('consumos') or []))
+        # irradiação: customizada, ou o perfil (o consultor usa o padrão)
+        irr = d.get('irradiacao_customizada')
+        if irr:
+            irr = [_f(x) for x in irr]
+        else:
+            perfil = str(d.get('perfil_irradiacao') or '3.8')
+            irr = (cfg['perfis_irradiacao'].get(perfil)
+                   or cfg['perfis_irradiacao'].get('3.8'))
+        kwh_kwp_ano = sum(irr[m] / 1000.0 * engine.DIAS_MES[m] for m in range(12))
+        pr = cfg['performance_ratio']
+        kwp = round(consumo_anual / (pr * kwh_kwp_ano), 2) if kwh_kwp_ano else 0.0
+        return jsonify(ok=True, kwp_necessario=kwp,
+                       consumo_medio=round(consumo_anual / 12.0, 1),
+                       consumo_anual=round(consumo_anual, 1))
     except Exception as exc:                                   # noqa: BLE001
         return jsonify(ok=False, erro=str(exc)), 400
 
@@ -498,7 +787,83 @@ CONFIG_EDITAVEL = ('aliquota_imposto', 'mao_de_obra_minima',
                    'faixas_margem', 'fio_b_rs_mwh', 'validade_dias',
                    'financiamento_padrao', 'performance_ratio',
                    'perda_irradiacao', 'marcas_modulo', 'marcas_inversor',
-                   'bandeiras', 'subgrupos', 'pasta_saida', 'pasta_drive')
+                   'bandeiras', 'subgrupos', 'pasta_saida', 'pasta_drive',
+                   'pacotes')
+
+
+# ----------------------------------------------------------------- pacotes
+# Pacotes = "kits geradores" prontos que o admin monta (equipamento + números
+# internos: valor do kit, margem, comissão, seguro, deslocamento, custo 380 V,
+# mão de obra e material manuais, alíquota). O CONSULTOR só escolhe o pacote pelo
+# nome; os números internos NUNCA vão ao navegador dele — ficam no servidor e são
+# injetados no cálculo por 'pacote_id'. Guardados em config.json → 'pacotes'.
+# (Futuro: preencher valor_kit a partir de API das distribuidoras.)
+
+# campos internos do pacote (o que o consultor não pode ver)
+_PACOTE_CUSTOS = ('valor_kit', 'margem_desejada', 'comissao_pct', 'seguro_pct',
+                  'desloc', 'custo_380v', 'mo_manual', 'material_manual',
+                  'aliquota_pct')
+# campos "públicos" do pacote (equipamento — já aparece impresso na proposta).
+# String box e bateria fazem parte do kit (já precificados no valor_kit), então
+# entram junto com o pacote e o consultor não os edita separadamente. A ESTRUTURA
+# (telhado) também vem do pacote, porque o kit é cotado conforme o tipo de
+# telhado — o consultor informa o telhado do cliente escolhendo o pacote certo.
+_PACOTE_EQUIP = ('conexao', 'estrutura', 'qtd_modulos', 'marca_modulo',
+                 'pot_modulo_w', 'inversores', 'tem_stringbox', 'sb_qtd',
+                 'sb_marca', 'sb_es', 'tem_bateria', 'bat_qtd', 'bat_marca',
+                 'bat_kwh')
+
+
+def _pacotes(cfg: dict) -> list:
+    return cfg.get('pacotes') or []
+
+
+def _pacote_id(p: dict, i: int):
+    """Id estável do pacote (string). Cai no índice se o pacote ainda não tiver
+    um id gravado (pacotes antigos ou editados à mão)."""
+    return str(p.get('id') or i)
+
+
+def _achar_pacote(cfg: dict, pid):
+    """Pacote pelo id estável; cai no índice por retrocompatibilidade. None se
+    não achar."""
+    if pid in (None, ''):
+        return None
+    pacs = _pacotes(cfg)
+    for i, p in enumerate(pacs):
+        if _pacote_id(p, i) == str(pid):
+            return p
+    try:                                    # ainda aceita índice puro
+        i = int(pid)
+        return pacs[i] if 0 <= i < len(pacs) else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _pacote_publico(p: dict, i: int) -> dict:
+    """Só o que pode chegar ao navegador do consultor (sem custos nem imagens)."""
+    pub = {'id': _pacote_id(p, i), 'nome': p.get('nome') or f'Pacote {i + 1}'}
+    for k in _PACOTE_EQUIP:
+        pub[k] = p.get(k)
+    return pub
+
+
+def _aplicar_pacote(d: dict) -> dict:
+    """Para o CONSULTOR: sobrescreve equipamento + custos com os do pacote
+    escolhido, ignorando o que o navegador mandou (blindagem do preço)."""
+    if not _eh_consultor():
+        return d
+    cfg = engine.carregar_config()
+    pac = _achar_pacote(cfg, d.get('pacote_id'))
+    if pac is None:
+        raise ValueError('Escolha um pacote gerador.')
+    d = dict(d)
+    for k in _PACOTE_CUSTOS + _PACOTE_EQUIP:
+        if k in pac:
+            d[k] = pac[k]
+    # nomes usados pelo montador de entradas (a tela usa 'qtd_modulos_kit')
+    d['qtd_modulos_kit'] = pac.get('qtd_modulos', d.get('qtd_modulos_kit'))
+    return d
 
 
 def _impostos_copel(cfg: dict) -> dict:
@@ -519,8 +884,17 @@ def api_config():
     try:
         cfg = engine.carregar_config()
         dados = {k: cfg.get(k) for k in CONFIG_EDITAVEL}
+        # pacotes: acrescenta id estável e as imagens próprias (para o editor)
+        pacs = []
+        for i, p in enumerate(_pacotes(cfg)):
+            pid = _pacote_id(p, i)
+            pacs.append({**p, 'id': pid,
+                         'img_modulo': _ler_img_pacote(pid, 'modulo'),
+                         'img_inversor': _ler_img_pacote(pid, 'inversor')})
+        dados['pacotes'] = pacs
         dados['impostos_copel'] = _impostos_copel(cfg)
         dados['tem_senha'] = bool(_senha_acesso())
+        dados['consultores'] = _consultores()      # [{nome, senha}] (só admin)
         return jsonify(ok=True, config=dados)
     except Exception as exc:                                    # noqa: BLE001
         return jsonify(ok=False, erro=str(exc)), 400
@@ -534,13 +908,24 @@ def api_salvar_config():
         novos = request.get_json(force=True) or {}
         # senha de acesso: vai para acesso.json (NÃO versionado), nunca para o
         # config.json. String vazia remove a senha (volta a não exigir login).
-        if 'senha_acesso' in novos:
+        if 'senha_acesso' in novos or 'consultores' in novos:
             ac = _ler_acesso()
-            nova = (novos.get('senha_acesso') or '').strip()
-            if nova:
-                ac['senha'] = nova
-            else:
-                ac.pop('senha', None)
+            if 'senha_acesso' in novos:
+                nova = (novos.get('senha_acesso') or '').strip()
+                if nova:
+                    ac['senha'] = nova
+                else:
+                    ac.pop('senha', None)
+            # lista de consultores [{nome, senha}] — vive em acesso.json (fora do
+            # Git). Entradas sem nome ou sem senha são descartadas.
+            if 'consultores' in novos:
+                lst = []
+                for c in (novos.get('consultores') or []):
+                    nome = (c.get('nome') or '').strip()
+                    sen = (c.get('senha') or '').strip()
+                    if nome and sen:
+                        lst.append({'nome': nome, 'senha': sen})
+                ac['consultores'] = lst
             _salvar_acesso(ac)
         caminho = engine.caminho_config()
         with open(caminho, encoding='utf-8') as f:
@@ -548,6 +933,22 @@ def api_salvar_config():
         for k in CONFIG_EDITAVEL:
             if k in novos:
                 cfg[k] = novos[k]
+        # pacotes: garante um id estável e MOVE as imagens para o arquivo próprio
+        # (nunca grava base64 no config.json versionado).
+        if 'pacotes' in novos:
+            import secrets as _secrets
+            limpos = []
+            for i, p in enumerate(novos.get('pacotes') or []):
+                p = dict(p)
+                pid = str(p.get('id') or '').strip() or ('p' + _secrets.token_hex(4))
+                p['id'] = pid
+                for qual in ('modulo', 'inversor'):
+                    chave = 'img_' + qual
+                    if chave in p:                  # ausente = mantém a atual
+                        _gravar_img_pacote(pid, qual, p.get(chave))
+                        p.pop(chave, None)
+                limpos.append(p)
+            cfg['pacotes'] = limpos
         # impostos vigentes da COPEL: PIS/COFINS/ICMS não são raspáveis (Power
         # BI), então são mantidos aqui à mão. Atualiza os impostos por subgrupo
         # e o padrão das novas UCs — SEM tocar em 'tarifas'.
@@ -770,12 +1171,18 @@ def api_proposta():
         e = _montar_entradas(d)
         r = engine.calcular(e, cfg)
 
-        consultor = (d.get('consultor') or '').strip()
+        # consultor logado manda no nome da pasta (não confia no que veio da tela)
+        consultor = (session.get('consultor') if _eh_consultor()
+                     else (d.get('consultor') or '')).strip()
         pasta = _pasta_projeto(e, r, consultor)  # <base>/<consultor>/<cliente>/…
         nome_pdf = _limpar_nome(e.nome, 'PROPOSTA')
         # foto da UC quando houver; senão cai na imagem PADRÃO das pré-definições
-        img_mod = d.get('img_modulo') or _ler_img_padrao('modulo')
-        img_inv = d.get('img_inversor') or _ler_img_padrao('inversor')
+        # imagem: foto colada na tela (admin) > imagem própria do pacote > padrão
+        pid = d.get('pacote_id')
+        img_mod = (d.get('img_modulo') or _ler_img_pacote(pid, 'modulo')
+                   or _ler_img_padrao('modulo'))
+        img_inv = (d.get('img_inversor') or _ler_img_pacote(pid, 'inversor')
+                   or _ler_img_padrao('inversor'))
         imagens = {'modulo': _img_bytes(img_mod),
                    'inversor': _img_bytes(img_inv)}
         imagens = {k: v for k, v in imagens.items() if v}
