@@ -174,7 +174,7 @@ body:not(.consultor) .so-consultor{display:none!important;}
   <div class="chip"><img src="/logo.png" alt="S2V Engenharia"></div>
   <div style="flex:1"><h1>DIMENSIONADOR S2V</h1><small>proposta comercial · energia solar fotovoltaica</small></div>
   <button class="bt-claro bt-mini so-admin" onclick="abrirSolicitacoes()" style="position:relative" title="pedidos de cotação dos consultores">🔔 Solicitações<span id="solic-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:#e5484d;color:#fff;border-radius:10px;font-size:10px;min-width:16px;height:16px;line-height:16px;text-align:center;padding:0 3px">0</span></button>
-  <button class="bt-claro bt-mini so-admin" onclick="abrirPrecos()" title="atualizar rapidamente só o preço dos kits existentes">💲 Preços</button>
+  <button class="bt-claro bt-mini so-admin" onclick="abrirPacotes()" title="criar, editar e precificar os kits geradores">📦 Pacotes</button>
   <button class="bt-claro bt-mini so-admin" onclick="abrirConfig()" title="editar os parâmetros herdados da planilha">⚙ Pré-definições</button>
   {% if papel == 'consultor' %}<div class="chip-consultor">Consultor: <b>{{ consultor_nome }}</b> · <a href="/logout">sair</a></div>{% endif %}
 </header>
@@ -473,16 +473,17 @@ body:not(.consultor) .so-consultor{display:none!important;}
   </div>
 </div>
 
-<!-- admin: atualização rápida só do preço dos kits -->
-<div id="modal-precos" class="modal" onclick="if(event.target===this)fecharPrecos()">
-  <div class="modal-cx" style="max-width:520px">
-    <div class="modal-cab"><b>Atualizar preços dos kits</b>
-      <span class="modal-x" onclick="fecharPrecos()">✕</span></div>
-    <p style="margin:0 0 10px;color:var(--mudo);font-size:13px">Mexe só no <b>valor do kit</b> de cada pacote — o resto (equipamento, imagens, bateria…) não muda.</p>
-    <div id="precos-lista" style="max-height:60vh;overflow:auto"></div>
-    <div class="erro" id="precos-erro" style="display:none"></div>
-    <button class="bt-verde" style="width:100%;margin-top:12px" onclick="salvarPrecos()" id="precos-salvar">Salvar preços</button>
-    <div class="ok-irr" id="precos-ok" style="display:none;margin-top:8px">✔ Preços atualizados.</div>
+<!-- admin: gerenciador de pacotes (kits) — criar, editar e precificar -->
+<div id="modal-pacotes" class="modal" onclick="if(event.target===this)fecharPacotes()">
+  <div class="modal-cx" style="max-width:700px">
+    <div class="modal-cab"><b>Pacotes geradores (kits)</b>
+      <span class="modal-x" onclick="fecharPacotes()">✕</span></div>
+    <p style="margin:0 0 10px;color:var(--mudo);font-size:13px">Crie e edite os kits prontos que o consultor escolhe. Recolhido, cada kit mostra <b>nome + valor</b> (dá para atualizar só o preço e salvar). Clique em <b>▸</b> para editar o resto.</p>
+    <div id="pacotes-lista" style="max-height:60vh;overflow:auto"></div>
+    <button type="button" class="bt-claro bt-mini" style="margin-top:6px" onclick="addPacote()">+ adicionar pacote</button>
+    <div class="erro" id="pacotes-erro" style="display:none"></div>
+    <button class="bt-verde" style="width:100%;margin-top:12px" onclick="salvarPacotes()" id="pacotes-salvar">Salvar pacotes</button>
+    <div class="ok-irr" id="pacotes-ok" style="display:none;margin-top:8px">✔ Pacotes salvos.</div>
   </div>
 </div>
 
@@ -976,34 +977,32 @@ async function atenderSolic(id,acao){
  await fetch('/api/solicitacoes/atender',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id,acao:acao})});
  abrirSolicitacoes();
 }
-// ---- admin: atualização rápida SÓ do preço dos kits ----
-async function abrirPrecos(){
- const box=document.getElementById('precos-lista'); box.innerHTML='carregando…';
- document.getElementById('precos-erro').style.display='none';
- document.getElementById('precos-ok').style.display='none';
- document.getElementById('modal-precos').classList.add('on');
+// ---- admin: gerenciador de PACOTES (criar/editar/preço) ----
+async function abrirPacotes(){
+ const box=document.getElementById('pacotes-lista'); box.innerHTML='carregando…';
+ document.getElementById('pacotes-erro').style.display='none';
+ document.getElementById('pacotes-ok').style.display='none';
+ document.getElementById('modal-pacotes').classList.add('on');
  try{
-  const j=await (await fetch('/api/pacotes/precos')).json();
+  const j=await (await fetch('/api/config')).json();
   if(!j.ok) throw j.erro;
-  if(!j.pacotes.length){ box.innerHTML='<p class="mudo" style="font-size:13px">Nenhum pacote cadastrado ainda.</p>'; return; }
-  box.innerHTML=j.pacotes.map(p=>`<div class="preco-row" data-id="${_esc(p.id)}" style="display:flex;gap:10px;align-items:center;margin-bottom:8px">
-     <div style="flex:1;font-size:13px">${_esc(p.nome)}</div>
-     <input class="preco-val rs" inputmode="decimal" placeholder="R$ 0,00" value="${(p.valor_kit==null||p.valor_kit==='')?'':'R$ '+fmtBR(Number(p.valor_kit),2)}" style="width:150px">
-   </div>`).join('');
-  aplicarMascaras(box);
+  const pacs=(j.config.pacotes)||[];
+  box.innerHTML = pacs.length
+    ? pacs.map(p=>pacoteCardHTML(p,false)).join('')   // recolhidos por padrão
+    : '<p class="mudo" style="font-size:13px">Nenhum kit ainda. Clique em “+ adicionar pacote”.</p>';
+  aplicarMascaras(box);   // R$/%/kWh nos campos
  }catch(e){ box.innerHTML='Falha ao carregar: '+e; }
 }
-function fecharPrecos(){ document.getElementById('modal-precos').classList.remove('on'); }
-async function salvarPrecos(){
- const bt=document.getElementById('precos-salvar'); bt.disabled=true;
- const err=document.getElementById('precos-erro'), ok=document.getElementById('precos-ok');
+function fecharPacotes(){ document.getElementById('modal-pacotes').classList.remove('on'); }
+async function salvarPacotes(){
+ const bt=document.getElementById('pacotes-salvar'); bt.disabled=true;
+ const err=document.getElementById('pacotes-erro'), ok=document.getElementById('pacotes-ok');
  err.style.display='none';
  try{
-  const precos=[...document.querySelectorAll('#precos-lista .preco-row')].map(r=>({
-    id:r.dataset.id, valor_kit:numBR(r.querySelector('.preco-val').value)}));
-  const j=await (await fetch('/api/pacotes/precos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({precos:precos})})).json();
+  const pacotes=_coletarPacotes(document.getElementById('pacotes-lista'));
+  const j=await (await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pacotes:pacotes})})).json();
   if(!j.ok) throw j.erro;
-  ok.style.display='block'; setTimeout(fecharPrecos,1200);
+  ok.style.display='block'; setTimeout(fecharPacotes,1200);
  }catch(e){ err.textContent='Falha ao salvar: '+e; err.style.display='block'; }
  finally{ bt.disabled=false; }
 }
@@ -1413,7 +1412,6 @@ function configHTML(c){
  const bnd=Object.entries(c.bandeiras||{}).map(([k,v])=>
    `<div class="inv-linha" style="grid-template-columns:1fr 1fr">
      <input class="bn-k" value="${_esc(k)}"><input class="bn-v" type="number" step="0.001" value="${_esc(v)}"></div>`).join('');
- const pacs=(c.pacotes||[]).map(pacoteCardHTML).join('');
  const cons=(c.consultores||[]).map(consultorRowHTML).join('');
  const H=s=>`<h3 style="margin:16px 0 8px;font-size:13px;color:var(--verde)">${s}</h3>`;
  return `
@@ -1501,10 +1499,6 @@ function configHTML(c){
    <button type="button" class="bt-claro bt-mini" id="bt-drive-desc" onclick="desconectarDrive()" style="display:none">Desconectar</button>
   </div>
   <p class="mudo" style="font-size:12px;margin:6px 0 0">A conexão é feita uma vez, aqui no computador. As propostas passam a ir também para essa pasta no seu Drive e aparecem no celular pelo app do Drive.</p>
-  ${H('Pacotes geradores (kits prontos para os consultores)')}
-  <p class="mudo" style="font-size:12px;margin:-2px 0 8px">O consultor escolhe um pacote pelo nome; o <b>valor do kit e a margem ficam escondidos dele</b>. Cada pacote tem tamanho fixo — crie um por configuração de kit. (Futuro: o valor do kit virá da API das distribuidoras.)</p>
-  <div id="cf-pacotes">${pacs}</div>
-  <button type="button" class="bt-claro bt-mini" onclick="addPacote()">+ adicionar pacote</button>
   ${H('Consultores (acesso limitado — nome + senha)')}
   <p class="mudo" style="font-size:12px;margin:-2px 0 8px">Cada consultor entra com <b>nome e senha próprios</b> e vê só os campos de entrada (sem custos), podendo gerar o PDF. O nome vira a pasta onde o projeto é salvo. Exige uma senha de acesso definida na Segurança abaixo.</p>
   <div id="cf-consultores">${cons}</div>
@@ -1555,60 +1549,65 @@ function _pacInvHTML(iv){iv=iv||{};
    <label style="display:flex;gap:4px;align-items:center;font-size:12px"><input type="checkbox" class="pi-micro" ${iv.micro?'checked':''}>micro</label>
    <span class="rm" onclick="this.closest('.pac-inv').remove()" style="cursor:pointer">×</span></div>`;
 }
-function pacoteCardHTML(p){p=p||{};
+function pacoteCardHTML(p, aberto){p=p||{};
  const invs=(p.inversores||[]).map(_pacInvHTML).join('');
- return `<div class="pacote-card" style="border:1px solid var(--borda);border-radius:10px;padding:12px;margin-bottom:10px;background:var(--card2)">
+ return `<div class="pacote-card" style="border:1px solid var(--borda);border-radius:10px;padding:10px 12px;margin-bottom:10px;background:var(--card2)">
    <input type="hidden" class="pac-id" value="${_esc(p.id)}">
-   <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
-     <input class="pac-nome" placeholder="nome do pacote (ex.: 6× ASTRONERGY 620W + CHINT 3K 220V)" value="${_esc(p.nome)}" style="flex:1;font-weight:600">
+   <div style="display:flex;gap:8px;align-items:center">
+     <button type="button" class="pac-toggle bt-claro bt-mini" onclick="_togglePac(this)" style="width:34px" title="expandir / recolher">${aberto?'▾':'▸'}</button>
+     <input class="pac-nome" placeholder="nome do kit (ex.: 6× ASTRONERGY 620W + CHINT 3K)" value="${_esc(p.nome)}" style="flex:1;font-weight:600">
+     <input class="pac-kit rs" inputmode="decimal" placeholder="R$ 0,00" title="valor do kit (edição rápida)" value="${_iRS(p.valor_kit)}" style="width:130px">
      <button type="button" class="bt-claro bt-mini" onclick="this.closest('.pacote-card').remove()">remover</button>
    </div>
-   <div class="grid g4">
-     <div><label>Conexão</label>${pacSelectHTML('pac-conexao',CONEXOES,p.conexao||'HÍBRIDO')}</div>
-     <div><label>Estrutura (telhado)</label>${pacSelectHTML('pac-estrutura',ESTRUTURAS,p.estrutura)}</div>
-     <div><label>Qtd. módulos</label><input class="pac-qtd" type="number" value="${_esc(p.qtd_modulos)}"></div>
-     <div><label>Marca do módulo</label>${pacSelectHTML('pac-marca-mod',MARCAS_MOD,p.marca_modulo)}</div>
-   </div>
-   <div class="grid g4" style="margin-top:8px">
-     <div><label>Potência módulo (W)</label><input class="pac-pot-mod" type="number" value="${_esc(p.pot_modulo_w)}"></div>
-   </div>
-   <label style="display:block;margin:10px 0 4px;font-size:12px;color:var(--mudo)">Inversores</label>
-   <div class="pac-invs">${invs}</div>
-   <button type="button" class="bt-claro bt-mini" onclick="addPacInv(this)">+ inversor</button>
-   <div class="grid g4" style="margin-top:10px">
-     <div><label>Valor do kit</label><input class="pac-kit rs" inputmode="decimal" placeholder="R$ 0,00" value="${_iRS(p.valor_kit)}"></div>
-     <div><label>Margem <small class="auto">vazio=auto</small></label><input class="pac-margem pct" inputmode="decimal" value="${_esc(p.margem_desejada)}"></div>
-     <div><label>Comissão</label><input class="pac-comissao pct" inputmode="decimal" value="${_esc(p.comissao_pct)}"></div>
-     <div><label>Seguro</label><input class="pac-seguro pct" inputmode="decimal" value="${_esc(p.seguro_pct)}"></div>
-   </div>
-   <div class="grid g4" style="margin-top:8px">
-     <div><label>Deslocamento</label><input class="pac-desloc rs" inputmode="decimal" placeholder="R$ 0,00" value="${_iRS(p.desloc)}"></div>
-     <div><label>Custo 380 V</label><input class="pac-380v rs" inputmode="decimal" placeholder="R$ 0,00" value="${_iRS(p.custo_380v)}"></div>
-     <div><label>Mão de obra <small class="auto">vazio=auto</small></label><input class="pac-mo rs" inputmode="decimal" placeholder="automática" value="${_iRS(p.mo_manual)}"></div>
-     <div><label>Material <small class="auto">vazio=auto</small></label><input class="pac-material rs" inputmode="decimal" placeholder="automático" value="${_iRS(p.material_manual)}"></div>
-   </div>
-   <div class="grid g4" style="margin-top:8px">
-     <div><label>Alíquota <small class="auto">vazio=config</small></label><input class="pac-aliq pct" inputmode="decimal" value="${_esc(p.aliquota_pct)}"></div>
-   </div>
-   <label style="display:block;margin:10px 0 4px;font-size:12px;color:var(--mudo)">String box e bateria (já inclusos no valor do kit — aparecem na página 3)</label>
-   <div class="grid g4">
-     <div><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" class="pac-sb-on" ${p.tem_stringbox?'checked':''}> String box CC</label></div>
-     <div><label>Qtd. string box</label><input class="pac-sb-qtd" type="number" value="${_esc(p.sb_qtd)}"></div>
-     <div><label>Marca (opcional)</label><input class="pac-sb-marca" value="${_esc(p.sb_marca)}"></div>
-     <div><label>Entradas/Saídas</label><input class="pac-sb-es" value="${_esc(p.sb_es)}"></div>
-   </div>
-   <div class="grid g4" style="margin-top:8px">
-     <div><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" class="pac-bat-on" ${p.tem_bateria?'checked':''}> Bateria de lítio</label></div>
-     <div><label>Qtd. baterias</label><input class="pac-bat-qtd" type="number" value="${_esc(p.bat_qtd)}"></div>
-     <div><label>Marca</label><input class="pac-bat-marca" value="${_esc(p.bat_marca)}"></div>
-     <div><label>Capacidade</label><input class="pac-bat-kwh kwh" inputmode="decimal" placeholder="0,00 kWh" value="${_iKWH(p.bat_kwh)}"></div>
-   </div>
-   <label style="display:block;margin:10px 0 4px;font-size:12px;color:var(--mudo)">Imagens deste pacote (opcional — vazio usa a imagem padrão do ⚙)</label>
-   <div style="display:flex;gap:10px">
-     ${_pacImgBoxHTML('modulo',p.img_modulo||'')}
-     ${_pacImgBoxHTML('inversor',p.img_inversor||'')}
-   </div>
- </div>`;
+   <div class="pac-body" style="margin-top:10px;${aberto?'':'display:none'}">
+     <div class="grid g4">
+       <div><label>Conexão</label>${pacSelectHTML('pac-conexao',CONEXOES,p.conexao||'HÍBRIDO')}</div>
+       <div><label>Estrutura (telhado)</label>${pacSelectHTML('pac-estrutura',ESTRUTURAS,p.estrutura)}</div>
+       <div><label>Qtd. módulos</label><input class="pac-qtd" type="number" value="${_esc(p.qtd_modulos)}"></div>
+       <div><label>Marca do módulo</label>${pacSelectHTML('pac-marca-mod',MARCAS_MOD,p.marca_modulo)}</div>
+     </div>
+     <div class="grid g4" style="margin-top:8px">
+       <div><label>Potência módulo (W)</label><input class="pac-pot-mod" type="number" value="${_esc(p.pot_modulo_w)}"></div>
+     </div>
+     <label style="display:block;margin:10px 0 4px;font-size:12px;color:var(--mudo)">Inversores</label>
+     <div class="pac-invs">${invs}</div>
+     <button type="button" class="bt-claro bt-mini" onclick="addPacInv(this)">+ inversor</button>
+     <div class="grid g4" style="margin-top:10px">
+       <div><label>Margem <small class="auto">vazio=auto</small></label><input class="pac-margem pct" inputmode="decimal" value="${_esc(p.margem_desejada)}"></div>
+       <div><label>Comissão</label><input class="pac-comissao pct" inputmode="decimal" value="${_esc(p.comissao_pct)}"></div>
+       <div><label>Seguro</label><input class="pac-seguro pct" inputmode="decimal" value="${_esc(p.seguro_pct)}"></div>
+       <div><label>Alíquota <small class="auto">vazio=config</small></label><input class="pac-aliq pct" inputmode="decimal" value="${_esc(p.aliquota_pct)}"></div>
+     </div>
+     <div class="grid g4" style="margin-top:8px">
+       <div><label>Deslocamento</label><input class="pac-desloc rs" inputmode="decimal" placeholder="R$ 0,00" value="${_iRS(p.desloc)}"></div>
+       <div><label>Custo 380 V</label><input class="pac-380v rs" inputmode="decimal" placeholder="R$ 0,00" value="${_iRS(p.custo_380v)}"></div>
+       <div><label>Mão de obra <small class="auto">vazio=auto</small></label><input class="pac-mo rs" inputmode="decimal" placeholder="automática" value="${_iRS(p.mo_manual)}"></div>
+       <div><label>Material <small class="auto">vazio=auto</small></label><input class="pac-material rs" inputmode="decimal" placeholder="automático" value="${_iRS(p.material_manual)}"></div>
+     </div>
+     <label style="display:block;margin:10px 0 4px;font-size:12px;color:var(--mudo)">String box e bateria (já inclusos no valor do kit — aparecem na página 3)</label>
+     <div class="grid g4">
+       <div><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" class="pac-sb-on" ${p.tem_stringbox?'checked':''}> String box CC</label></div>
+       <div><label>Qtd. string box</label><input class="pac-sb-qtd" type="number" value="${_esc(p.sb_qtd)}"></div>
+       <div><label>Marca (opcional)</label><input class="pac-sb-marca" value="${_esc(p.sb_marca)}"></div>
+       <div><label>Entradas/Saídas</label><input class="pac-sb-es" value="${_esc(p.sb_es)}"></div>
+     </div>
+     <div class="grid g4" style="margin-top:8px">
+       <div><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" class="pac-bat-on" ${p.tem_bateria?'checked':''}> Bateria de lítio</label></div>
+       <div><label>Qtd. baterias</label><input class="pac-bat-qtd" type="number" value="${_esc(p.bat_qtd)}"></div>
+       <div><label>Marca</label><input class="pac-bat-marca" value="${_esc(p.bat_marca)}"></div>
+       <div><label>Capacidade</label><input class="pac-bat-kwh kwh" inputmode="decimal" placeholder="0,00 kWh" value="${_iKWH(p.bat_kwh)}"></div>
+     </div>
+     <label style="display:block;margin:10px 0 4px;font-size:12px;color:var(--mudo)">Imagens deste pacote (opcional — vazio usa a imagem padrão do ⚙)</label>
+     <div style="display:flex;gap:10px">
+       ${_pacImgBoxHTML('modulo',p.img_modulo||'')}
+       ${_pacImgBoxHTML('inversor',p.img_inversor||'')}
+     </div>
+   </div>`;
+}
+function _togglePac(btn){
+ const body=btn.closest('.pacote-card').querySelector('.pac-body');
+ const abrir=body.style.display==='none';
+ body.style.display=abrir?'':'none'; btn.textContent=abrir?'▾':'▸';
 }
 function _pacImgBoxHTML(qual,dataurl){
  const tem=!!dataurl, titulo=qual==='modulo'?'Módulo':'Inversor';
@@ -1633,9 +1632,50 @@ function _pacImgSet(box,dataurl){
 }
 function _pacImgRm(btn){_pacImgSet(btn.closest('.pac-img'),'');}
 function addPacInv(btn){btn.previousElementSibling.insertAdjacentHTML('beforeend',_pacInvHTML());}
-function addPacote(){const box=document.getElementById('cf-pacotes');
- box.insertAdjacentHTML('beforeend',pacoteCardHTML({}));
+function addPacote(){const box=document.getElementById('pacotes-lista');
+ box.insertAdjacentHTML('beforeend',pacoteCardHTML({},true));
  aplicarMascaras(box.lastElementChild);}
+// coleta os cartões de pacote de um container e devolve a lista para salvar
+function _coletarPacotes(root){
+ return [...root.querySelectorAll('.pacote-card')].map(card=>{
+   const q=cl=>card.querySelector('.'+cl);
+   const imgData=qual=>{const el=card.querySelector('.pac-img[data-qual="'+qual+'"] .pac-img-data');return el?el.value:'';};
+   const invs=[...card.querySelectorAll('.pac-invs .pac-inv')].map(row=>({
+     marca:pacSelVal(row,'pi-marca'),
+     pot_kw:_n(row.querySelector('.pi-pot'))||0,
+     tensao:parseInt(row.querySelector('.pi-tensao').value)||220,
+     qtd:parseInt(row.querySelector('.pi-qtd').value)||1,
+     micro:row.querySelector('.pi-micro').checked,
+   })).filter(iv=>iv.marca||iv.pot_kw);
+   return {id:((q('pac-id')&&q('pac-id').value)||'').trim(),
+     img_modulo:imgData('modulo'), img_inversor:imgData('inversor'),
+     nome:(q('pac-nome').value||'').trim(),
+     conexao:pacSelVal(card,'pac-conexao')||'HÍBRIDO',
+     estrutura:pacSelVal(card,'pac-estrutura')||'FIBROCIMENTO',
+     qtd_modulos:parseInt(q('pac-qtd').value)||0,
+     marca_modulo:pacSelVal(card,'pac-marca-mod'),
+     pot_modulo_w:_n(q('pac-pot-mod'))||0,
+     inversores:invs,
+     valor_kit:pacNum(card,'pac-kit')||0,
+     margem_desejada:pacNum(card,'pac-margem'),  // null = margem automática
+     comissao_pct:pacNum(card,'pac-comissao')||0,
+     seguro_pct:pacNum(card,'pac-seguro')||0,
+     desloc:pacNum(card,'pac-desloc')||0,
+     custo_380v:pacNum(card,'pac-380v')||0,
+     mo_manual:pacNum(card,'pac-mo'),            // null = automática
+     material_manual:pacNum(card,'pac-material'),// null = automático
+     aliquota_pct:pacNum(card,'pac-aliq'),       // null = usa o config
+     tem_stringbox:q('pac-sb-on').checked,
+     sb_qtd:parseInt(q('pac-sb-qtd').value)||1,
+     sb_marca:(q('pac-sb-marca').value||'').trim(),
+     sb_es:(q('pac-sb-es').value||'').trim(),
+     tem_bateria:q('pac-bat-on').checked,
+     bat_qtd:parseInt(q('pac-bat-qtd').value)||1,
+     bat_marca:(q('pac-bat-marca').value||'').trim(),
+     bat_kwh:pacNum(card,'pac-bat-kwh'),
+   };
+ }).filter(p=>p.nome);
+}
 function consultorRowHTML(cn){cn=cn||{};
  return `<div class="consultor-row" style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
    <input class="cn-nome" placeholder="nome do consultor" value="${_esc(cn.nome)}" style="flex:1">
@@ -1672,46 +1712,6 @@ function salvarConfig(){
    performance_ratio:_n(G('cf-pr')),
    impostos_copel:{pis:_n(G('cf-pis')),cofins:_n(G('cf-cofins')),icms:_n(G('cf-icms')),icms_rural:_n(G('cf-icms-rural'))},
  };
- // pacotes geradores (equipamento + custos internos). Vão para config.json.
- c.pacotes=[...document.querySelectorAll('#cf-pacotes .pacote-card')].map(card=>{
-   const q=cl=>card.querySelector('.'+cl);
-   const imgData=qual=>{const el=card.querySelector('.pac-img[data-qual="'+qual+'"] .pac-img-data');return el?el.value:'';};
-   const invs=[...card.querySelectorAll('.pac-invs .pac-inv')].map(row=>({
-     marca:pacSelVal(row,'pi-marca'),
-     pot_kw:_n(row.querySelector('.pi-pot'))||0,
-     tensao:parseInt(row.querySelector('.pi-tensao').value)||220,
-     qtd:parseInt(row.querySelector('.pi-qtd').value)||1,
-     micro:row.querySelector('.pi-micro').checked,
-   })).filter(iv=>iv.marca||iv.pot_kw);
-   return {id:((q('pac-id')&&q('pac-id').value)||'').trim(),
-     img_modulo:imgData('modulo'), img_inversor:imgData('inversor'),
-     nome:(q('pac-nome').value||'').trim(),
-     conexao:pacSelVal(card,'pac-conexao')||'HÍBRIDO',
-     estrutura:pacSelVal(card,'pac-estrutura')||'FIBROCIMENTO',
-     qtd_modulos:parseInt(q('pac-qtd').value)||0,
-     marca_modulo:pacSelVal(card,'pac-marca-mod'),
-     pot_modulo_w:_n(q('pac-pot-mod'))||0,
-     inversores:invs,
-     valor_kit:pacNum(card,'pac-kit')||0,
-     margem_desejada:pacNum(card,'pac-margem'),  // null = margem automática
-     comissao_pct:pacNum(card,'pac-comissao')||0,
-     seguro_pct:pacNum(card,'pac-seguro')||0,
-     desloc:pacNum(card,'pac-desloc')||0,
-     custo_380v:pacNum(card,'pac-380v')||0,
-     mo_manual:pacNum(card,'pac-mo'),            // null = automática
-     material_manual:pacNum(card,'pac-material'),// null = automático
-     aliquota_pct:pacNum(card,'pac-aliq'),       // null = usa o config
-     // string box e bateria já entram no valor do kit (parte do pacote)
-     tem_stringbox:q('pac-sb-on').checked,
-     sb_qtd:parseInt(q('pac-sb-qtd').value)||1,
-     sb_marca:(q('pac-sb-marca').value||'').trim(),
-     sb_es:(q('pac-sb-es').value||'').trim(),
-     tem_bateria:q('pac-bat-on').checked,
-     bat_qtd:parseInt(q('pac-bat-qtd').value)||1,
-     bat_marca:(q('pac-bat-marca').value||'').trim(),
-     bat_kwh:pacNum(card,'pac-bat-kwh'),
-   };
- }).filter(p=>p.nome);
  // consultores (nome+senha) — o servidor grava em acesso.json (fora do Git)
  c.consultores=[...document.querySelectorAll('#cf-consultores .consultor-row')].map(row=>({
    nome:(row.querySelector('.cn-nome').value||'').trim(),

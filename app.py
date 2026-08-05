@@ -494,49 +494,6 @@ def api_pacotes():
         return jsonify(ok=False, erro=str(exc)), 400
 
 
-@app.get('/api/pacotes/precos')
-def api_listar_precos():
-    """Só id/nome/valor_kit dos pacotes — para a tela de atualização rápida de
-    preços do admin (não traz imagens nem o resto). Só admin."""
-    if _eh_consultor():
-        return jsonify(ok=False, erro='Sem permissão.'), 403
-    try:
-        cfg = engine.carregar_config()
-        itens = [{'id': _pacote_id(p, i),
-                  'nome': p.get('nome') or f'Pacote {i + 1}',
-                  'valor_kit': p.get('valor_kit')}
-                 for i, p in enumerate(_pacotes(cfg))]
-        return jsonify(ok=True, pacotes=itens)
-    except Exception as exc:                                    # noqa: BLE001
-        return jsonify(ok=False, erro=str(exc)), 400
-
-
-@app.post('/api/pacotes/precos')
-def api_atualizar_precos():
-    """Atualiza APENAS o valor do kit de pacotes existentes, preservando todo o
-    resto (equipamento, imagens, string box/bateria…). Body: {precos:[{id,
-    valor_kit}]}. Só admin. (Futuro: alimentar isto pela API das distribuidoras.)"""
-    if _eh_consultor():
-        return jsonify(ok=False, erro='Sem permissão.'), 403
-    try:
-        d = request.get_json(force=True) or {}
-        precos = {str(x.get('id')): x for x in (d.get('precos') or [])}
-        caminho = engine.caminho_config()
-        with open(caminho, encoding='utf-8') as f:
-            cfg = json.load(f)                      # preserva o resto do arquivo
-        n = 0
-        for i, p in enumerate(cfg.get('pacotes') or []):
-            pid = str(p.get('id') or i)
-            if pid in precos and precos[pid].get('valor_kit') not in (None, ''):
-                p['valor_kit'] = _f(precos[pid].get('valor_kit'))
-                n += 1
-        with open(caminho, 'w', encoding='utf-8') as f:
-            json.dump(cfg, f, ensure_ascii=False, indent=2)
-        return jsonify(ok=True, atualizados=n)
-    except Exception as exc:                                    # noqa: BLE001
-        return jsonify(ok=False, erro=str(exc)), 400
-
-
 # ----------------------------------------------------------- solicitações
 # O consultor pede uma cotação de kit ao admin (cliente + kWp desejado +
 # telhado). Fica guardado em solicitacoes.json (data dir, gitignored) e o admin
