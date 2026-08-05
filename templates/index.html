@@ -1188,6 +1188,7 @@ function wire(root){root.querySelectorAll('input,select').forEach(el=>{
   root.querySelectorAll('.u-te,.u-tusd,.u-icms,.u-cofins,.u-pis').forEach(inp=>
     inp.addEventListener('input',()=>cheiaLocal(root)));}}
 
+let _pdfUrl=null;                 // guarda o último PDF gerado (link opcional de download)
 async function gerar(){
  const bt=document.getElementById('bt-pdf'); bt.disabled=true; bt.textContent='Gerando e salvando…';
  try{
@@ -1199,14 +1200,17 @@ async function gerar(){
   const cd=r.headers.get('Content-Disposition')||'';
   const m=cd.match(/filename\*?=(?:UTF-8''|\")?([^\";]+)/i);
   const nome=m?decodeURIComponent(m[1]):'PROPOSTA.pdf';
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-  a.download=nome; a.click(); URL.revokeObjectURL(a.href);
+  // sem download automático: o PDF já foi salvo na pasta/Drive. Deixa um link
+  // opcional caso queira o arquivo na mão (aí sim o navegador baixa).
+  if(_pdfUrl) URL.revokeObjectURL(_pdfUrl);
+  _pdfUrl=URL.createObjectURL(blob);
   const aviso=r.headers.get('X-Drive-Aviso');
   const enviado=r.headers.get('X-Drive-Enviado');
   const ok=document.getElementById('salvo-ok');
   let extra = enviado ? ' e enviado ao <b>Google Drive</b> ✔' : '';
-  ok.innerHTML=`✔ proposta gerada e projeto salvo em <b>clientes/${(body.nome||'CLIENTE').trim()}/</b>${extra}`;
-  ok.style.display='block'; setTimeout(()=>{ok.style.display='none';},8000);
+  ok.innerHTML=`✔ proposta gerada e projeto salvo em <b>clientes/${(body.nome||'CLIENTE').trim()}/</b>${extra}`
+    +` &middot; <a href="${_pdfUrl}" download="${_esc(nome)}" style="color:var(--azul);font-weight:600">⬇ baixar PDF</a>`;
+  ok.style.display='block';
   if(aviso){const err=document.getElementById('erro');
     err.innerHTML='⚠ A proposta foi gerada, mas <b>o envio ao Google Drive falhou</b>: '+aviso;
     err.style.display='block';}
