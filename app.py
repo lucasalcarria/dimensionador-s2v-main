@@ -118,6 +118,8 @@ def _rota_admin(req) -> bool:
     if p in ('/api/imagens-padrao', '/api/atualizar-tarifa',
              '/api/drive/desconectar') and m == 'POST':
         return True
+    if p in ('/api/resumos-salvos', '/api/importar-resumo'):
+        return True                             # importar projeto: só admin
     if p.startswith('/oauth2/'):                # conectar Google Drive
         return True
     return False
