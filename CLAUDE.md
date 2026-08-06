@@ -74,27 +74,84 @@ Só precisa de `pypdfium2`, `fontTools` e `brotli` — **no build, não no progr
 2. **Retorno de 25 anos**: economia mensal × 12 projetada (reajuste 5% a.a. a
    partir do ano 2, degradação 2,5%/0,7%). A planilha original tinha um bug
    (dividia a tarifa por 9 via COUNTA) que dava R$ 16.651 em vez de ~R$ 141 mil.
-   `compat_planilha: true` no config reproduz o comportamento antigo.
+   `compat_planilha: true` no config reproduz o comportamento antigo. (Modelar
+   a subida do Fio B ano a ano na projeção ficou pendente: o Fio B vai a 90% em
+   2028 e 2029 depende de nova convenção — não assumir 100%.)
 3. **Preço/Wp sempre converge** (o B75 da planilha estava obsoleto).
 4. **Fio B escalonado por ano** (2026=60% … 2029=100%).
-5. **ANEEL foi removida de propósito.** Tentamos a base de dados aberta e o
-   portal Luz na Tarifa: deram 400, 403, 409 e queda de handshake TLS na máquina
-   do usuário. **Não tente reintroduzir.** As tarifas vivem numa **tabela local**
-   em `config.json → concessionarias.<nome>.tarifas.<subgrupo>` (TE/TUSD **sem**
-   impostos), atualizada pela tela ("atualizar valores…"), que converte de
-   "com impostos" usando `sem = com × (1−ICMS) × (1−PIS−COFINS)`.
-   Do site da COPEL raspamos só HTML de verdade: resolução/vigência e ICMS
-   (a tabela de tarifas de lá é um Power BI embutido — não é raspável).
-   **O botão "aplicar tarifas e impostos" de cada UC** aplica a tabela local de
-   TE/TUSD *e* busca o ICMS vigente no site da COPEL (`/api/copel-verificar`);
-   se o site cair, usa o ICMS da tabela local. O antigo botão "atualizar
-   valores…" (modal de colar tarifas) foi removido — TE/TUSD se editam direto
-   nos campos da UC ou pelo `config.json`.
+5. **Tarifas TE/TUSD vêm da ANEEL Dados Abertos** (`online.buscar_tarifa_aneel`,
+   endpoint `/api/aneel-tarifa`). A base pública "Tarifas de aplicação das
+   distribuidoras" traz TE/TUSD **sem impostos** (R$/MWh → ÷1000), por
+   distribuidora (`SigAgente`, cadastrado em `concessionarias.<nome>.aneel_sigla`),
+   subgrupo e vigência — pega a linha "Tarifa de Aplicação", modalidade
+   Convencional, classe do subgrupo (B1=Residencial/Residencial;
+   B2=Rural/"Não se aplica"), demais campos "Não se aplica", vigência mais
+   recente. Filtros por `datastore_search?filters=…` (a API **SQL** dá 400 —
+   não usar). Nota histórica: a base antiga da ANEEL e o Luz na Tarifa davam
+   400/403/409/TLS; o **portal Dados Abertos responde bem** (urllib→curl no
+   `online._get_json`). **Cache offline:** cada busca bem-sucedida é gravada em
+   `tarifas_cache.json` (data dir, gitignored); se a ANEEL cair, o endpoint
+   devolve o **último registro salvo** (`cache:true`). O **padrão de segurança**
+   de TE/TUSD (`_montar_entradas`, quando o campo vem vazio) também usa esse
+   cache (COPEL-DIS|B1), não mais um número fixo desatualizado.
+   **Sem botão:** escolher a concessionária no seletor da UC (`onchange`) já
+   atualiza TE/TUSD (ANEEL → cache → tabela local) e o ICMS (da concessionária,
+   `config.impostos.<sub>`); **COPEL é aplicada por padrão ao abrir** (via
+   `aplicarConcAuto`, só quando a UC está vazia — não sobrescreve import).
+   **PIS/COFINS NÃO são tocados** ao trocar de concessionária (ficam como o
+   usuário deixou; backup nas pré-definições). Há um cache de sessão no front
+   (`window._tarCache`) p/ não rebuscar a mesma conc/subgrupo.
+   (O `/api/copel-verificar` ainda existe p/ o ICMS/resolução da COPEL, mas não é
+   mais chamado no fluxo automático — o ICMS vem do `config`, offline-safe.)
+   **PIS/COFINS não são automatizáveis** (alíquota efetiva mensal por
+   distribuidora, sem API — cada uma publica em PDF/Power BI): ficam manuais nas
+   pré-definições.
 6. **Cartões da pág. 3 se reagrupam** quando falta string box e/ou bateria
    (sem buracos), e a garantia "BATERIA DE LÍTIO" some sem bateria.
 7. **Valores medidos são sagrados**: geometrias em `layout.json`/`deco.json`
    (ex.: 7 círculos da timeline, raio 9pt, cy 776,6) foram medidas em pixels do
    PDF original. Se mexer, **remeça** — não chute.
+8. **Abatimento limitado à geração (Lei 14.300).** A planilha creditava
+   `compensado = faturado − disponibilidade` **sem** olhar a geração, o que
+   superestimava a economia de sistemas **subdimensionados** (compensação
+   <100%). Agora `compensado = min(faturado − disp, TRUNC(geração×%noturno))`
+   (`engine.calcular`). Em sistemas 100%+ isso é um no-op → o `teste_planilha`
+   fica idêntico. Isto também faz a regra do "maior valor" (disponibilidade ×
+   Fio B) operar de verdade quando falta geração.
+9. **Abatimento de ICMS na COPEL é assimétrico — de propósito.** Na **TE**
+   abatida o crédito devolve o ICMS (`abat_te = te_com_imposto`) → a TE
+   compensada zera. Na **TUSD** abatida o crédito **não** re-embute o ICMS
+   (`abat_tusd = (TUSD − FioB)/(1−PIS−COFINS)`) → a TUSD compensada ainda paga
+   ICMS. Essa assimetria é o que **reproduz a fatura real** (NEUZA = R$ 125,70).
+   **NÃO "corrigir"** (tentamos aplicar o Convênio 16/2015 à TUSD e o valor caiu
+   p/ R$ 104,69, divergindo da conta real — revertido). Se um estado tratar a
+   **TUSD abatida COM ICMS**, isso vira regra por concessionária (a pesquisar/
+   confirmar com fatura real) — ver "Como adicionar outra concessionária".
+
+## Como adicionar outra concessionária / estado
+
+O motor está preparado para outras concessionárias sem cirurgia:
+- **Tarifas e impostos** já são por concessionária em
+  `config.json → concessionarias.<nome>` (`tarifas.<subgrupo>` + `impostos`).
+- **A regra que MAIS varia por estado — `abat_tusd_inclui_icms`:** a isenção da
+  energia COMPENSADA (Convênio 16/2015) alcança a TUSD? `false` = COPEL/PR e RS
+  (a TUSD abatida ainda paga ICMS; é o caso validado); `true` = SP (Decreto
+  67.521/2023, vence 2026) e MG (a TUSD abatida fica 100% isenta). No motor é
+  `UC.abat_tusd_inclui_icms`; padrão `false`. **É a alavanca principal ao
+  cadastrar um estado.**
+- **ICMS no CONSUMO por componente:** chaves `icms_sobre_te`/`icms_sobre_tusd`
+  (`UC.icms_te`/`icms_tusd`, padrão `true`). Hoje TE e TUSD levam ICMS no consumo
+  em todos os estados (STJ Tema 986); as alavancas existem só para o caso raro de
+  liminar/regra diferente — **não** são a variação normal entre estados.
+- **Fluxo já ligado ponta a ponta:** `/api/concessionarias` devolve as regras →
+  `lerUC()` (index.html) lê a regra da concessionária **selecionada** em cada UC
+  e a envia no payload (sem controle visível) → `_montar_entradas` (`_regra_bool`)
+  a coloca na `UC`. Adicionar concessionária = **só** um bloco novo no
+  `config.json`.
+- ⚠ **Terreno em movimento e sem validação local:** STJ Tema 986, decretos
+  estaduais com prazo (o de SP vence em 2026) e ações de restituição. Os valores
+  cadastrados (SP/MG=`true`, PR/RS=`false`, SC/RJ a confirmar) e as alíquotas
+  são aproximados — **confirme com uma fatura real** antes de usar em proposta.
 
 ## Cliente, UCs e salvamento (app.py + index.html)
 
@@ -226,17 +283,21 @@ legados por segurança.
 O botão **⚙ Pré-definições** abre um editor das constantes herdadas da planilha:
 imposto, mão de obra (mínima/por módulo), tabela de material (markup + faixas),
 garantias fixas, autotrafo 380 V, bandeiras, listas de marcas, financiamento,
-**Fio B (R$/MWh)** e os **impostos vigentes da COPEL (PIS/COFINS/ICMS)**.
-`GET/POST /api/config` gravam **só** as chaves em `CONFIG_EDITAVEL` (app.py); os
-impostos vão para `concessionarias.COPEL (PR).impostos` + `tarifas_padrao` **sem
-tocar em 'tarifas'**. O resto do `config.json` (comentários, tabela de tarifas) é
-preservado byte a byte. Importar projeto salvo também aceita um `DADOS.json` do
-computador.
+**Fio B (R$/MWh)** e os **impostos federais (PIS/COFINS)**.
+`GET/POST /api/config` gravam **só** as chaves em `CONFIG_EDITAVEL` (app.py); o
+PIS/COFINS vai para `concessionarias.COPEL (PR).impostos` (B1/B2/padrão) +
+`tarifas_padrao` **sem tocar em 'tarifas' nem no ICMS**. O resto do `config.json`
+é preservado byte a byte. Importar projeto salvo também aceita um `DADOS.json`.
 
-**PIS/COFINS mudam todo mês e NÃO são raspáveis** (a página de tributos da COPEL
-também é Power BI). Por isso ficam no editor de pré-definições, mantidos à mão; o
-botão "aplicar tarifas e impostos" da UC passa a usar esses valores. Ao salvar as
-pré-definições, os impostos novos são **aplicados a todas as UCs já abertas** na
+**O ICMS NÃO fica nas pré-definições** — varia por estado e vive em
+`concessionarias.<nome>.impostos` (aplicado pela concessionária). Não existe
+"ICMS rural" como alíquota: no PR o rural é a mesma alíquota, porém isento
+(diferimento p/ produtor no CAD/PRO) — por isso o campo foi removido.
+
+**PIS/COFINS mudam todo mês e são FEDERAIS** (iguais em todo o país): ficam no
+editor, mantidos à mão. O botão "aplicar tarifas e impostos" da UC **não** mexe
+em PIS/COFINS (só TE/TUSD da ANEEL e ICMS da concessionária). Ao salvar as
+pré-definições, o PIS/COFINS novo é **aplicado a todas as UCs já abertas** na
 tela e a tabela de concessionárias é relida (antes o usuário precisava reabrir).
 Deixe os campos de **garantia vazios** para usar as regras automáticas da
 planilha — preencher fixa o valor. O `/api/config` grava com **indent=2** (mesmo
@@ -270,7 +331,9 @@ lá — ao mexer nele, prefira acrescentar chaves a reescrever o arquivo.
 
 ## Como verificar mudanças
 
-- **Cálculo** → `python3 teste_planilha.py`
+- **Cálculo** → `python3 teste_planilha.py` (réplica exata da planilha) **e**
+  `python3 teste_correcoes.py` (correções pós-planilha: abatimento parcial da
+  Lei 14.300, Convênio ICMS 16/2015 e alavanca `icms_te`). Ambos DEVEM passar.
 - **PDF** → gere e confira por pixels/OCR (`pdftoppm -r 150` + PIL/pytesseract).
   Não confie em "parece certo": meça.
 - **UI** → o JS é validado com `node --check` (remova as tags Jinja antes).

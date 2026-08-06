@@ -25,6 +25,15 @@ build/
 dist/
 *.spec
 
+# --- planilha original de referência (12 MB, não versionar) ---
+*.xlsm
+*.xlsx
+
+# --- graphify: cache e backups datados são derivados/transitórios ---
+# (o grafo em si — graph.json, GRAPH_REPORT.md, etc. — continua versionado)
+graphify-out/cache/
+graphify-out/????-??-??/
+
 # --- sistema / editor ---
 .DS_Store
 Thumbs.db

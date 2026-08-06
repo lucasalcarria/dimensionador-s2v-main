@@ -359,8 +359,21 @@ def _gravar_img_pacote(pid, qual: str, dataurl) -> None:
     _salvar_pac_imgs(d)
 
 
+def _regra_bool(valor, padrao: bool = True) -> bool:
+    """Lê uma regra booleana vinda do front/JSON (True/'false'/0/…)."""
+    if valor is None:
+        return padrao
+    if isinstance(valor, bool):
+        return valor
+    return str(valor).strip().lower() not in ('false', '0', 'nao', 'não', 'no', '')
+
+
 def _montar_entradas(d: dict) -> engine.Entradas:
     d = _aplicar_pacote(d)          # consultor: injeta equipamento+custos do pacote
+    # padrão de segurança para TE/TUSD quando o campo vem vazio: o ÚLTIMO valor
+    # da COPEL vindo da ANEEL (cache), em vez de um número fixo desatualizado.
+    _cache = _ler_cache_tarifas().get('COPEL-DIS|B1') or {}
+    _pte, _ptusd = _cache.get('te', 0.27575), _cache.get('tusd', 0.36667)
     ucs = []
     for u in d.get('ucs', []):
         ucs.append(engine.UC(
@@ -368,15 +381,18 @@ def _montar_entradas(d: dict) -> engine.Entradas:
             ilum_publica=_f(u.get('ilum_publica')),
             ligacao=u.get('ligacao') or 'MONOFASICO',
             consumos=[_f(x) for x in (u.get('consumos') or [0] * 12)],
-            te=_f(u.get('te'), 0.27575),          # R$/kWh SEM impostos
-            tusd=_f(u.get('tusd'), 0.36667),      # R$/kWh SEM impostos
+            te=_f(u.get('te'), _pte),             # R$/kWh SEM impostos
+            tusd=_f(u.get('tusd'), _ptusd),       # R$/kWh SEM impostos
             icms=_f(u.get('icms'), 19.0) / 100.0,       # tela usa %
             cofins=_f(u.get('cofins'), 5.8) / 100.0,
             pis=_f(u.get('pis'), 1.26) / 100.0,
             pct_noturno=_f(u.get('pct_noturno'), 65.0) / 100.0,
             bandeira=u.get('bandeira') or 'VERDE',
             uc_numero=str(u.get('uc_numero') or '').strip(),
-            gd=(u.get('gd') or 'GD2').strip().upper()))
+            gd=(u.get('gd') or 'GD2').strip().upper(),
+            icms_te=_regra_bool(u.get('icms_te'), True),
+            icms_tusd=_regra_bool(u.get('icms_tusd'), True),
+            abat_tusd_inclui_icms=_regra_bool(u.get('abat_tusd_inclui_icms'), False)))
     while len(ucs) < 9:
         ucs.append(engine.UC())
 
@@ -681,6 +697,8 @@ def api_concessionarias():
         cfg = engine.carregar_config()
         conc = {}
         for nome, v in (cfg.get('concessionarias') or {}).items():
+            if nome.startswith('_') or not isinstance(v, dict):
+                continue                       # pula chaves-comentário (_nota…)
             imp = {}
             for sub, a in (v.get('impostos') or {}).items():
                 imp[sub] = dict(
@@ -689,6 +707,13 @@ def api_concessionarias():
                     pis_pct=round(a.get('pis', 0) * 100, 2))
             conc[nome] = dict(impostos=imp,
                               tarifas=v.get('tarifas') or {},
+                              # regras tributárias por componente (aplicadas
+                              # invisivelmente ao selecionar a concessionária).
+                              icms_sobre_te=bool(v.get('icms_sobre_te', True)),
+                              icms_sobre_tusd=bool(v.get('icms_sobre_tusd', True)),
+                              # isenção do ICMS na compensada alcança a TUSD?
+                              abat_tusd_inclui_icms=bool(v.get('abat_tusd_inclui_icms', False)),
+                              aneel_sigla=v.get('aneel_sigla', ''),
                               site_tarifas=v.get('site_tarifas', ''),
                               site_tributos=v.get('site_tributos', ''),
                               fonte_impostos=v.get('fonte_impostos', ''))
@@ -697,6 +722,57 @@ def api_concessionarias():
                        [{'id': 'B1', 'rotulo': 'B1 – Residencial'}])
     except Exception as exc:                                   # noqa: BLE001
         return jsonify(ok=False, erro=str(exc)), 400
+
+
+def _caminho_tarifa_cache() -> str:
+    # cache do último TE/TUSD da ANEEL por distribuidora (dado de runtime, no
+    # data dir → bucket no Cloud Run; gitignored). Sobrevive a quedas de internet.
+    return os.path.join(engine.dir_execucao(), 'tarifas_cache.json')
+
+
+def _ler_cache_tarifas() -> dict:
+    try:
+        with open(_caminho_tarifa_cache(), encoding='utf-8') as f:
+            return json.load(f)
+    except Exception:                                          # noqa: BLE001
+        return {}
+
+
+def _salvar_cache_tarifa(chave: str, dados: dict) -> None:
+    cache = _ler_cache_tarifas()
+    cache[chave] = dados
+    try:
+        with open(_caminho_tarifa_cache(), 'w', encoding='utf-8') as f:
+            json.dump(cache, f, ensure_ascii=False, indent=2)
+    except Exception:                                          # noqa: BLE001
+        pass
+
+
+@app.get('/api/aneel-tarifa')
+def api_aneel_tarifa():
+    """TE/TUSD vigentes (SEM impostos) de uma concessionária, da ANEEL Dados
+    Abertos. Params: `conc` (nome no config) ou `sigla` (SigAgente) + `sub`.
+    Online: busca e ATUALIZA o cache. Offline: devolve o ÚLTIMO registro salvo."""
+    cfg = engine.carregar_config()
+    nome = (request.args.get('conc') or '').strip()
+    sub = (request.args.get('sub') or 'B1').strip().upper()
+    v = (cfg.get('concessionarias') or {}).get(nome) or {}
+    sigla = (request.args.get('sigla') or v.get('aneel_sigla') or '').strip()
+    if not sigla:
+        return jsonify(ok=False, erro=f'sem sigla ANEEL para {nome!r}'), 400
+    chave = f'{sigla}|{sub}'
+    import online
+    try:
+        t = online.buscar_tarifa_aneel(sigla, sub)
+        _salvar_cache_tarifa(chave, t)                # guarda o último registro
+        return jsonify(ok=True, cache=False, **t)
+    except Exception as exc:                                   # noqa: BLE001
+        cached = _ler_cache_tarifas().get(chave)
+        if cached:                                    # sem internet: último salvo
+            return jsonify(ok=True, cache=True,
+                           aviso=f'ANEEL indisponível ({exc}) — usei o último registro',
+                           **cached)
+        return jsonify(ok=False, erro=str(exc)), 502
 
 
 @app.post('/api/atualizar-tarifa')
@@ -826,15 +902,13 @@ def _aplicar_pacote(d: dict) -> dict:
 
 
 def _impostos_copel(cfg: dict) -> dict:
-    """Alíquotas atuais da COPEL (% já convertido) para o editor."""
+    """PIS/COFINS (federais) para o editor. O ICMS NÃO fica aqui — varia por
+    estado e vem da concessionária (concessionarias.<nome>.impostos)."""
     imp = ((cfg.get('concessionarias') or {}).get('COPEL (PR)') or {}) \
         .get('impostos') or {}
     base = imp.get('B1') or imp.get('padrao') or {}
-    rural = imp.get('B2') or base
     return {'pis': round(base.get('pis', 0) * 100, 4),
-            'cofins': round(base.get('cofins', 0) * 100, 4),
-            'icms': round(base.get('icms', 0) * 100, 2),
-            'icms_rural': round(rural.get('icms', 0) * 100, 2)}
+            'cofins': round(base.get('cofins', 0) * 100, 4)}
 
 
 @app.get('/api/config')
@@ -908,25 +982,21 @@ def api_salvar_config():
                         p.pop(chave, None)
                 limpos.append(p)
             cfg['pacotes'] = limpos
-        # impostos vigentes da COPEL: PIS/COFINS/ICMS não são raspáveis (Power
-        # BI), então são mantidos aqui à mão. Atualiza os impostos por subgrupo
-        # e o padrão das novas UCs — SEM tocar em 'tarifas'.
+        # PIS/COFINS são federais (mudam todo mês) e ficam aqui à mão. O ICMS
+        # NÃO é editado aqui — varia por estado (concessionarias.<nome>.impostos)
+        # e é preservado byte a byte. Atualiza só PIS/COFINS — SEM tocar em
+        # 'tarifas' nem no ICMS de cada subgrupo.
         ic = novos.get('impostos_copel')
         if ic:
             pis = _f(ic.get('pis')) / 100.0
             cofins = _f(ic.get('cofins')) / 100.0
-            icms = _f(ic.get('icms')) / 100.0
-            icms_rural = _f(ic.get('icms_rural'), ic.get('icms')) / 100.0
             conc = cfg.setdefault('concessionarias', {}) \
                       .setdefault('COPEL (PR)', {})
             imp = conc.setdefault('impostos', {})
-            for sub in ('B1', 'padrao'):
-                imp.setdefault(sub, {}).update(
-                    {'icms': icms, 'cofins': cofins, 'pis': pis})
-            imp.setdefault('B2', {}).update(
-                {'icms': icms_rural, 'cofins': cofins, 'pis': pis})
+            for sub in ('B1', 'B2', 'padrao'):
+                imp.setdefault(sub, {}).update({'cofins': cofins, 'pis': pis})
             tp = cfg.setdefault('tarifas_padrao', {})
-            tp['pis'], tp['cofins'], tp['icms'] = pis, cofins, icms
+            tp['pis'], tp['cofins'] = pis, cofins
         with open(caminho, 'w', encoding='utf-8') as f:      # 2 espaços: mesmo
             json.dump(cfg, f, ensure_ascii=False, indent=2)  # formato do arquivo
         return jsonify(ok=True)

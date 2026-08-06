@@ -244,11 +244,11 @@
   "degradacao_demais": 0.007,
   "_retorno_25": "Projeção de 25 anos (DADOS!Q43:Q67): tarifa reajusta 5% a.a.; geração cai 2,5% no 2º ano e 0,7% a.a. depois.",
   "garantias_fixas": {
-    "inversor": null,
-    "inversor_micro": null,
-    "instalacao": null,
-    "modulos": null,
-    "bateria": null
+    "inversor": 10,
+    "inversor_micro": 12,
+    "instalacao": 15,
+    "modulos": 30,
+    "bateria": 10
   },
   "_garantias_fixas": "Deixe null para usar as regras da planilha. inversor = string (padrão 10); inversor_micro = micro (padrão 12); instalacao = rótulo Módulos (20/15/12 conforme módulo); modulos = rótulo Performance linear (30 p/ N-TYPE/SUNOVA/OSDA/AMERISOLAR senão 25); bateria = 10 quando null. Preencha um número para fixar.",
   "marcas_modulo": [
@@ -278,8 +278,8 @@
     "te": 0.27575,
     "tusd": 0.36667,
     "icms": 0.19,
-    "cofins": 0.0643,
-    "pis": 0.013999999999999999,
+    "cofins": 0.0663,
+    "pis": 0.0144,
     "pct_noturno": 0.65
   },
   "_tarifas_padrao": "Valores pré-preenchidos por UC (PR!D31:H31, M31). Cada UC pode ser ajustada na tela.",
@@ -293,24 +293,99 @@
   "compat_planilha": false,
   "_compat_planilha": "true reproduz o RETORNO EM 25 ANOS exatamente como a planilha (que dividia a tarifa média pelas 9 linhas de UC, mesmo vazias — valor ~10× menor). false usa o modelo realista: economia mensal efetiva × 12, tarifa +5% a.a., degradação de −2,5% no 2º ano e −0,7% a.a. depois.",
   "concessionarias": {
+    "_nota_novas": "ICMS incide sobre TE e TUSD no CONSUMO em todo estado (STJ Tema 986). A diferença relevante é 'abat_tusd_inclui_icms': a isenção da energia COMPENSADA alcança a TUSD? SP e MG = true; PR e RS = false. SC/RJ = false (A CONFIRMAR). Alíquotas aproximadas e tarifas em branco: PREENCHA com uma fatura real. É terreno em movimento (o decreto de SP vence em 2026).",
+    "ENEL (SP)": {
+      "aneel_sigla": "ELETROPAULO",
+      "icms_sobre_te": true,
+      "icms_sobre_tusd": true,
+      "abat_tusd_inclui_icms": true,
+      "impostos": {
+        "padrao": { "icms": 0.18, "cofins": 0.0663, "pis": 0.0144 }
+      },
+      "tarifas": {}
+    },
+    "CPFL (SP)": {
+      "aneel_sigla": "CPFL-PAULISTA",
+      "icms_sobre_te": true,
+      "icms_sobre_tusd": true,
+      "abat_tusd_inclui_icms": true,
+      "impostos": {
+        "padrao": { "icms": 0.18, "cofins": 0.0663, "pis": 0.0144 }
+      },
+      "tarifas": {}
+    },
+    "CELESC (SC)": {
+      "aneel_sigla": "CELESC",
+      "icms_sobre_te": true,
+      "icms_sobre_tusd": true,
+      "abat_tusd_inclui_icms": false,
+      "impostos": {
+        "padrao": { "icms": 0.17, "cofins": 0.0663, "pis": 0.0144 }
+      },
+      "tarifas": {}
+    },
+    "RGE (RS)": {
+      "aneel_sigla": "RGE",
+      "icms_sobre_te": true,
+      "icms_sobre_tusd": true,
+      "abat_tusd_inclui_icms": false,
+      "impostos": {
+        "padrao": { "icms": 0.18, "cofins": 0.0663, "pis": 0.0144 }
+      },
+      "tarifas": {}
+    },
+    "CEMIG (MG)": {
+      "aneel_sigla": "CEMIG-D",
+      "icms_sobre_te": true,
+      "icms_sobre_tusd": true,
+      "abat_tusd_inclui_icms": true,
+      "impostos": {
+        "padrao": { "icms": 0.18, "cofins": 0.0663, "pis": 0.0144 }
+      },
+      "tarifas": {}
+    },
+    "LIGHT (RJ)": {
+      "aneel_sigla": "LIGHT SESA",
+      "icms_sobre_te": true,
+      "icms_sobre_tusd": true,
+      "abat_tusd_inclui_icms": false,
+      "impostos": {
+        "padrao": { "icms": 0.18, "cofins": 0.0663, "pis": 0.0144 }
+      },
+      "tarifas": {}
+    },
+    "ENERGISA (MS)": {
+      "aneel_sigla": "EMS",
+      "icms_sobre_te": true,
+      "icms_sobre_tusd": true,
+      "abat_tusd_inclui_icms": false,
+      "impostos": {
+        "padrao": { "icms": 0.17, "cofins": 0.0663, "pis": 0.0144 }
+      },
+      "tarifas": {}
+    },
     "COPEL (PR)": {
+      "aneel_sigla": "COPEL-DIS",
       "site_tarifas": "https://www.copel.com/site/copel-distribuicao/tarifas-de-energia-eletrica/",
       "site_tributos": "https://www.copel.com/site/copel-distribuicao/tributos/",
+      "icms_sobre_te": true,
+      "icms_sobre_tusd": true,
+      "abat_tusd_inclui_icms": false,
       "impostos": {
         "B1": {
           "icms": 0.19,
-          "cofins": 0.0643,
-          "pis": 0.013999999999999999
+          "cofins": 0.0663,
+          "pis": 0.0144
         },
         "B2": {
           "icms": 0.18,
-          "cofins": 0.0643,
-          "pis": 0.013999999999999999
+          "cofins": 0.0663,
+          "pis": 0.0144
         },
         "padrao": {
           "icms": 0.19,
-          "cofins": 0.0643,
-          "pis": 0.013999999999999999
+          "cofins": 0.0663,
+          "pis": 0.0144
         }
       },
       "tarifas": {
@@ -350,5 +425,6 @@
   ],
   "validade_dias": 7,
   "pasta_saida": "",
-  "pasta_drive": "S2V ENGENHARIA/ORÇAMENTOS"
+  "pasta_drive": "S2V ENGENHARIA/ORÇAMENTOS",
+  "pacotes": []
 }

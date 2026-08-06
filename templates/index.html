@@ -193,7 +193,7 @@ body:not(.consultor) .so-consultor{display:none!important;}
       <div style="flex:1"><label>Cidade - UF</label><input id="cidade" placeholder="Cidade - UF"></div>
     </div>
     <div class="linha" style="gap:10px;margin-top:10px">
-      <div style="flex:1"><label>Consultor / responsável <small class="auto">(vira a pasta onde o projeto é salvo — escolha uma ou digite um novo)</small></label>
+      <div style="flex:1"><label>Consultor / responsável</label>
         {% if papel == 'consultor' %}
         <input id="consultor" value="{{ consultor_nome }}" readonly>
         {% else %}
@@ -204,7 +204,6 @@ body:not(.consultor) .so-consultor{display:none!important;}
         </div>
         {% endif %}</div>
     </div>
-    <p class="mudo" style="margin:8px 0 0;font-size:12px">O nº da UC de cada fatura fica em <b>Unidades consumidoras</b>; na proposta todos aparecem juntos na capa.</p>
   </section>
 
   <section>
@@ -220,7 +219,7 @@ body:not(.consultor) .so-consultor{display:none!important;}
         <button type="button" onclick="setIrrModo('internet')">Buscar na internet</button></span>
     </h2>
     <div class="grid g3">
-      <div id="irr-box-perfil"><label>Perfil de irradiação (DADOS!B8)</label>
+      <div id="irr-box-perfil"><label>Perfil de irradiação</label>
         <select id="perfil">
           {% for p in perfis %}<option value="{{p}}" {{'selected' if p=='3.8'}}>{{p}}</option>{% endfor %}
           <option value="__custom__">— pesquisada na internet —</option>
@@ -308,7 +307,7 @@ body:not(.consultor) .so-consultor{display:none!important;}
 
     <div class="opt so-admin">
       <div class="cab"><input type="checkbox" id="tem_stringbox" onchange="toggleOpt(this,'campos-sb')">
-        <b>String box CC</b> <small class="auto">aparece na página 3 da proposta</small></div>
+        <b>String box CC</b></div>
       <div class="campos grid g3" id="campos-sb" style="display:none">
         <div><label>Quantidade</label><input id="sb_qtd" type="number" value="1" min="1"></div>
         <div><label>Marca (opcional)</label><input id="sb_marca" placeholder="ex.: CLAMPER"></div>
@@ -317,7 +316,7 @@ body:not(.consultor) .so-consultor{display:none!important;}
     </div>
     <div class="opt so-admin">
       <div class="cab"><input type="checkbox" id="tem_bateria" onchange="toggleOpt(this,'campos-bat')">
-        <b>Bateria de lítio</b> <small class="auto">marque para sistemas híbridos com armazenamento</small></div>
+        <b>Bateria de lítio</b></div>
       <div class="campos grid g3" id="campos-bat" style="display:none">
         <div><label>Quantidade</label><input id="bat_qtd" type="number" value="1" min="1"></div>
         <div><label>Marca</label><input id="bat_marca" placeholder="ex.: BYD"></div>
@@ -326,7 +325,7 @@ body:not(.consultor) .so-consultor{display:none!important;}
     </div>
 
     <div style="margin-top:12px" class="so-admin">
-      <label>Fotos do módulo e do inversor (aparecem na página 3 da proposta)</label>
+      <label>Fotos do módulo e do inversor</label>
       <div class="fotos-grid">
         <div class="foto-cx" id="foto-mod-cx" onclick="document.getElementById('foto-mod-file').click()">
           <div class="foto-titulo">Módulo</div>
@@ -343,7 +342,6 @@ body:not(.consultor) .so-consultor{display:none!important;}
           <input type="file" id="foto-inv-file" accept="image/*" style="display:none">
         </div>
       </div>
-      <small class="auto">As fotos coladas substituem a imagem genérica do fundo; as GARANTIAS continuam ao lado.</small>
     </div>
   </section>
 
@@ -516,12 +514,6 @@ body:not(.consultor) .so-consultor{display:none!important;}
     </div>
   </div>
 </div>
-<div id="mobile-info" style="display:none;margin:14px auto 0;max-width:520px;text-align:center;color:var(--mudo);font-size:13px">
-  📱 <b>Usar no celular</b> (mesmo Wi-Fi): abra <b><span id="lan-url"></span></b><br>
-  <img id="lan-qr" alt="QR" style="margin-top:8px;width:132px;height:132px;border-radius:8px;background:#fff;padding:6px;display:none">
-</div>
-<footer>Tarifas TE/TUSD são digitadas <b>sem impostos</b>; a tarifa cheia (com impostos) aparece para conferência em cada UC.
-Parâmetros de negócio editáveis em <b>config.json</b> · propostas salvas em <b>propostas/</b>.</footer>
 
 <script>
 const MESES=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
@@ -544,7 +536,8 @@ let SUBGRUPOS=[];  // modalidades (B1, B2, B3)
 async function carregarConcessionarias(force){
  try{
   const r=await fetch('/api/concessionarias'); const j=await r.json();
-  if(j.ok){ CONC=j.concessionarias; SUBGRUPOS=j.subgrupos||[{id:'B1',rotulo:'B1 – Residencial'}]; if(!force) preencherConcSelects(); }
+  if(j.ok){ CONC=j.concessionarias; SUBGRUPOS=j.subgrupos||[{id:'B1',rotulo:'B1 – Residencial'}];
+    if(!force){ preencherConcSelects(); document.querySelectorAll('#ucs .uc').forEach(aplicarConcAuto); } }
  }catch(e){}
 }
 function preencherConcSelects(root){
@@ -558,7 +551,8 @@ function preencherConcSelects(root){
      const o=document.createElement('option'); o.value=nome; o.textContent=nome;
      sel.appendChild(o);
    });
-   if(Object.keys(CONC).length===1) sel.value=Object.keys(CONC)[0];
+   // COPEL é o padrão ao abrir (ou a 1ª concessionária, se não houver COPEL)
+   if(!sel.value) sel.value = CONC['COPEL (PR)'] ? 'COPEL (PR)' : (Object.keys(CONC)[0]||'');
    sel.dataset.filled='1';
    const uc=sel.closest('.uc');
    const ssub=uc.querySelector('.u-sub');
@@ -571,49 +565,56 @@ function preencherConcSelects(root){
    }
  });
 }
-// aplica TARIFAS locais (TE/TUSD) + busca o ICMS vigente no site da COPEL.
-// As tarifas em si não vêm do site: o painel da COPEL é um Power BI que não é
-// raspável — TE/TUSD ficam na tabela local (config.json), editável à mão.
-async function aplicarConc(btn){
- const uc=btn.closest('.uc');
+// Ao ESCOLHER a concessionária (sem botão), atualiza TE/TUSD (ANEEL, com cache
+// offline) e o ICMS (da concessionária). PIS/COFINS NÃO são tocados — ficam como
+// o usuário deixou (backup nas pré-definições). COPEL é o padrão ao abrir.
+window._tarCache=window._tarCache||{};   // cache de sessão: evita rebuscar igual
+async function aplicarConc(el){
+ const uc=el.closest('.uc'); if(!uc) return;
  const nome=uc.querySelector('.u-conc').value;
  const c=CONC[nome]; const obs=uc.querySelector('.u-conc-obs');
- if(!c){ obs.textContent='Escolha a concessionária.'; return; }
+ if(!c){ if(obs) obs.textContent=''; return; }
  const sub=(uc.querySelector('.u-sub')||{}).value||'B1';
- // 1) tarifas TE/TUSD da tabela local
- const t=(c.tarifas||{})[sub];
- let baseTar='';
- if(t && t.te && t.tusd){
-   uc.querySelector('.u-te').value=String(t.te).replace('.',',');
-   uc.querySelector('.u-tusd').value=String(t.tusd).replace('.',',');
-   const alerta=(t.obs||'').toLowerCase().includes('anterior')?' ⚠ '+t.obs:'';
-   baseTar=`TE R$ ${String(t.te).replace('.',',')} + TUSD R$ ${String(t.tusd).replace('.',',')} /kWh (tabela local)${t.resolucao?(' · '+t.resolucao):''}${t.vigencia?(' · vig. '+t.vigencia):''}${alerta}`;
- } else {
-   baseTar=`sem TE/TUSD cadastrado p/ ${sub} na tabela local — digite os valores manualmente`;
- }
- // 2) impostos locais como base
- const a=(c.impostos&&(c.impostos[sub]||c.impostos.padrao))||null;
- if(a){
-   if(a.icms_pct!=null) uc.querySelector('.u-icms').value=a.icms_pct;
-   if(a.cofins_pct!=null) uc.querySelector('.u-cofins').value=a.cofins_pct;
-   if(a.pis_pct!=null) uc.querySelector('.u-pis').value=a.pis_pct;
- }
- // 3) ICMS ao vivo do site (só COPEL tem raspagem)
- let notaImp='(impostos da tabela local)';
- if(c.site_tributos){
-   obs.textContent='consultando o site da COPEL…';
+ const f5=v=>(+v).toFixed(5).replace('.',',');
+ const ck=nome+'|'+sub;
+ let ja=window._tarCache[ck], baseTar='', aneelOk=false;
+ if(!ja){                                  // TE/TUSD: ANEEL (live -> cache offline)
+   if(obs) obs.textContent='buscando tarifa vigente na ANEEL…';
    try{
-     const r=await fetch('/api/copel-verificar'); const j=await r.json();
-     if(j.ok && j.icms_site && j.icms_site.icms!=null){
-       uc.querySelector('.u-icms').value=Math.round(j.icms_site.icms*10000)/100;
-       const rural=j.icms_site.icms_rural?(' (rural '+Math.round(j.icms_site.icms_rural*100)+'%)'):'';
-       let vig=j.vigencia_site?(' · '+j.vigencia_site.resolucao):'';
-       notaImp=`✔ ICMS ${Math.round(j.icms_site.icms*100)}%${rural} do site da COPEL${vig}`;
-     } else if(j.icms_erro){ notaImp='(site indisponível: '+j.icms_erro+' — usei os impostos da tabela local)'; }
-   }catch(e){ notaImp='(site indisponível — usei os impostos da tabela local)'; }
+     const ra=await fetch('/api/aneel-tarifa?conc='+encodeURIComponent(nome)+'&sub='+encodeURIComponent(sub));
+     const j=await ra.json();
+     if(j.ok){ ja=j; window._tarCache[ck]=j; }
+   }catch(e){}
  }
- obs.innerHTML=`✔ ${nome} · ${sub} · ${baseTar}<br><small class="mudo">${notaImp}</small>`;
+ if(ja){
+   uc.querySelector('.u-te').value=f5(ja.te);
+   uc.querySelector('.u-tusd').value=f5(ja.tusd);
+   const fonte=ja.cache?'último registro salvo (ANEEL offline)':'ANEEL';
+   baseTar=`TE R$ ${f5(ja.te)} + TUSD R$ ${f5(ja.tusd)} /kWh (${fonte}${ja.vigencia?(' · vig. '+ja.vigencia):''})`;
+   aneelOk=true;
+ }
+ if(!aneelOk){                             // fallback: tabela local do config
+   const t=(c.tarifas||{})[sub];
+   if(t && t.te && t.tusd){
+     uc.querySelector('.u-te').value=String(t.te).replace('.',',');
+     uc.querySelector('.u-tusd').value=String(t.tusd).replace('.',',');
+     baseTar=`TE R$ ${String(t.te).replace('.',',')} + TUSD R$ ${String(t.tusd).replace('.',',')} /kWh (tabela local — ANEEL indisponível)`;
+   } else {
+     baseTar=`ANEEL indisponível e sem TE/TUSD local p/ ${sub} — digite manualmente`;
+   }
+ }
+ // ICMS: da concessionária (config, offline-safe). PIS/COFINS: NÃO tocar.
+ const a=(c.impostos&&(c.impostos[sub]||c.impostos.padrao))||null;
+ if(a && a.icms_pct!=null) uc.querySelector('.u-icms').value=a.icms_pct;
+ if(obs) obs.innerHTML=`✔ ${nome} · ${sub} · ${baseTar}`;
  cheiaLocal(uc); agendar();
+}
+// aplica a concessionária padrão (COPEL) só quando a UC ainda está vazia —
+// não sobrescreve o que veio de um projeto importado.
+function aplicarConcAuto(uc){
+ if(!uc || !Object.keys(CONC).length) return;
+ const sel=uc.querySelector('.u-conc'), te=uc.querySelector('.u-te');
+ if(sel && sel.value && te && !String(te.value).trim()) aplicarConc(sel);
 }
 
 // ---- máscaras e parsers (formato brasileiro) ----
@@ -716,16 +717,15 @@ function ucHTML(i){
   <details style="margin-top:10px"><summary>tarifas (sem impostos) e bandeira desta UC</summary>
     <div class="linha" style="margin-top:8px;gap:8px;flex-wrap:wrap">
       <div style="flex:1;min-width:140px"><label>Concessionária</label>
-        <select class="u-conc"><option value="">— selecione —</option></select></div>
+        <select class="u-conc" onchange="aplicarConc(this)"><option value="">— selecione —</option></select></div>
       <div style="width:170px"><label>Modalidade</label>
-        <select class="u-sub"></select></div>
-      <button type="button" class="bt-claro bt-mini" onclick="aplicarConc(this)" title="aplica a tabela local de TE/TUSD e busca o ICMS vigente no site da COPEL">aplicar tarifas e impostos</button>
+        <select class="u-sub" onchange="aplicarConc(this)"></select></div>
     </div>
     <div class="tarifa-cheia u-conc-obs" style="color:var(--mudo)"></div>
     <div class="grid g4" style="margin-top:8px">
-      <div><label>TE s/ imposto (R$/kWh)</label><input class="u-te" value="${String(T.te).replace('.',',')}"></div>
-      <div><label>TUSD s/ imposto (R$/kWh)</label><input class="u-tusd" value="${String(T.tusd).replace('.',',')}"></div>
-      <div><label>ICMS (%)</label><input class="u-icms" type="number" step="0.01" value="${PCT(T.icms)}"></div>
+      <div><label>TE s/ imposto (R$/kWh)</label><input class="u-te" value=""></div>
+      <div><label>TUSD s/ imposto (R$/kWh)</label><input class="u-tusd" value=""></div>
+      <div><label>ICMS (%)</label><input class="u-icms" type="number" step="0.01" value=""></div>
       <div><label>COFINS (%)</label><input class="u-cofins" type="number" step="0.01" value="${PCT(T.cofins)}"></div>
       <div><label>PIS (%)</label><input class="u-pis" type="number" step="0.01" value="${PCT(T.pis)}"></div>
       <div><label>Bandeira</label><select class="u-band">
@@ -747,7 +747,7 @@ function ucHTML(i){
 function addUC(){const box=document.getElementById('ucs');const n=box.children.length;
  if(n>=9)return; box.insertAdjacentHTML('beforeend',ucHTML(n));
  document.getElementById('badge-ucs').textContent=n+1; wire(box.lastElementChild);
- preencherConcSelects(box.lastElementChild); }
+ const _el=box.lastElementChild; preencherConcSelects(_el); aplicarConcAuto(_el); }
 
 // refaz as opções de um <select> de marca a partir de uma lista nova,
 // preservando o que estava escolhido (mesmo que a marca tenha saído da lista)
@@ -895,6 +895,20 @@ function _setupFiltrosPacote(){
   'filtro-modulo','filtro-sb','filtro-kwp-min','filtro-kwp-max']
    .forEach(id=>{const el=document.getElementById(id); if(el) el.addEventListener('input',_renderTabelaPacotes);});
  _renderTabelaPacotes();
+}
+// pacotes ao vivo: se o admin criar/editar um pacote, ele aparece na tabela do
+// consultor SEM refresh (que apagaria os dados já preenchidos). Só re-renderiza
+// a tabela — os campos do formulário não são tocados.
+async function _pollPacotes(){
+ try{
+   const r=await fetch('/api/pacotes'); const j=await r.json();
+   if(!j.ok || !Array.isArray(j.pacotes)) return;
+   const sig=JSON.stringify(j.pacotes.map(p=>[p.id,p.nome]));
+   if(sig===window._pacotesSig) return;              // nada mudou
+   window._pacotesSig=sig;
+   PACOTES.length=0; j.pacotes.forEach(p=>PACOTES.push(p));   // atualiza in-place
+   if(document.getElementById('tabela-pacotes-body')) _renderTabelaPacotes();
+ }catch(e){}
 }
 // ---- potência sugerida (não precisa de pacote) + solicitação de cotação ----
 let _sugestao={kwp:0, consumo:0};
@@ -1061,6 +1075,10 @@ function lerUC(el){
   consumos=Array(12).fill(medio===''?0:numBR(medio)||0);
  }
  const n=c=>{const x=numBR(el.querySelector(c).value); return isNaN(x)?'':x;};
+ // regras de ICMS por componente: vêm da concessionária selecionada (invisível
+ // ao usuário). Cada concessionária define a sua; sem seleção, padrão COPEL.
+ const _cs=el.querySelector('.u-conc'), _cn=_cs?_cs.value:'';
+ const _cr=(typeof CONC!=='undefined'&&CONC[_cn])||{};
  return {uc_numero:el.querySelector('.u-numero').value.trim(),
   gd:el.querySelector('.u-gd').value,
   tipo:el.querySelector('.u-tipo').value, ligacao:el.querySelector('.u-lig').value,
@@ -1068,6 +1086,8 @@ function lerUC(el){
   te:n('.u-te'), tusd:n('.u-tusd'),
   icms:n('.u-icms'), cofins:n('.u-cofins'),
   pis:n('.u-pis'), pct_noturno:n('.u-not'),
+  icms_te:_cr.icms_sobre_te!==false, icms_tusd:_cr.icms_sobre_tusd!==false,
+  abat_tusd_inclui_icms:_cr.abat_tusd_inclui_icms===true,
   bandeira:el.querySelector('.u-band').value};
 }
 function coletar(){
@@ -1127,10 +1147,8 @@ async function calc(mostrarErro){
   document.getElementById('sugestao').textContent=s.modulos_sugeridos?`· sugerido: ${s.modulos_sugeridos}`:'';
   // tarifa cheia (com impostos) por UC, para conferência
   [...document.getElementById('ucs').children].forEach((el,i)=>{
-    const t=s.tarifas_cheias[i];
     const alvo=el.querySelector('.u-cheia-srv');
-    if(alvo) alvo.textContent =
-      t!=null?`✔ usado no cálculo: R$ ${String(t.toFixed(4)).replace('.',',')} /kWh (com impostos)`:'';
+    if(alvo) alvo.textContent = '';
   });
   document.getElementById('aviso-kit').style.display=
     (numBR(v('qtd_modulos'))>0 && !isNaN(numBR(v('valor_kit'))))?'none':'block';
@@ -1425,13 +1443,11 @@ function configHTML(c){
    <div><label>Mão de obra mínima (R$)</label><input id="cf-mo-min" type="number" value="${_esc(c.mao_de_obra_minima)}"></div>
    <div><label>Mão de obra por módulo (R$)</label><input id="cf-mo-mod" type="number" value="${_esc(c.mao_de_obra_por_modulo)}"></div>
   </div>
-  ${H('Impostos vigentes da COPEL (PIS/COFINS mudam todo mês — atualize aqui)')}
-  <p style="margin:-2px 0 8px;color:var(--mudo);font-size:12px">Não dá para puxar do site (o painel da COPEL é um Power BI). Copie os valores atuais e o botão <b>aplicar tarifas e impostos</b> de cada UC passa a usá-los.</p>
+  ${H('Impostos federais (PIS/COFINS — mudam todo mês, atualize aqui)')}
+  <p style="margin:-2px 0 8px;color:var(--mudo);font-size:12px">PIS/COFINS são federais (iguais em todo o país). O <b>ICMS</b> (e a TE/TUSD) vêm da concessionária — são aplicados <b>automaticamente ao selecioná-la</b> em cada UC.</p>
   <div class="grid g4">
    <div><label>PIS (%)</label><input id="cf-pis" type="number" step="0.01" value="${_esc((c.impostos_copel||{}).pis)}"></div>
    <div><label>COFINS (%)</label><input id="cf-cofins" type="number" step="0.01" value="${_esc((c.impostos_copel||{}).cofins)}"></div>
-   <div><label>ICMS (%)</label><input id="cf-icms" type="number" step="0.01" value="${_esc((c.impostos_copel||{}).icms)}"></div>
-   <div><label>ICMS rural (%)</label><input id="cf-icms-rural" type="number" step="0.01" value="${_esc((c.impostos_copel||{}).icms_rural)}"></div>
   </div>
   ${H('Fio B e irradiação')}
   <div class="grid g3">
@@ -1637,7 +1653,7 @@ function _pacImgSet(box,dataurl){
 function _pacImgRm(btn){_pacImgSet(btn.closest('.pac-img'),'');}
 function addPacInv(btn){btn.previousElementSibling.insertAdjacentHTML('beforeend',_pacInvHTML());}
 function addPacote(){const box=document.getElementById('pacotes-lista');
- box.insertAdjacentHTML('beforeend',pacoteCardHTML({},true));
+ box.insertAdjacentHTML('beforeend',pacoteCardHTML({inversores:[{}]},true)); // já nasce com 1 inversor
  aplicarMascaras(box.lastElementChild);}
 // coleta os cartões de pacote de um container e devolve a lista para salvar
 function _coletarPacotes(root){
@@ -1714,7 +1730,7 @@ function salvarConfig(){
    fio_b_rs_mwh:_n(G('cf-fiob')),
    perda_irradiacao:(_n(G('cf-perda'))||0)/100,
    performance_ratio:_n(G('cf-pr')),
-   impostos_copel:{pis:_n(G('cf-pis')),cofins:_n(G('cf-cofins')),icms:_n(G('cf-icms')),icms_rural:_n(G('cf-icms-rural'))},
+   impostos_copel:{pis:_n(G('cf-pis')),cofins:_n(G('cf-cofins'))},
  };
  // consultores (nome+senha) — o servidor grava em acesso.json (fora do Git)
  c.consultores=[...document.querySelectorAll('#cf-consultores .consultor-row')].map(row=>({
@@ -1741,7 +1757,6 @@ function salvarConfig(){
     const ic=c.impostos_copel;
     if(ic){
       document.querySelectorAll('#ucs .uc').forEach(uc=>{
-        if(ic.icms!=null) uc.querySelector('.u-icms').value=ic.icms;
         if(ic.cofins!=null) uc.querySelector('.u-cofins').value=ic.cofins;
         if(ic.pis!=null) uc.querySelector('.u-pis').value=ic.pis;
         cheiaLocal(uc);
@@ -1915,21 +1930,14 @@ if(PAPEL==='consultor'){
    aplicarPacote(PACOTES[0].id);
    _renderTabelaPacotes();
  }
+ // pacote novo do admin aparece sem refresh (sem perder dados já preenchidos)
+ window._pacotesSig=JSON.stringify(PACOTES.map(p=>[p.id,p.nome]));
+ setInterval(_pollPacotes,30000);
 }else{
  // admin: contador de solicitações no sino, atualizado periodicamente
  _carregarSolic(); setInterval(_carregarSolic,45000);
 }
 document.getElementById('perda-irr').value=Math.round(PERDA_PADRAO*100);
-// bloco "usar no celular": só aparece se o servidor tiver IP de rede
-fetch('/api/rede').then(r=>r.json()).then(j=>{
- if(j.ok && !j.local){
-   document.getElementById('lan-url').textContent=j.url;
-   document.getElementById('mobile-info').style.display='block';
-   const img=document.getElementById('lan-qr');
-   img.onload=()=>{img.style.display='inline-block';};
-   img.src='/qr.png';
- }
-}).catch(()=>{});
 
 // PWA: registra o service worker (só funciona em localhost ou https).
 if('serviceWorker' in navigator){
