@@ -604,9 +604,14 @@ async function aplicarConc(el){
    }
  }
  // ICMS: da concessionária (config, offline-safe). PIS/COFINS: NÃO tocar.
+ // No subgrupo B2 (rural) o ICMS pode ser isento (0) ou reduzido, por estado.
  const a=(c.impostos&&(c.impostos[sub]||c.impostos.padrao))||null;
- if(a && a.icms_pct!=null) uc.querySelector('.u-icms').value=a.icms_pct;
- if(obs) obs.innerHTML=`✔ ${nome} · ${sub} · ${baseTar}`;
+ let notaIcms='';
+ if(a && a.icms_pct!=null){
+   uc.querySelector('.u-icms').value=a.icms_pct;
+   if(sub==='B2') notaIcms=a.icms_pct===0?' · ICMS rural isento':` · ICMS rural ${a.icms_pct}%`;
+ }
+ if(obs) obs.innerHTML=`✔ ${nome} · ${sub} · ${baseTar}${notaIcms}`;
  cheiaLocal(uc); agendar();
 }
 // aplica a concessionária padrão (COPEL) só quando a UC ainda está vazia —

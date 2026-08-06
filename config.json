@@ -293,14 +293,23 @@
   "compat_planilha": false,
   "_compat_planilha": "true reproduz o RETORNO EM 25 ANOS exatamente como a planilha (que dividia a tarifa média pelas 9 linhas de UC, mesmo vazias — valor ~10× menor). false usa o modelo realista: economia mensal efetiva × 12, tarifa +5% a.a., degradação de −2,5% no 2º ano e −0,7% a.a. depois.",
   "concessionarias": {
-    "_nota_novas": "ICMS incide sobre TE e TUSD no CONSUMO em todo estado (STJ Tema 986). A diferença relevante é 'abat_tusd_inclui_icms': a isenção da energia COMPENSADA alcança a TUSD? SP e MG = true; PR e RS = false. SC/RJ = false (A CONFIRMAR). Alíquotas aproximadas e tarifas em branco: PREENCHA com uma fatura real. É terreno em movimento (o decreto de SP vence em 2026).",
+    "_nota_novas": "ICMS incide sobre TE e TUSD no CONSUMO em todo estado (STJ Tema 986). A diferença relevante é 'abat_tusd_inclui_icms': a isenção da energia COMPENSADA alcança a TUSD? SP e MG = true; PR e RS = false. SC/RJ = false (A CONFIRMAR). Alíquotas aproximadas e tarifas em branco: PREENCHA com uma fatura real. É terreno em movimento (o decreto de SP vence em 2026). | RURAL (B2): PR/SP/RJ isentos (ICMS 0); MG reduzido 12%; RS/SC/MS a confirmar (caem no padrão). Rural = mesma alíquota, porém isenta/reduzida por decreto estadual.",
     "ENEL (SP)": {
       "aneel_sigla": "ELETROPAULO",
       "icms_sobre_te": true,
       "icms_sobre_tusd": true,
       "abat_tusd_inclui_icms": true,
       "impostos": {
-        "padrao": { "icms": 0.18, "cofins": 0.0663, "pis": 0.0144 }
+        "padrao": {
+          "icms": 0.18,
+          "cofins": 0.0663,
+          "pis": 0.0144
+        },
+        "B2": {
+          "icms": 0.0,
+          "cofins": 0.0663,
+          "pis": 0.0144
+        }
       },
       "tarifas": {}
     },
@@ -310,7 +319,16 @@
       "icms_sobre_tusd": true,
       "abat_tusd_inclui_icms": true,
       "impostos": {
-        "padrao": { "icms": 0.18, "cofins": 0.0663, "pis": 0.0144 }
+        "padrao": {
+          "icms": 0.18,
+          "cofins": 0.0663,
+          "pis": 0.0144
+        },
+        "B2": {
+          "icms": 0.0,
+          "cofins": 0.0663,
+          "pis": 0.0144
+        }
       },
       "tarifas": {}
     },
@@ -320,7 +338,11 @@
       "icms_sobre_tusd": true,
       "abat_tusd_inclui_icms": false,
       "impostos": {
-        "padrao": { "icms": 0.17, "cofins": 0.0663, "pis": 0.0144 }
+        "padrao": {
+          "icms": 0.17,
+          "cofins": 0.0663,
+          "pis": 0.0144
+        }
       },
       "tarifas": {}
     },
@@ -330,7 +352,11 @@
       "icms_sobre_tusd": true,
       "abat_tusd_inclui_icms": false,
       "impostos": {
-        "padrao": { "icms": 0.18, "cofins": 0.0663, "pis": 0.0144 }
+        "padrao": {
+          "icms": 0.18,
+          "cofins": 0.0663,
+          "pis": 0.0144
+        }
       },
       "tarifas": {}
     },
@@ -340,7 +366,16 @@
       "icms_sobre_tusd": true,
       "abat_tusd_inclui_icms": true,
       "impostos": {
-        "padrao": { "icms": 0.18, "cofins": 0.0663, "pis": 0.0144 }
+        "padrao": {
+          "icms": 0.18,
+          "cofins": 0.0663,
+          "pis": 0.0144
+        },
+        "B2": {
+          "icms": 0.12,
+          "cofins": 0.0663,
+          "pis": 0.0144
+        }
       },
       "tarifas": {}
     },
@@ -350,7 +385,16 @@
       "icms_sobre_tusd": true,
       "abat_tusd_inclui_icms": false,
       "impostos": {
-        "padrao": { "icms": 0.18, "cofins": 0.0663, "pis": 0.0144 }
+        "padrao": {
+          "icms": 0.18,
+          "cofins": 0.0663,
+          "pis": 0.0144
+        },
+        "B2": {
+          "icms": 0.0,
+          "cofins": 0.0663,
+          "pis": 0.0144
+        }
       },
       "tarifas": {}
     },
@@ -360,7 +404,11 @@
       "icms_sobre_tusd": true,
       "abat_tusd_inclui_icms": false,
       "impostos": {
-        "padrao": { "icms": 0.17, "cofins": 0.0663, "pis": 0.0144 }
+        "padrao": {
+          "icms": 0.17,
+          "cofins": 0.0663,
+          "pis": 0.0144
+        }
       },
       "tarifas": {}
     },
@@ -378,7 +426,7 @@
           "pis": 0.0144
         },
         "B2": {
-          "icms": 0.18,
+          "icms": 0.0,
           "cofins": 0.0663,
           "pis": 0.0144
         },

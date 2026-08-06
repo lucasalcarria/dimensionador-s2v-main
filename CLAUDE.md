@@ -143,6 +143,10 @@ O motor está preparado para outras concessionárias sem cirurgia:
   (`UC.icms_te`/`icms_tusd`, padrão `true`). Hoje TE e TUSD levam ICMS no consumo
   em todos os estados (STJ Tema 986); as alavancas existem só para o caso raro de
   liminar/regra diferente — **não** são a variação normal entre estados.
+- **ICMS rural (subgrupo B2)** é por estado, em `impostos.B2.icms`: PR/SP/RJ
+  isentam (0), MG reduz (12%), RS/SC/MS caem no `padrão` (a confirmar). O
+  `aplicarConc` aplica o ICMS do subgrupo escolhido (B1 vs B2) — selecionar
+  "B2 – Rural" zera/reduz o ICMS e derruba a tarifa cheia. Convênio ICMS 76/1991.
 - **Fluxo já ligado ponta a ponta:** `/api/concessionarias` devolve as regras →
   `lerUC()` (index.html) lê a regra da concessionária **selecionada** em cada UC
   e a envia no payload (sem controle visível) → `_montar_entradas` (`_regra_bool`)
