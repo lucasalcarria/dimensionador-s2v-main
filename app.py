@@ -242,7 +242,8 @@ def _nome_projeto(e: 'engine.Entradas', r: dict) -> str:
     invs = ' + '.join(
         f"{iv['marca'].upper()} {engine.fmt_general(iv['pot_kw'])}K "
         f"{iv['tensao']}V" for iv in e.lista_inversores())
-    partes = [f'{kwp}KWP', conexao, invs, (e.estrutura or '').upper()]
+    micro = ['MICRO'] if e.tem_micro() else []   # diferencia microinversor
+    partes = [f'{kwp}KWP', conexao] + micro + [invs, (e.estrutura or '').upper()]
     return _limpar_nome(' '.join(p for p in partes if p), 'PROJETO')
 
 
@@ -1205,6 +1206,8 @@ def api_proposta():
                      else (d.get('consultor') or '')).strip()
         pasta = _pasta_projeto(e, r, consultor)  # <base>/<consultor>/<cliente>/…
         nome_pdf = _limpar_nome(e.nome, 'PROPOSTA')
+        if e.tem_micro():                    # proposta de microinversor: sufixo MICRO
+            nome_pdf += ' - MICRO'
         # foto da UC quando houver; senão cai na imagem PADRÃO das pré-definições
         # imagem: foto colada na tela (admin) > imagem própria do pacote > padrão
         pid = d.get('pacote_id')

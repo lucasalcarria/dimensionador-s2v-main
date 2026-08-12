@@ -167,11 +167,17 @@ O motor está preparado para outras concessionárias sem cirurgia:
   gráfico da pág. 4 usa `resultado['consumo_mensal']` (reto ou variável conforme
   o que foi digitado).
 - **Um único botão** ("Gerar proposta e salvar") faz tudo: calcula, gera o PDF e
-  grava o projeto. Cada projeto vai para uma **subpasta nomeada**
+  grava o projeto (o antigo botão "Calcular" foi removido — o valor já recalcula
+  sozinho por `agendar()`; erros aparecem ao gerar). Ao final, o PDF **abre
+  automaticamente** numa nova aba (`window.open`), com link de download de
+  reserva. Cada projeto vai para uma **subpasta nomeada**
   `<base>/<CONSULTOR>/<NOME>/<7,44KWP ONGRID CHINT 5K 220V COLONIAL>/` contendo
   `RESUMO.txt`, `CONFERENCIA.txt`, `DADOS.json` e `<nome>.pdf`. O rótulo do
-  projeto sai de `app._nome_projeto()` (kWp + conexão + inversores + estrutura);
-  o **consultor** é um campo livre em Cliente (`app._pasta_projeto` insere esse
+  projeto sai de `app._nome_projeto()` (kWp + conexão + inversores + estrutura).
+  **Microinversor:** quando `e.tem_micro()`, o rótulo ganha **MICRO** após a
+  conexão (ex.: `4,96KWP ONGRID MICRO CHINT 6K 220V FIBROCIMENTO`) e o PDF ganha
+  o sufixo **" - MICRO"** (`JOÃO ... - MICRO.pdf`); string fica como está.
+  O **consultor** é um campo livre em Cliente (`app._pasta_projeto` insere esse
   nível só quando preenchido). O botão **Importar projeto** varre a base em
   qualquer profundidade (`os.walk`, procura `DADOS.json`) e repovoa via `aplicar()`.
 - **Pasta base configurável** (`config.pasta_saida`, editável nas pré-definições):

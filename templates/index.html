@@ -414,7 +414,6 @@ body:not(.consultor) .so-consultor{display:none!important;}
     </details>
     <div class="erro" id="erro"></div>
     <div style="display:flex;gap:8px;margin-top:14px">
-      <button class="bt-azul" style="flex:1" onclick="calc(true)">Calcular</button>
       <button class="bt-verde" style="flex:1" onclick="gerar()" id="bt-pdf">Gerar proposta e salvar</button>
     </div>
     <button class="bt-claro" style="width:100%;margin-top:8px" onclick="conferir()" id="bt-conf">🧮 Conferir contas do retorno financeiro</button>
@@ -1223,10 +1222,11 @@ async function gerar(){
   const cd=r.headers.get('Content-Disposition')||'';
   const m=cd.match(/filename\*?=(?:UTF-8''|\")?([^\";]+)/i);
   const nome=m?decodeURIComponent(m[1]):'PROPOSTA.pdf';
-  // sem download automático: o PDF já foi salvo na pasta/Drive. Deixa um link
-  // opcional caso queira o arquivo na mão (aí sim o navegador baixa).
+  // o PDF já foi salvo na pasta/Drive; abre automaticamente numa nova aba p/
+  // conferência (e deixa um link de download como alternativa).
   if(_pdfUrl) URL.revokeObjectURL(_pdfUrl);
   _pdfUrl=URL.createObjectURL(blob);
+  window.open(_pdfUrl,'_blank');   // abre o PDF automaticamente após gerar
   const aviso=r.headers.get('X-Drive-Aviso');
   const enviado=r.headers.get('X-Drive-Enviado');
   const ok=document.getElementById('salvo-ok');
