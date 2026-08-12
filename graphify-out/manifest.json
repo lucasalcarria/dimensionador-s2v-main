@@ -1,7 +1,7 @@
 {
   "app.py": {
-    "mtime": 1785976086.884791,
-    "ast_hash": "ab47a2313241af86a050f16f489009c1",
+    "mtime": 1786546900.5525615,
+    "ast_hash": "5b5e0cdffb5c3c0c244c77bdfc2262d7",
     "semantic_hash": ""
   },
   "conferencia_retorno.py": {
@@ -10,8 +10,8 @@
     "semantic_hash": "49a1dc71ba5f384d66a5cfbe06085903"
   },
   "config.json": {
-    "mtime": 1785973659.7292979,
-    "ast_hash": "db7186fff659ad251f15d248f60f8c5e",
+    "mtime": 1786034891.5234282,
+    "ast_hash": "3d45a8b7b02ea687622f9868f8f1b9fa",
     "semantic_hash": ""
   },
   "engine.py": {
@@ -45,8 +45,8 @@
     "semantic_hash": "5bf3015c6ae8836b2f28f980b978357e"
   },
   "CLAUDE.md": {
-    "mtime": 1785976181.3306775,
-    "ast_hash": "5a4b2987ef52e3a6b7d47c034f5c1117",
+    "mtime": 1786547024.476529,
+    "ast_hash": "40c889c16853716d9d19c93ef432ed88",
     "semantic_hash": ""
   },
   "LEIA-ME.md": {
@@ -60,8 +60,8 @@
     "semantic_hash": ""
   },
   "templates/index.html": {
-    "mtime": 1785976100.529253,
-    "ast_hash": "9faed0820a2857707b927f658899abe9",
+    "mtime": 1786546925.6166997,
+    "ast_hash": "476ef161d8cc2a6a74201f3f94d4fcc2",
     "semantic_hash": ""
   },
   ".claude/settings.json": {
