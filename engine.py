@@ -86,6 +86,16 @@ class UC:
     # modalidade de geração distribuída: GD2 paga o Fio B escalonado (Lei
     # 14.300, padrão); GD1 é isenta de Fio B até 2045 (compensa TUSD integral).
     gd: str = 'GD2'
+    # Incidência do ICMS por componente da tarifa CONSUMIDA. Cada concessionária
+    # traz sua regra (aplicada invisivelmente ao selecioná-la na tela). Padrão
+    # True = comportamento da planilha/COPEL (mantém o teste idêntico).
+    icms_te: bool = True       # ICMS incide sobre a TE consumida?
+    icms_tusd: bool = True     # ICMS incide sobre a TUSD consumida?
+    # A isenção do ICMS na energia COMPENSADA (Convênio 16/2015) alcança a TUSD?
+    # Varia por estado: COPEL/PR e RS = não (a TUSD abatida ainda paga ICMS);
+    # SP e MG = sim (a TUSD abatida fica 100% isenta, como a TE). Padrão False =
+    # COPEL (fatura validada, NEUZA R$ 125,70).
+    abat_tusd_inclui_icms: bool = False
 
     # ---- derivados
     @property
@@ -113,12 +123,20 @@ class UC:
             return 1.0
         return self.pct_noturno
 
+    def _fator_icms_te(self) -> float:
+        """Fator de ICMS na TE: (1-ICMS) onde incide, 1,0 onde não (icms_te)."""
+        return (1 - self.icms) if self.icms_te else 1.0
+
+    def _fator_icms_tusd(self) -> float:
+        """Fator de ICMS na TUSD: (1-ICMS) onde incide, 1,0 onde não."""
+        return (1 - self.icms) if self.icms_tusd else 1.0
+
     # PR!I31 / PR!J31 — tarifa com imposto (gross-up de ICMS, PIS e COFINS)
     def te_com_imposto(self) -> float:
-        return self.te / ((1 - self.icms) * (1 - (self.cofins + self.pis)))
+        return self.te / (self._fator_icms_te() * (1 - (self.cofins + self.pis)))
 
     def tusd_com_imposto(self) -> float:
-        return self.tusd / ((1 - self.icms) * (1 - (self.cofins + self.pis)))
+        return self.tusd / (self._fator_icms_tusd() * (1 - (self.cofins + self.pis)))
 
     # PR!F6 — tarifa cheia usada em todo o resto
     def tarifa_cheia(self) -> float:
@@ -128,9 +146,15 @@ class UC:
     def abat_te(self) -> float:
         return self.te_com_imposto()
 
-    # PR!L31 — abatimento TUSD líquido do Fio B (Lei 14.300)
+    # PR!L31 — abatimento TUSD líquido do Fio B (Lei 14.300).
+    # COPEL/PR: a TUSD abatida NÃO re-embute o ICMS (assimetria proposital com
+    # abat_te, que devolve a TE com ICMS) → reproduz a fatura real (R$ 125,70).
+    # Estados cuja isenção alcança a TUSD (SP, MG): `abat_tusd_inclui_icms=True`
+    # devolve também o ICMS da TUSD → TUSD compensada 100% isenta.
     def abat_tusd(self, fio_b_rs_kwh: float) -> float:
-        return (self.tusd - fio_b_rs_kwh) / (1 - (self.pis + self.cofins))
+        tusd = (self.tusd / (1 - self.icms)
+                if self.abat_tusd_inclui_icms and self.icms_tusd else self.tusd)
+        return (tusd - fio_b_rs_kwh) / (1 - (self.pis + self.cofins))
 
 
 @dataclass
@@ -261,6 +285,52 @@ def fator_fio_b(config: dict, ano: int | None = None) -> float:
     return tab[max(tab)] if ano > max(tab) else tab[min(tab)]
 
 
+def _faturas_uc(e: 'Entradas', geracao_media: float, config: dict, ano: int):
+    """Fatura SEM e COM sistema para um nível de geração média e um ano (→ Fio B
+    escalonado). Devolve (fatura_sem, fatura_com, detalhes_uc)."""
+    ucs_ativas = [u for u in e.ucs if u.ativa]
+    soma_consumo = sum(u.consumo_medio for u in ucs_ativas) or 1.0      # DD!D57
+    fio_b = fator_fio_b(config, ano) * config['fio_b_rs_mwh'] / 1000.0  # DD!K50
+    detalhes, parcelas, fatura_sem = [], [], 0.0
+    for u in e.ucs:
+        if not u.ativa:
+            detalhes.append(None)
+            continue
+        rateio = u.consumo_medio / soma_consumo               # DD!E48
+        ger_uc = rateio * geracao_media                       # DD!F48
+        maior = max(u.consumo_medio, ger_uc)                  # DD!G48
+        fatura_sem += u.tarifa_cheia() * maior + u.ilum_publica   # DD!B48
+        # GD1 é isenta de Fio B (compensa a TUSD integral); GD2 paga o escalonado
+        fio_b_uc = 0.0 if u.gd == 'GD1' else fio_b
+        pct_not = u.pct_noturno_efetivo                       # M31 / M32:M39
+        faturado = _trunc(maior * pct_not, 0)                 # PR!N31
+        # Lei 14.300: o crédito compensado NÃO pode passar da energia gerada
+        # (em 100%+ 'maior' é a geração, então isto é um no-op).
+        ger_faturavel = _trunc(ger_uc * pct_not, 0)
+        compensado = min(faturado - u.disponibilidade, ger_faturavel)  # PR!O31
+        piso = u.disponibilidade * u.tarifa_cheia()
+        atusd = u.abat_tusd(fio_b_uc)
+        liquido = (faturado * u.tarifa_cheia() -
+                   compensado * (u.abat_te() + atusd))
+        taxa_min = max(piso, liquido)                         # PR!Q31
+        band = config['bandeiras'].get(u.bandeira, 0.0)       # DD!J54:J57
+        band_gross = band / ((1 - u.icms) * (1 - (u.cofins + u.pis)))  # DD!K55..
+        extra_band = 0.0 if u.bandeira == 'VERDE' else (faturado - compensado) * band_gross
+        total_uc = taxa_min + extra_band + u.ilum_publica     # PR!R31
+        detalhes.append(dict(
+            tipo=u.tipo, consumo=u.consumo_medio, rateio=rateio,
+            geracao_rateada=ger_uc, maior=maior, pct_noturno=pct_not,
+            faturado=faturado, disponibilidade=u.disponibilidade,
+            compensado=compensado, tarifa=u.tarifa_cheia(),
+            abat_te=u.abat_te(), abat_tusd=atusd,
+            piso=piso, liquido=liquido, taxa_min=taxa_min,
+            bandeira=u.bandeira, extra_bandeira=extra_band,
+            ilum_publica=u.ilum_publica, total=total_uc,
+            fatura_sem_uc=u.tarifa_cheia() * maior + u.ilum_publica))
+        parcelas.append(total_uc)
+    return fatura_sem, sum(parcelas), detalhes
+
+
 def calcular(e: Entradas, config: dict, ano: int | None = None) -> Resultado:
     r = Resultado()
     ano = ano or date.today().year
@@ -379,54 +449,15 @@ def calcular(e: Entradas, config: dict, ano: int | None = None) -> Resultado:
                       if r['preco_venda'] else 0.0)
     r['lucro_rs'] = r['preco_venda'] * r['lucro_pct']
 
-    # ---------------- fatura SEM sistema ------------------------------ DD!47:57
-    fio_b = fator_fio_b(config, ano) * config['fio_b_rs_mwh'] / 1000.0  # DD!K50
-    soma_consumo = sum(u.consumo_medio for u in ucs_ativas) or 1.0      # DD!D57
-    detalhes_uc = []
-    fatura_sem = 0.0                                          # DD!B57 → PR!L25
-    for u in e.ucs:
-        if not u.ativa:
-            detalhes_uc.append(None)
-            continue
-        rateio = u.consumo_medio / soma_consumo               # DD!E48
-        ger_uc = rateio * r['geracao_media']                  # DD!F48
-        maior = max(u.consumo_medio, ger_uc)                  # DD!G48
-        fatura_sem += u.tarifa_cheia() * maior + u.ilum_publica  # DD!B48
-
-        # GD1 é isenta de Fio B (compensa a TUSD integral); GD2 paga o escalonado
-        fio_b_uc = 0.0 if u.gd == 'GD1' else fio_b
-
-        # ---- fatura COM sistema ------------------------------------- PR!31:39
-        pct_not = u.pct_noturno_efetivo                       # M31 / M32:M39
-        faturado = _trunc(maior * pct_not, 0)                 # PR!N31
-        compensado = faturado - u.disponibilidade             # PR!O31
-        piso = u.disponibilidade * u.tarifa_cheia()
-        liquido = (faturado * u.tarifa_cheia() -
-                   compensado * (u.abat_te() + u.abat_tusd(fio_b_uc)))
-        taxa_min = max(piso, liquido)                         # PR!Q31
-        band = config['bandeiras'].get(u.bandeira, 0.0)       # DD!J54:J57
-        band_gross = band / ((1 - u.icms) * (1 - (u.cofins + u.pis)))  # DD!K55..
-        extra_band = 0.0 if u.bandeira == 'VERDE' else (faturado - compensado) * band_gross
-        total_uc = taxa_min + extra_band + u.ilum_publica     # PR!R31
-        detalhes_uc.append(dict(
-            tipo=u.tipo, consumo=u.consumo_medio, rateio=rateio,
-            geracao_rateada=ger_uc, maior=maior, pct_noturno=pct_not,
-            faturado=faturado, disponibilidade=u.disponibilidade,
-            compensado=compensado, tarifa=u.tarifa_cheia(),
-            abat_te=u.abat_te(), abat_tusd=u.abat_tusd(fio_b_uc),
-            piso=piso, liquido=liquido, taxa_min=taxa_min,
-            bandeira=u.bandeira, extra_bandeira=extra_band,
-            ilum_publica=u.ilum_publica, total=total_uc,
-            fatura_sem_uc=u.tarifa_cheia() * maior + u.ilum_publica))
-        r.setdefault('_fatura_com_parcelas', []).append(total_uc)
-
+    # ---------------- fatura SEM / COM sistema (mês corrente) --------- DD!47:57
+    fatura_sem, fatura_com, detalhes_uc = _faturas_uc(
+        e, r['geracao_media'], config, ano)
     r['detalhes_uc'] = detalhes_uc
     r['tarifas_cheias'] = [(u.tarifa_cheia() if u.ativa else None)
                            for u in e.ucs]
     r['fatura_sem'] = fatura_sem                              # PR!L25
-    r['fatura_com'] = sum(r.get('_fatura_com_parcelas', []))  # PR!M25
-    r['economia_mensal'] = r['fatura_sem'] - r['fatura_com']  # PR!N25
-    r.pop('_fatura_com_parcelas', None)
+    r['fatura_com'] = fatura_com                              # PR!M25
+    r['economia_mensal'] = fatura_sem - fatura_com            # PR!N25
 
     # ---------------- retorno em 25 anos ------------------------------ DD!39:67
     ger = r['geracao_mensal']

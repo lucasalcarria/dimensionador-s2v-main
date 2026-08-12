@@ -90,6 +90,51 @@ def _get_json(url: str) -> dict:
     raise LookupError('; '.join(str(x) for x in erros[:3]))
 
 
+# ---------------------------------------------------------------- tarifas ANEEL
+# Base pública "Tarifas de aplicação das distribuidoras" (Dados Abertos ANEEL).
+# Traz TE e TUSD SEM impostos (R$/MWh) por distribuidora, subgrupo e vigência —
+# exatamente o formato que o config guarda. É a fonte única p/ atualizar todas
+# as concessionárias com a resolução mais recente.
+ANEEL_RID = 'fcf2906c-7c32-4b9b-a637-054e7a5234f4'
+# subgrupo -> (classe, subclasse) conforme a base da ANEEL
+_ANEEL_CLASSE = {'B1': ('Residencial', 'Residencial'),
+                 'B2': ('Rural', 'Não se aplica')}
+
+
+def _num_aneel(s) -> float:
+    """'310,85' (R$/MWh) -> 0.31085 (R$/kWh). Tolera separador de milhar."""
+    return float(str(s).strip().replace('.', '').replace(',', '.')) / 1000.0
+
+
+def buscar_tarifa_aneel(sigla: str, subgrupo: str = 'B1') -> dict:
+    """TE/TUSD vigentes (sem impostos, R$/kWh) de uma distribuidora na ANEEL.
+
+    `sigla` é o SigAgente da base (ex.: 'COPEL-DIS', 'EMS', 'ELETROPAULO').
+    Pega a linha "Tarifa de Aplicação", modalidade Convencional, da classe do
+    subgrupo, posto/detalhe/acessante "Não se aplica", com a vigência mais
+    recente. Devolve {te, tusd, reh, vigencia, sigla, subgrupo}.
+    """
+    classe, subclasse = _ANEEL_CLASSE.get(subgrupo, _ANEEL_CLASSE['B1'])
+    filtros = {'SigAgente': sigla, 'DscBaseTarifaria': 'Tarifa de Aplicação',
+               'DscSubGrupo': subgrupo, 'DscModalidadeTarifaria': 'Convencional',
+               'DscClasse': classe, 'DscSubClasse': subclasse,
+               'DscDetalhe': 'Não se aplica', 'NomPostoTarifario': 'Não se aplica'}
+    p = urllib.parse.urlencode({
+        'resource_id': ANEEL_RID,
+        'filters': json.dumps(filtros, ensure_ascii=False),
+        'sort': 'DatInicioVigencia desc', 'limit': 1})
+    data = _get_json('https://dadosabertos.aneel.gov.br/api/3/action/'
+                     'datastore_search?' + p)
+    recs = ((data.get('result') or {}).get('records')) or []
+    if not recs:
+        raise LookupError(f'ANEEL sem tarifa p/ {sigla} {subgrupo} (classe {classe})')
+    x = recs[0]
+    return {'te': _num_aneel(x['VlrTE']), 'tusd': _num_aneel(x['VlrTUSD']),
+            'reh': (x.get('DscREH') or '').strip(),
+            'vigencia': x.get('DatInicioVigencia', ''),
+            'sigla': sigla, 'subgrupo': subgrupo}
+
+
 def geocodificar(cidade: str) -> dict:
     """Nome da cidade -> {nome, uf, lat, lon}. Prioriza resultados no Brasil."""
     q = urllib.parse.quote(cidade.strip())
