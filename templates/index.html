@@ -1082,9 +1082,11 @@ function lerUC(el){
  // regras de ICMS por componente: vêm da concessionária selecionada (invisível
  // ao usuário). Cada concessionária define a sua; sem seleção, padrão COPEL.
  const _cs=el.querySelector('.u-conc'), _cn=_cs?_cs.value:'';
+ const _ss=el.querySelector('.u-sub'), _sn=_ss?_ss.value:'';
  const _cr=(typeof CONC!=='undefined'&&CONC[_cn])||{};
  return {uc_numero:el.querySelector('.u-numero').value.trim(),
   gd:el.querySelector('.u-gd').value,
+  conc:_cn, sub:_sn,                                 // p/ o import repor o estado
   tipo:el.querySelector('.u-tipo').value, ligacao:el.querySelector('.u-lig').value,
   ilum_publica:n('.u-ilum'), consumos,
   te:n('.u-te'), tusd:n('.u-tusd'),
@@ -1792,6 +1794,10 @@ function _chk(id,val){
 }
 function aplicar(d){
  _set('nome',d.nome); _set('endereco',d.endereco); _set('numero',d.numero); _set('cidade',d.cidade); _set('consultor',d.consultor);
+ // kit escolhido (consultor): o servidor injeta preço/imagem pelo pacote_id
+ const _ps=document.getElementById('pacote_sel');
+ if(_ps){ _ps.value=d.pacote_id||'';
+   if(document.getElementById('tabela-pacotes-body')) _renderTabelaPacotes(); }
  _setSel('marca_modulo',d.marca_modulo); _set('pot_modulo_w',d.pot_modulo_w); _set('qtd_modulos',d.qtd_modulos_kit);
  _setSel('conexao',d.conexao); _setSel('estrutura',d.estrutura);
  _set('valor_kit',d.valor_kit); _set('entrada',d.entrada); _set('custo_380v',d.custo_380v); _set('desloc',d.desloc);
@@ -1822,6 +1828,12 @@ function preencherUC(el,u){
  const set=(c,v)=>{const x=el.querySelector(c); if(x&&v!=null){x.value=String(v).replace('.',',');
    x.dispatchEvent(new Event('input',{bubbles:true})); x.dispatchEvent(new Event('blur',{bubbles:true}));}};
  const sel=(c,v)=>{const x=el.querySelector(c); if(x&&v!=null){x.value=v; x.dispatchEvent(new Event('change',{bubbles:true}));}};
+ // concessionária e modalidade (B1/B2): repõe o valor SELECIONADO sem disparar o
+ // onchange — se disparasse, aplicarConc rebuscaria a ANEEL e sobrescreveria a
+ // TE/TUSD/ICMS que estamos restaurando logo abaixo. Só troca se a opção existir.
+ const selMudo=(c,v)=>{const x=el.querySelector(c);
+   if(x&&v!=null&&v!==''&&[...x.options].some(o=>o.value===v)) x.value=v;};
+ selMudo('.u-conc',u.conc); selMudo('.u-sub',u.sub);
  sel('.u-numero',u.uc_numero); sel('.u-gd',u.gd||'GD2'); sel('.u-tipo',u.tipo); sel('.u-lig',u.ligacao); sel('.u-band',u.bandeira);
  set('.u-ilum',u.ilum_publica);
  const cons=u.consumos||[]; const variam=cons.some((v,i)=>i>0&&v!==cons[0]);
