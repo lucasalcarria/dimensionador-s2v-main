@@ -416,6 +416,7 @@ body:not(.consultor) .so-consultor{display:none!important;}
     <div style="display:flex;gap:8px;margin-top:14px">
       <button class="bt-verde" style="flex:1" onclick="gerar()" id="bt-pdf">Gerar proposta e salvar</button>
     </div>
+    <button class="bt-claro" style="width:100%;margin-top:8px" onclick="novaProposta()" id="bt-novo" title="limpa todos os campos para começar uma nova proposta do zero">🆕 Nova proposta (limpar tudo)</button>
     <button class="bt-claro" style="width:100%;margin-top:8px" onclick="conferir()" id="bt-conf">🧮 Conferir contas do retorno financeiro</button>
     <button class="bt-claro so-admin" style="width:100%;margin-top:8px" onclick="abrirImportar()" id="bt-importar">📂 Importar projeto salvo</button>
     <div class="ok-irr" id="salvo-ok"></div>
@@ -1244,6 +1245,16 @@ async function gerar(){
  bt.disabled=false; bt.textContent='Gerar proposta e salvar';
 }
 
+// limpa TUDO e começa uma proposta nova. Recarrega a página: garante estado 100%
+// limpo e ainda repega pacotes/concessionárias/consultores que o admin possa ter
+// mudado. Preserva só o consultor, para o mesmo responsável emendar propostas
+// sem redigitar o nome a cada uma.
+function novaProposta(){
+ if(!confirm('Limpar TODOS os campos e começar uma nova proposta?\n(o projeto atual já foi salvo ao gerar o PDF)')) return;
+ try{ sessionStorage.setItem('s2v_consultor',(document.getElementById('consultor')||{}).value||''); }catch(e){}
+ location.reload();
+}
+
 async function buscarIrradiacao(){
  const bt=document.getElementById('bt-irr'); bt.disabled=true;
  try{
@@ -1938,6 +1949,10 @@ window.addEventListener('paste',e=>{
 carregarConcessionarias();
 _setupComboConsultor();
 carregarConsultores();
+// "Nova proposta" recarrega a página; mantém o consultor para não redigitar.
+try{ const _c=sessionStorage.getItem('s2v_consultor'); sessionStorage.removeItem('s2v_consultor');
+ const _ce=document.getElementById('consultor');
+ if(_c && _ce && PAPEL!=='consultor' && !_ce.value) _ce.value=_c; }catch(e){}
 addUC(); addInv(); wire(document);
 // consultor: monta os filtros + a tabela de kits e, se houver um único, seleciona
 if(PAPEL==='consultor'){
