@@ -42,6 +42,7 @@ input:focus,select:focus{outline:2px solid #1e4d78;border-color:var(--azul)}
 button{cursor:pointer;border:0;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:600}
 .bt-azul{background:var(--azul-forte);color:#fff}.bt-azul:hover{background:#1462ae}
 .bt-verde{background:var(--verde-forte);color:#fff}.bt-verde:hover{background:#0bb193}
+#bt-usar-kit.on{background:var(--verde-forte);color:#fff;border-color:var(--verde-forte)}
 .bt-claro{background:#223141;color:var(--azul)}
 .bt-mini{padding:5px 10px;font-size:12px}
 button:disabled{opacity:.5;cursor:wait}
@@ -73,6 +74,15 @@ summary{cursor:pointer;font-size:12px;color:var(--azul);font-weight:600}
  padding:12px;margin:10px 0;text-align:center}
 .destaque .v{font-size:26px;font-weight:800;color:#fff}
 .destaque .l{font-size:11px;color:#9db4c8;text-transform:uppercase;letter-spacing:.6px}
+.bt-edit-val{background:transparent;border:1px solid #2f6079;color:#9db4c8;border-radius:14px;
+  padding:1px 8px;font-size:10px;font-weight:700;cursor:pointer;margin-left:8px;text-transform:none;letter-spacing:0}
+.bt-edit-val:hover{border-color:var(--verde);color:#fff}
+.edit-venda{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
+.edit-venda input{max-width:150px;height:34px;background:#0b2033;border-color:#2f6079;color:#fff;font-weight:700}
+.bt-auto-val{background:#223141;color:#9db4c8}
+.badge-margem{display:inline-block;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:800;white-space:nowrap}
+.badge-margem.ok{background:rgba(18,195,154,.18);color:#3fe0b6}
+.badge-margem.baixo{background:rgba(229,72,77,.2);color:#ff7076}
 .trio{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center;margin:8px 0}
 .trio .v{font-weight:700;color:var(--verde)}
 .trio .l{font-size:10.5px;color:var(--mudo)}
@@ -236,8 +246,10 @@ body:not(.consultor) .so-consultor{display:none!important;}
 
   <section>
     <h2>Kit gerador</h2>
-    <div class="so-consultor" style="margin-bottom:12px">
-      <label>Pacote gerador <small class="auto">filtre e clique no kit na tabela (o preço já vem configurado)</small></label>
+    <button type="button" class="bt-claro bt-mini so-admin" id="bt-usar-kit" onclick="toggleKitAdmin()" style="margin-bottom:10px"
+            title="modo rápido: começar a partir de um kit já cadastrado (você pode ajustar tudo depois)">📦 Partir de um kit pronto</button>
+    <div id="pacote-picker" style="margin-bottom:12px;display:none">
+      <label>Pacote gerador <small class="auto">filtre e clique no kit na tabela (preenche os campos — você ainda pode ajustar)</small></label>
       <div class="filtros-pac">
         <div><label>Buscar por nome</label><input id="pacote_busca" placeholder="nome do kit…" autocomplete="off"></div>
         <div><label>Telhado</label><select id="filtro-estrutura"></select></div>
@@ -382,7 +394,17 @@ body:not(.consultor) .so-consultor{display:none!important;}
       <div class="l" id="sug-obs" style="color:var(--mudo);font-size:12px"></div>
       <button type="button" class="bt-verde bt-mini" style="margin-top:10px" onclick="abrirSolicitacao()">📨 Solicitar cotação ao administrador</button>
     </div>
-    <div class="destaque"><div class="l">Valor de venda</div><div class="v" id="r-venda">—</div>
+    <div class="destaque"><div class="l">Valor de venda
+        <button type="button" class="bt-edit-val so-admin" id="bt-edit-val" onclick="toggleEditVenda()"
+                title="editar o valor final da proposta">✏️ editar</button></div>
+      <div class="v" id="r-venda">—</div>
+      <div class="edit-venda so-admin" id="edit-venda" style="display:none">
+        <input id="venda_manual" class="rs" inputmode="decimal" placeholder="R$ 0,00"
+               title="valor final desejado da proposta">
+        <button type="button" class="bt-mini bt-auto-val" onclick="limparEditVenda()"
+                title="voltar ao cálculo automático">✕ auto</button>
+        <span class="badge-margem" id="badge-margem" style="display:none"></span>
+      </div>
       <div class="l" id="r-parcela"></div></div>
     <div class="trio">
       <div><div class="v" id="r-sem">—</div><div class="l">fatura sem S2V</div></div>
@@ -613,6 +635,8 @@ async function aplicarConc(el){
  }
  if(obs) obs.innerHTML=`✔ ${nome} · ${sub} · ${baseTar}${notaIcms}`;
  cheiaLocal(uc); agendar();
+ // se esta é a GERADORA (UC 1), as beneficiárias seguem a mesma concessionária
+ if(uc===concGeradoraEl()) sincronizarConcBeneficiarias();
 }
 // aplica a concessionária padrão (COPEL) só quando a UC ainda está vazia —
 // não sobrescreve o que veio de um projeto importado.
@@ -620,6 +644,21 @@ function aplicarConcAuto(uc){
  if(!uc || !Object.keys(CONC).length) return;
  const sel=uc.querySelector('.u-conc'), te=uc.querySelector('.u-te');
  if(sel && sel.value && te && !String(te.value).trim()) aplicarConc(sel);
+}
+// A GERADORA é a UC 1 (índice 0). Toda BENEFICIÁRIA só transfere crédito dentro
+// da MESMA concessionária — então ela HERDA a concessionária da geradora e o
+// seletor fica travado. A modalidade (B1/B2) continua livre por UC.
+function concGeradoraEl(){ return document.querySelector('#ucs .uc'); }
+function sincronizarConcBeneficiarias(silencioso){
+ const ger=concGeradoraEl(); if(!ger) return;
+ const nome=(ger.querySelector('.u-conc')||{}).value||'';
+ document.querySelectorAll('#ucs .uc').forEach((uc,i)=>{
+   const sel=uc.querySelector('.u-conc'); if(!sel) return;
+   if(i===0){ sel.disabled=false; sel.title=''; return; }   // geradora: livre
+   sel.disabled=true;
+   sel.title='Herda a concessionária da geradora (crédito só transfere dentro da mesma concessionária)';
+   if(nome && sel.value!==nome){ sel.value=nome; if(!silencioso) aplicarConc(sel); }
+ });
 }
 
 // ---- máscaras e parsers (formato brasileiro) ----
@@ -752,7 +791,10 @@ function ucHTML(i){
 function addUC(){const box=document.getElementById('ucs');const n=box.children.length;
  if(n>=9)return; box.insertAdjacentHTML('beforeend',ucHTML(n));
  document.getElementById('badge-ucs').textContent=n+1; wire(box.lastElementChild);
- const _el=box.lastElementChild; preencherConcSelects(_el); aplicarConcAuto(_el); }
+ const _el=box.lastElementChild; preencherConcSelects(_el);
+ if(n===0) aplicarConcAuto(_el);            // geradora (UC 1): COPEL padrão
+ else sincronizarConcBeneficiarias();       // beneficiária: herda a geradora e trava
+}
 
 // refaz as opções de um <select> de marca a partir de uma lista nova,
 // preservando o que estava escolhido (mesmo que a marca tenha saído da lista)
@@ -878,8 +920,67 @@ function _renderTabelaPacotes(){
 }
 function selecionarPacote(id){
  document.getElementById('pacote_sel').value=id;
- aplicarPacote(id);
+ if(PAPEL==='consultor') aplicarPacote(id);        // consultor: só equipamento (o servidor injeta o resto e trava)
+ else aplicarPacoteAdminFull(_pacoteFull(id));      // admin: preenche TUDO, mas continua editável
  _renderTabelaPacotes();
+}
+// ---- modo rápido do ADMIN: partir de um kit pronto ------------------------
+// Diferença para o consultor: o kit apenas PREENCHE os campos (equipamento,
+// custos, margem e o "valor da proposta"); o admin pode ajustar qualquer um
+// depois — não fica preso ao kit. Precisa dos custos completos, que o servidor
+// só manda ao consultor de forma travada; então buscamos o config (só admin).
+let _filtrosKitProntos=false;
+async function toggleKitAdmin(){
+ const box=document.getElementById('pacote-picker');
+ const abrir=box.style.display==='none';
+ box.style.display=abrir?'':'none';
+ document.getElementById('bt-usar-kit').classList.toggle('on',abrir);
+ if(abrir){
+   await _carregarPacotesFull();
+   if(!_filtrosKitProntos){ _setupFiltrosPacote(); _filtrosKitProntos=true; }
+   else _renderTabelaPacotes();
+ }
+}
+async function _carregarPacotesFull(){
+ try{
+   const j=await (await fetch('/api/config')).json();
+   if(j.ok && Array.isArray(j.config.pacotes)){
+     window._pacotesFull=j.config.pacotes;
+     PACOTES.length=0; j.config.pacotes.forEach(p=>PACOTES.push(p));  // tabela sempre atual
+   }
+ }catch(e){}
+}
+function _pacoteFull(id){ return (window._pacotesFull||PACOTES).find(p=>String(p.id)===String(id)); }
+function aplicarPacoteAdminFull(p){
+ if(!p) return;
+ const S=(id,val)=>_set(id, val==null?'':val);   // null (auto) => limpa o campo
+ // equipamento
+ setSelOuOutro('conexao',p.conexao||'HÍBRIDO');
+ setSelOuOutro('estrutura',p.estrutura||'');
+ setSelOuOutro('marca_modulo',p.marca_modulo||'');
+ const pot=document.getElementById('pot_modulo_w'); if(pot)pot.value=p.pot_modulo_w||'';
+ const qtd=document.getElementById('qtd_modulos'); if(qtd)qtd.value=p.qtd_modulos||0;
+ const box=document.getElementById('inversores'); box.innerHTML='';
+ (p.inversores||[]).forEach(iv=>addInv(iv.marca,iv.pot_kw,iv.tensao,iv.qtd,iv.micro));
+ if(!(p.inversores||[]).length) addInv();
+ atualizar380();
+ // string box / bateria
+ _chk('tem_stringbox',p.tem_stringbox); S('sb_qtd',p.sb_qtd); S('sb_marca',p.sb_marca); S('sb_es',p.sb_es);
+ _chk('tem_bateria',p.tem_bateria); S('bat_qtd',p.bat_qtd); S('bat_marca',p.bat_marca); S('bat_kwh',p.bat_kwh);
+ // custos e margem (herdados do kit; o admin ajusta se quiser)
+ S('valor_kit',p.valor_kit); S('margem',p.margem_desejada);
+ S('comissao',p.comissao_pct); S('seguro',p.seguro_pct); S('aliquota_pct',p.aliquota_pct);
+ S('desloc',p.desloc); S('custo_380v',p.custo_380v);
+ S('mo_manual',p.mo_manual); S('material_manual',p.material_manual);
+ S('wp_manual','');                               // kit define preço por margem/valor da proposta, não por Wp
+ // "valor da proposta" (fixo) do kit → abre o editor de valor final se houver
+ if(p.preco_venda_manual!=null && p.preco_venda_manual!==''){
+   S('venda_manual',p.preco_venda_manual);
+   document.getElementById('edit-venda').style.display='flex';
+ }else{
+   S('venda_manual',''); document.getElementById('edit-venda').style.display='none';
+ }
+ agendar();
 }
 function limparFiltros(){
  ['pacote_busca','filtro-estrutura','filtro-bateria','filtro-conexao','filtro-inversor',
@@ -1010,6 +1111,7 @@ async function abrirPacotes(){
     ? pacs.map(p=>pacoteCardHTML(p,false)).join('')   // recolhidos por padrão
     : '<p class="mudo" style="font-size:13px">Nenhum kit ainda. Clique em “+ adicionar pacote”.</p>';
   aplicarMascaras(box);   // R$/%/kWh nos campos
+  box.querySelectorAll('.pacote-card').forEach(_wirePacPreco);  // prévia de preço/margem
  }catch(e){ box.innerHTML='Falha ao carregar: '+e; }
 }
 function fecharPacotes(){ document.getElementById('modal-pacotes').classList.remove('on'); }
@@ -1060,6 +1162,7 @@ function setIrrModo(modo){
 }
 function rmUC(i){const box=document.getElementById('ucs');box.children[i].remove();
  [...box.children].forEach((el,k)=>{el.dataset.i=k;el.querySelector('.uc-rot').textContent=`UC ${k+1}`;});
+ sincronizarConcBeneficiarias();   // a UC 1 continua sendo a geradora; re-trava as demais
  document.getElementById('badge-ucs').textContent=box.children.length; calc();}
 
 function setModo(btn,modo){
@@ -1100,6 +1203,9 @@ function lerUC(el){
 function coletar(){
  const num=id=>{const x=numBR(v(id)); return isNaN(x)?'':x;};
  const invs=lerInversores();
+ // valor final fixado à mão tem precedência: nesse caso não mandamos o wp_manual
+ // (o motor derivaria o preço do Wp) para não haver dois overrides brigando.
+ const vendaMan=num('venda_manual');
  const iv0=invs[0]||{marca:'',pot_kw:'',tensao:220};
  return {nome:v('nome'),endereco:v('endereco'),numero:v('numero'),cidade:v('cidade'),consultor:v('consultor'),
   pacote_id:(document.getElementById('pacote_sel')||{}).value,
@@ -1113,7 +1219,8 @@ function coletar(){
   entrada:num('entrada'),custo_380v:num('custo_380v'),desloc:num('desloc'),
   comissao_pct:num('comissao'),seguro_pct:num('seguro'),
   margem_desejada:num('margem'),fin_taxa_mes:num('fin_taxa'),fin_parcelas:num('fin_parcelas'),
-  wp_manual:num('wp_manual'),
+  preco_venda_manual:vendaMan,
+  wp_manual:vendaMan!==''?'':num('wp_manual'),
   mo_manual:num('mo_manual'),material_manual:num('material_manual'),aliquota_pct:num('aliquota_pct'),
   tem_stringbox:chk('tem_stringbox'),sb_qtd:num('sb_qtd'),sb_marca:v('sb_marca'),sb_es:v('sb_es'),
   tem_bateria:chk('tem_bateria'),bat_qtd:num('bat_qtd'),bat_marca:v('bat_marca'),bat_kwh:num('bat_kwh')};
@@ -1121,6 +1228,48 @@ function coletar(){
 const v=id=>document.getElementById(id).value;
 const chk=id=>document.getElementById(id).checked;
 const set=(id,t)=>document.getElementById(id).textContent=t;
+
+// ---- editar o VALOR FINAL da proposta (só admin) ---------------------------
+// O admin fixa quanto quer vender; o motor devolve a margem líquida REAL desse
+// valor (lucro_pct) e o preço/Wp correspondente. O selo fica verde se a margem
+// ficar >= LIMIAR_MARGEM, vermelho se cair abaixo.
+const LIMIAR_MARGEM=15;            // margem líquida mínima "saudável" (%)
+let _ultVenda=null;                // último valor de venda calculado (número)
+function toggleEditVenda(){
+ const box=document.getElementById('edit-venda');
+ const abrir=box.style.display==='none';
+ box.style.display=abrir?'flex':'none';
+ if(abrir){
+   const el=document.getElementById('venda_manual');
+   if(el.value===''&&_ultVenda){el.value='R$ '+fmtBR(_ultVenda,2);}  // parte do valor atual
+   el.focus(); calc(false);
+ }
+}
+function limparEditVenda(){        // volta ao cálculo automático
+ document.getElementById('venda_manual').value='';
+ const wp=document.getElementById('wp_manual');
+ // o Wp estava só espelhando o valor final travado — zera para não virar override
+ wp.value=''; wp.readOnly=false; wp.style.opacity='';
+ document.getElementById('badge-margem').style.display='none';
+ calc(false);
+}
+function atualizarEditVenda(s){
+ _ultVenda=s.preco_venda_num;
+ const ativo=v('venda_manual')!=='';
+ const wp=document.getElementById('wp_manual');
+ const badge=document.getElementById('badge-margem');
+ if(ativo){
+   // o campo Preço/Wp mostra (travado) o que está sendo aplicado a este valor
+   wp.value=fmtBR(s.preco_wp,4).replace(/,?0+$/,''); wp.readOnly=true; wp.style.opacity=.6;
+   const ok=s.lucro_pct>=LIMIAR_MARGEM;
+   badge.textContent=`margem líquida ${fmtBR(s.lucro_pct,2)}%`;
+   badge.className='badge-margem '+(ok?'ok':'baixo');
+   badge.style.display='inline-block';
+ }else{
+   wp.readOnly=false; wp.style.opacity='';
+   badge.style.display='none';
+ }
+}
 
 let timer=null;
 async function calc(mostrarErro){
@@ -1151,6 +1300,7 @@ async function calc(mostrarErro){
   set('c-imp',s.custo_imposto); set('c-com',`${s.custo_comissao} · ${s.custo_seguro}`);
   set('c-tot',s.custo_total); set('c-marg',`${s.margem_usada_pct}%`);
   set('c-wp',`R$ ${s.preco_wp}/Wp`); set('c-lucro',`${s.lucro_pct}% (${s.lucro_rs})`);
+  atualizarEditVenda(s);
   document.getElementById('sugestao').textContent=s.modulos_sugeridos?`· sugerido: ${s.modulos_sugeridos}`:'';
   // tarifa cheia (com impostos) por UC, para conferência
   [...document.getElementById('ucs').children].forEach((el,i)=>{
@@ -1640,6 +1790,15 @@ function pacoteCardHTML(p, aberto){p=p||{};
        ${_pacImgBoxHTML('modulo',p.img_modulo||'')}
        ${_pacImgBoxHTML('inversor',p.img_inversor||'')}
      </div>
+     <div style="margin-top:12px;padding:10px;border:1px solid var(--verde-forte);border-radius:8px;background:var(--card)">
+       <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+         <div style="width:160px"><label>Valor da proposta <small class="auto">vazio=usa a margem</small></label>
+           <input class="pac-venda rs" inputmode="decimal" placeholder="convergido" value="${_iRS(p.preco_venda_manual)}"
+                  title="preço final de VENDA deste kit ao cliente (com custos e margem já aplicados)"></div>
+         <span class="badge-margem pac-margem-badge" style="display:none"></span>
+       </div>
+       <div class="pac-preco-info" style="font-size:12px;color:var(--mudo);margin-top:6px">—</div>
+     </div>
    </div>`;
 }
 function _togglePac(btn){
@@ -1672,10 +1831,10 @@ function _pacImgRm(btn){_pacImgSet(btn.closest('.pac-img'),'');}
 function addPacInv(btn){btn.previousElementSibling.insertAdjacentHTML('beforeend',_pacInvHTML());}
 function addPacote(){const box=document.getElementById('pacotes-lista');
  box.insertAdjacentHTML('beforeend',pacoteCardHTML({inversores:[{}]},true)); // já nasce com 1 inversor
- aplicarMascaras(box.lastElementChild);}
+ aplicarMascaras(box.lastElementChild); _wirePacPreco(box.lastElementChild);}
 // coleta os cartões de pacote de um container e devolve a lista para salvar
-function _coletarPacotes(root){
- return [...root.querySelectorAll('.pacote-card')].map(card=>{
+// coleta UM cartão de pacote → objeto (usado no salvar e na prévia de preço)
+function _coletarPacote(card){
    const q=cl=>card.querySelector('.'+cl);
    const imgData=qual=>{const el=card.querySelector('.pac-img[data-qual="'+qual+'"] .pac-img-data');return el?el.value:'';};
    const invs=[...card.querySelectorAll('.pac-invs .pac-inv')].map(row=>({
@@ -1698,6 +1857,7 @@ function _coletarPacotes(root){
      margem_desejada:pacNum(card,'pac-margem'),  // null = margem automática
      comissao_pct:pacNum(card,'pac-comissao')||0,
      seguro_pct:pacNum(card,'pac-seguro')||0,
+     preco_venda_manual:pacNum(card,'pac-venda'),// null = usa a margem (convergido)
      desloc:pacNum(card,'pac-desloc')||0,
      custo_380v:pacNum(card,'pac-380v')||0,
      mo_manual:pacNum(card,'pac-mo'),            // null = automática
@@ -1712,7 +1872,40 @@ function _coletarPacotes(root){
      bat_marca:(q('pac-bat-marca').value||'').trim(),
      bat_kwh:pacNum(card,'pac-bat-kwh'),
    };
- }).filter(p=>p.nome);
+}
+function _coletarPacotes(root){
+ return [...root.querySelectorAll('.pacote-card')].map(_coletarPacote).filter(p=>p.nome);
+}
+// prévia ao vivo do preço/margem do kit (só admin) — atualiza o selo e a linha
+let _pacTimers=new WeakMap();
+function agendarPacPreco(card){
+ clearTimeout(_pacTimers.get(card));
+ _pacTimers.set(card, setTimeout(()=>atualizarPacotePreco(card), 400));
+}
+async function atualizarPacotePreco(card){
+ const info=card.querySelector('.pac-preco-info');
+ const badge=card.querySelector('.pac-margem-badge');
+ if(!info) return;
+ try{
+  const pac=_coletarPacote(card);
+  delete pac.img_modulo; delete pac.img_inversor;   // a prévia não usa imagens
+  const r=await fetch('/api/pacote-preco',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(pac)});
+  const j=await r.json();
+  if(!j.ok){ info.textContent='—'; badge.style.display='none'; return; }
+  const fixo=(card.querySelector('.pac-venda').value||'').trim()!=='';
+  const wp=fmtBR(j.preco_wp,4).replace(/,?0+$/,'');
+  info.textContent=`${fixo?'venda fixa':'venda (convergido)'} ${j.preco_venda} · custo ${j.custo_total} · R$ ${wp}/Wp`;
+  const ok=j.lucro_pct>=LIMIAR_MARGEM;
+  badge.textContent=`margem líquida ${fmtBR(j.lucro_pct,2)}%`;
+  badge.className='badge-margem pac-margem-badge '+(ok?'ok':'baixo');
+  badge.style.display='inline-block';
+ }catch(e){ info.textContent='—'; badge.style.display='none'; }
+}
+// liga a prévia a um cartão: recalcula a cada edição e uma vez ao abrir
+function _wirePacPreco(card){
+ card.addEventListener('input',()=>agendarPacPreco(card));
+ atualizarPacotePreco(card);
 }
 function consultorRowHTML(cn){cn=cn||{};
  return `<div class="consultor-row" style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
@@ -1789,7 +1982,14 @@ function salvarConfig(){
 // escreve num campo e dispara os eventos para máscara/recalcular reagirem
 function _set(id,val){
  const el=document.getElementById(id); if(!el||val==null) return;
- el.value=String(val).replace('.',','); el.dispatchEvent(new Event('input',{bubbles:true}));
+ // Campos de MOEDA (.rs) e ENERGIA (.kwh) usam máscara que lê os dígitos como
+ // centavos. Um número inteiro salvo (ex.: 10000) chegaria como "10000" e a
+ // máscara o interpretaria como 100,00. Por isso formatamos com 2 casas antes,
+ // deixando a máscara idempotente (10000 -> "R$ 10.000,00", não "R$ 100,00").
+ if(val!=='' && el.classList.contains('rs'))       el.value='R$ '+fmtBR(Number(val),2);
+ else if(val!=='' && el.classList.contains('kwh')) el.value=fmtBR(Number(val),2)+' kWh';
+ else el.value=String(val).replace('.',',');
+ el.dispatchEvent(new Event('input',{bubbles:true}));
  el.dispatchEvent(new Event('blur',{bubbles:true}));
 }
 function _setSel(id,val){
@@ -1814,6 +2014,11 @@ function aplicar(d){
  _set('valor_kit',d.valor_kit); _set('entrada',d.entrada); _set('custo_380v',d.custo_380v); _set('desloc',d.desloc);
  _set('comissao',d.comissao_pct); _set('seguro',d.seguro_pct); _set('margem',d.margem_desejada);
  _set('fin_taxa',d.fin_taxa_mes); _set('fin_parcelas',d.fin_parcelas); _set('wp_manual',d.wp_manual);
+ // valor final fixado à mão (abre o editor se o projeto salvo tinha um)
+ if(d.preco_venda_manual!==undefined&&d.preco_venda_manual!==null&&d.preco_venda_manual!==''){
+   _set('venda_manual',d.preco_venda_manual);
+   document.getElementById('edit-venda').style.display='flex';
+ }else{ _set('venda_manual',''); document.getElementById('edit-venda').style.display='none'; }
  _set('mo_manual',d.mo_manual); _set('material_manual',d.material_manual); _set('aliquota_pct',d.aliquota_pct);
  // inversores (usa a lista salva; se faltar, cai nos campos legados)
  const inv=document.getElementById('inversores'); inv.innerHTML='';
@@ -1832,12 +2037,18 @@ function aplicar(d){
  const ucs=(d.ucs&&d.ucs.length)?d.ucs:[{}];
  ucs.forEach((u,i)=>{ box.insertAdjacentHTML('beforeend',ucHTML(i));
    const el=box.lastElementChild; wire(el); preencherConcSelects(el); preencherUC(el,u); });
+ sincronizarConcBeneficiarias(true);   // trava as beneficiárias sem rebuscar (mantém tarifas importadas)
  document.getElementById('badge-ucs').textContent=box.children.length;
  calc(false);
 }
 function preencherUC(el,u){
- const set=(c,v)=>{const x=el.querySelector(c); if(x&&v!=null){x.value=String(v).replace('.',',');
-   x.dispatchEvent(new Event('input',{bubbles:true})); x.dispatchEvent(new Event('blur',{bubbles:true}));}};
+ const set=(c,v)=>{const x=el.querySelector(c); if(!x||v==null) return;
+   // mesma correção do _set: campos .rs/.kwh usam máscara de centavos, então um
+   // inteiro (ex.: ilum. 40) viraria R$ 0,40 — formatamos com 2 casas antes.
+   if(v!=='' && x.classList.contains('rs'))       x.value='R$ '+fmtBR(Number(v),2);
+   else if(v!=='' && x.classList.contains('kwh')) x.value=fmtBR(Number(v),2)+' kWh';
+   else x.value=String(v).replace('.',',');
+   x.dispatchEvent(new Event('input',{bubbles:true})); x.dispatchEvent(new Event('blur',{bubbles:true}));};
  const sel=(c,v)=>{const x=el.querySelector(c); if(x&&v!=null){x.value=v; x.dispatchEvent(new Event('change',{bubbles:true}));}};
  // concessionária e modalidade (B1/B2): repõe o valor SELECIONADO sem disparar o
  // onchange — se disparasse, aplicarConc rebuscaria a ANEEL e sobrescreveria a
@@ -1956,6 +2167,7 @@ try{ const _c=sessionStorage.getItem('s2v_consultor'); sessionStorage.removeItem
 addUC(); addInv(); wire(document);
 // consultor: monta os filtros + a tabela de kits e, se houver um único, seleciona
 if(PAPEL==='consultor'){
+ document.getElementById('pacote-picker').style.display='';  // seletor sempre visível p/ ele
  _setupFiltrosPacote();
  if(PACOTES.length===1){
    document.getElementById('pacote_sel').value=String(PACOTES[0].id);

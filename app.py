@@ -438,6 +438,10 @@ def _montar_entradas(d: dict) -> engine.Entradas:
         fin_parcelas=int(_f(d.get('fin_parcelas'), 60)),
         wp_manual=(None if d.get('wp_manual') in (None, '')
                    else _f(d.get('wp_manual'))),
+        # VALOR FINAL fixo: para o consultor já foi blindado no _aplicar_pacote
+        # (vem só do pacote); para o admin, é o que ele digitou na tela ou no kit.
+        preco_venda_manual=(None if d.get('preco_venda_manual') in (None, '')
+                            else _f(d.get('preco_venda_manual'))),
         mo_manual=(None if d.get('mo_manual') in (None, '')
                    else _f(d.get('mo_manual'))),
         material_manual=(None if d.get('material_manual') in (None, '')
@@ -646,6 +650,35 @@ def api_calcular():
         return jsonify(ok=False, erro=str(exc)), 400
 
 
+@app.post('/api/pacote-preco')
+def api_pacote_preco():
+    """Prévia (SÓ admin) do preço e da margem de UM pacote enquanto o kit é
+    editado. Não depende do consumo do cliente: os custos saem do próprio kit
+    (módulos × potência, inversores, mão de obra, material, imposto…). Devolve o
+    valor de venda (o FIXO se o kit tem 'preco_venda_manual', senão o convergido),
+    o preço/Wp e a margem líquida REAL — o mesmo cálculo do fluxo normal."""
+    try:
+        if _eh_consultor():
+            return jsonify(ok=False, erro='sem permissão'), 403
+        cfg = engine.carregar_config()
+        p = request.get_json(force=True) or {}
+        d = dict(p)
+        d['qtd_modulos_kit'] = p.get('qtd_modulos', p.get('qtd_modulos_kit'))
+        d['ucs'] = []                       # preço/margem não dependem do consumo
+        e = _montar_entradas(d)
+        r = engine.calcular(e, cfg)
+        br = cfg.get('formato_ptbr', True)
+        return jsonify(ok=True,
+                       preco_venda=engine.moeda(r['preco_venda'], br),
+                       preco_venda_num=round(r['preco_venda'], 2),
+                       preco_wp=round(r['preco_wp'], 4),
+                       lucro_pct=round(r['lucro_pct'] * 100, 2),
+                       margem_usada_pct=round(r['margem_usada'] * 100, 2),
+                       custo_total=engine.moeda(r['custo_total'], br))
+    except Exception as exc:                                   # noqa: BLE001
+        return jsonify(ok=False, erro=str(exc)), 400
+
+
 @app.post('/api/conferencia')
 def api_conferencia():
     """Devolve o detalhamento passo a passo do retorno financeiro."""
@@ -836,9 +869,12 @@ CONFIG_EDITAVEL = ('aliquota_imposto', 'mao_de_obra_minima',
 # (Futuro: preencher valor_kit a partir de API das distribuidoras.)
 
 # campos internos do pacote (o que o consultor não pode ver)
+# 'preco_venda_manual' = valor FINAL fixo do kit (R$), já com custos+margem
+# aplicados; quando preenchido, o pacote vende por esse valor (o convergido é
+# ignorado). É poder do admin — o consultor herda o valor, mas não o edita.
 _PACOTE_CUSTOS = ('valor_kit', 'margem_desejada', 'comissao_pct', 'seguro_pct',
                   'desloc', 'custo_380v', 'mo_manual', 'material_manual',
-                  'aliquota_pct')
+                  'aliquota_pct', 'preco_venda_manual')
 # campos "públicos" do pacote (equipamento — já aparece impresso na proposta).
 # String box e bateria fazem parte do kit (já precificados no valor_kit), então
 # entram junto com o pacote e o consultor não os edita separadamente. A ESTRUTURA
@@ -897,6 +933,10 @@ def _aplicar_pacote(d: dict) -> dict:
     for k in _PACOTE_CUSTOS + _PACOTE_EQUIP:
         if k in pac:
             d[k] = pac[k]
+    # blindagem do VALOR FINAL: para o consultor ele vem SÓ do pacote (ou fica
+    # vazio se o kit não fixa nenhum) — nunca do navegador. Assim o consultor não
+    # consegue redigitar o valor final por fora, mesmo forçando o payload.
+    d['preco_venda_manual'] = pac.get('preco_venda_manual')
     # nomes usados pelo montador de entradas (a tela usa 'qtd_modulos_kit')
     d['qtd_modulos_kit'] = pac.get('qtd_modulos', d.get('qtd_modulos_kit'))
     return d

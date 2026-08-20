@@ -196,6 +196,10 @@ class Entradas:
     fin_parcelas: int = 60            # DD!M36
     # preço de venda manual (sobrepõe o cálculo, como colar em DD!B75)
     wp_manual: float | None = None
+    # valor FINAL da proposta fixado à mão (R$). Tem precedência sobre wp_manual:
+    # o admin digita quanto quer vender e o motor deriva o preço/Wp e a margem
+    # líquida real desse valor. None = usa o cálculo automático.
+    preco_venda_manual: float | None = None
     # sobrepor custos automáticos (None = usa a regra da planilha/config)
     mo_manual: float | None = None            # PR!Q21 editável
     material_manual: float | None = None      # PR!S21 editável
@@ -426,7 +430,13 @@ def calcular(e: Entradas, config: dict, ano: int | None = None) -> Resultado:
         wp = preco / 1000.0 / r['kwp'] if r['kwp'] else 0.0
         return preco, wp, imposto, margem
 
-    if e.wp_manual is not None:                              # equivale a DD!B75 manual
+    if e.preco_venda_manual is not None:                     # admin fixou o VALOR FINAL (R$)
+        r['preco_venda'] = e.preco_venda_manual
+        r['preco_wp'] = (r['preco_venda'] / (r['kwp'] * 1000)) if r['kwp'] else 0.0
+        r['margem_usada'] = (e.margem_desejada if e.margem_desejada is not None
+                             else margem_para(r['preco_venda'] * 0.8))
+        r['custo_imposto'] = aliq * (r['preco_venda'] - e.valor_kit)
+    elif e.wp_manual is not None:                            # equivale a DD!B75 manual
         r['preco_wp'] = e.wp_manual
         r['preco_venda'] = r['kwp'] * 1000 * e.wp_manual     # DD!B25 / PR!U35
         r['margem_usada'] = (e.margem_desejada if e.margem_desejada is not None

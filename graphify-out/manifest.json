@@ -1,7 +1,7 @@
 {
   "app.py": {
-    "mtime": 1786546900.5525615,
-    "ast_hash": "5b5e0cdffb5c3c0c244c77bdfc2262d7",
+    "mtime": 1787233400.7079244,
+    "ast_hash": "721e8a90b4bfe6af75d61fad9559a1d2",
     "semantic_hash": ""
   },
   "conferencia_retorno.py": {
@@ -10,13 +10,13 @@
     "semantic_hash": "49a1dc71ba5f384d66a5cfbe06085903"
   },
   "config.json": {
-    "mtime": 1786034891.5234282,
-    "ast_hash": "3d45a8b7b02ea687622f9868f8f1b9fa",
+    "mtime": 1787233034.369563,
+    "ast_hash": "dee99be4d46cd922171a592bbae0aef7",
     "semantic_hash": ""
   },
   "engine.py": {
-    "mtime": 1785957043.638859,
-    "ast_hash": "19539da35a245e6e29277f1f6425d1ae",
+    "mtime": 1787227952.3772264,
+    "ast_hash": "c9d243f536870c8092f9f099bce6102f",
     "semantic_hash": ""
   },
   "iniciar.sh": {
@@ -25,8 +25,8 @@
     "semantic_hash": "13f1a45c4afa12e981c795fbc5af7362"
   },
   "online.py": {
-    "mtime": 1785973545.4015841,
-    "ast_hash": "e4d1e30031695c68af45827e537768e6",
+    "mtime": 1786547157.9454646,
+    "ast_hash": "88d19fa8a56561b08a17076ab0b9b86a",
     "semantic_hash": ""
   },
   "proposta.py": {
@@ -45,7 +45,7 @@
     "semantic_hash": "5bf3015c6ae8836b2f28f980b978357e"
   },
   "CLAUDE.md": {
-    "mtime": 1786547024.476529,
+    "mtime": 1786547157.9358006,
     "ast_hash": "40c889c16853716d9d19c93ef432ed88",
     "semantic_hash": ""
   },
@@ -60,8 +60,8 @@
     "semantic_hash": ""
   },
   "templates/index.html": {
-    "mtime": 1786546925.6166997,
-    "ast_hash": "476ef161d8cc2a6a74201f3f94d4fcc2",
+    "mtime": 1787236727.951418,
+    "ast_hash": "1b70b36801a45355fc23f554e9231f2d",
     "semantic_hash": ""
   },
   ".claude/settings.json": {
@@ -135,8 +135,8 @@
     "semantic_hash": ""
   },
   "teste_correcoes.py": {
-    "mtime": 1785957155.942734,
-    "ast_hash": "6fcd5d88daff66c8ae099464f4ff2eed",
+    "mtime": 1786547157.9454646,
+    "ast_hash": "8d3b5eae55e72aa921a690f049561721",
     "semantic_hash": ""
   }
 }
