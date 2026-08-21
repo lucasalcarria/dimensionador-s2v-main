@@ -127,24 +127,48 @@ arte (x 130,2–508,7 · y 230,1–350,0 pt). Fixo: o cartão "PROJETOS REALIZAD
 | "referentes a jul/2026" | `disclaimer_data` | mês/ano de hoje, automático |
 | NEUZA ZAMFERRARI | `nome_upper` | nome em maiúsculas, sobre a linha de aceite |
 
-Fixo: "CARTÃO DE CRÉDITO — EM ATÉ 12X + TAXA DA MAQUININHA", os logos dos
-bancos sob "FINANCIAMENTO", o bloco de aceite e o CNPJ.
+**Parcela dentro do quadro azul do "à vista"**: um **toggle na tela** — no fim do
+quadro "Custos, margem & financiamento" — decide o que aparece embaixo do à vista.
+O quadro azul original (#004D94, x[168,4;426,1] y[520,5;611,2], raio ~11) é
+**redesenhado maior** pelo `proposta.py` (`c.roundRect` em y[510;612] — topo fixo,
+estende p/ baixo): mesma cor/raio → casa sem emenda, o "À VISTA" queimado no fundo
+(baseline 534,6) some coberto, e o **bloco de textos fica centrado** no quadro
+(gaps ~13pt em cima e embaixo). Empilhamento (baselines): valor `R$ …` em ~578
+(branco, Sora-Bold), **À VISTA** em 557 (Sora-Regular **10,5**) e **ou** em 542 (Sora-Regular 9,5)
+**em cinza claro #D9D9D9** (a cor do quadro dos logos — mais discretos que o
+branco), **condição** em ~528 (branca, Sora-Bold 15, cx 297,25). Só uma condição
+aparece por vez — a outra fica vazia e o `proposta.py` pula o campo. Valor e
+condição têm **`max_w` 235** (largura útil do quadro) → `_ajustar_em_caixa`
+**encolhe a fonte** se o número for grande, para **nunca transbordar** (testado
+até R$ 1.888.888,88 / parcela R$ 179.688,82).
+
+| O que aparece | Chave | Conta por trás |
+|---|---|---|
+| "12x de R$ 779,40 no cartão" | `cartao_parcela_txt` | InfiniteTap: `venda ÷ (1 − taxa%)` ÷ parcelas (taxa repassada) |
+| "em até 60x de 1,99% ao mês" | `fin_parcela_txt` | termos do financiamento (parcelas + taxa a.m.) |
+
+O toggle é `UC`→`forma_parcela` ('cartao' | 'financiamento') e, na tela, mostra só
+os campos da opção ativa. A taxa do cartão vive em `config.json → cartao_infinitetap`
+(editável nas ⚙ Pré-definições e na seção de custos).
+
+**Seção OPÇÕES DE PARCELAMENTO (fluxo do fundo):** `_ajustar_cartao_p5` (pág. 5,
+página já anexada ao writer) edita o fluxo do fundo:
+1. **apaga de vez** o texto "EM ATÉ 12X + TAXA DA MAQUININHA" esvaziando o seu
+   `Tj` (antes só era coberto por retângulo branco e continuava **selecionável**);
+2. **desce a seção inteira 2pt** (`SECAO=−2`): as duas **bordas cinza** (traços —
+   desloca o `y` das ops de path na faixa y[383;490]), os **12 logos** (`cm.ty`),
+   os títulos "CARTÃO DE CRÉDITO"/"FINANCIAMENTO" e o "OPÇÕES DE PARCELAMENTO"
+   (este −4, pois já vinha −2);
+3. **centra o bloco de bandeiras**: `+dx=5,1` (margens iguais, 50/49,8pt) e
+   `+BANDEIRAS_DY=10` no `cm` da forma `FormXob.0bba…` — 10 = +12 p/ alinhar o
+   centro vertical ao dos logos do financiamento (−2 da seção).
+
+O "RETORNO FINANCEIRO" **não** é deslocado (fica na posição original): subi-lo
+antes o afastava da própria seção (o conteúdo de retorno vem logo abaixo). O vão
+maior entre os quadros cinza e o "RETORNO FINANCEIRO" é a **quebra de seção**.
+Fixo (queimado): os títulos, os logos, o aceite e o CNPJ.
 
 ---
-
-## Ainda calculado e não impresso
-
-O programa calcula estes dois valores, mas **o layout novo não tem lugar para
-eles** (o bloco "FINANCIAMENTO" virou uma vitrine de logos de bancos):
-
-| Valor | Onde está |
-|---|---|
-| `fin_txt` — "EM 60x SOB 1,99% AO MÊS" | [engine.py:561](engine.py#L561) |
-| `parcela_fin` — R$ 251,34 | `resultado['parcela_fin']` |
-
-Se um dia o design abrir espaço, basta acrescentar os dois em `CAMPOS` dentro de
-[ferramentas/html_para_fundo.py](ferramentas/html_para_fundo.py) e rodar o
-conversor de novo.
 
 ## Textos fixos que talvez devessem seguir o cliente
 

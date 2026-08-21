@@ -436,6 +436,9 @@ def _montar_entradas(d: dict) -> engine.Entradas:
         margem_desejada=margem,
         fin_taxa_mes=_f(d.get('fin_taxa_mes'), 1.99),
         fin_parcelas=int(_f(d.get('fin_parcelas'), 60)),
+        cartao_taxa_pct=_f(d.get('cartao_taxa_pct'), 12.4),
+        cartao_parcelas=int(_f(d.get('cartao_parcelas'), 12)),
+        forma_parcela=(d.get('forma_parcela') or 'cartao').strip(),
         wp_manual=(None if d.get('wp_manual') in (None, '')
                    else _f(d.get('wp_manual'))),
         # VALOR FINAL fixo: para o consultor já foi blindado no _aplicar_pacote
@@ -485,6 +488,9 @@ def _resumo(r: dict, cfg: dict) -> dict:
         payback=r['textos']['payback_txt'],
         retorno_25=m(r['retorno_25']),
         parcela_fin=m(r['parcela_fin']),
+        parcela_cartao=m(r['parcela_cartao']),
+        cartao_parcelas=r['cartao_parcelas'],
+        cartao_valor_credito=m(r['cartao_valor_credito']),
         custo_mo_auto=m(r['custo_mo_auto']),
         custo_material_auto=m(r['custo_material_auto']),
         aliquota_usada_pct=round(r['aliquota_usada'] * 100, 2),
@@ -854,7 +860,7 @@ CONFIG_EDITAVEL = ('aliquota_imposto', 'mao_de_obra_minima',
                    'mao_de_obra_por_modulo', 'material_markup',
                    'material_extra_faixas', 'trafos', 'garantias_fixas',
                    'faixas_margem', 'fio_b_rs_mwh', 'validade_dias',
-                   'financiamento_padrao', 'performance_ratio',
+                   'financiamento_padrao', 'cartao_infinitetap', 'performance_ratio',
                    'perda_irradiacao', 'marcas_modulo', 'marcas_inversor',
                    'bandeiras', 'subgrupos', 'pasta_saida', 'pasta_drive',
                    'pacotes')

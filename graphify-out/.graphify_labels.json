@@ -24,7 +24,7 @@
   "22": "_ip_local",
   "23": "_montar_entradas",
   "24": "_f",
-  "25": "api_config",
+  "25": "_senha_acesso",
   "26": "_eh_consultor",
   "27": "_ler_img_padrao",
   "28": "_gravar_img_pacote",
@@ -33,6 +33,11 @@
   "31": "calcular",
   "32": "_ip_local",
   "33": "_textos",
-  "34": "dir_execucao",
-  "35": "teste_correcoes.py"
+  "34": "proposta.py",
+  "35": "dir_execucao",
+  "36": "_carregar_deco",
+  "37": "Estrutura de pastas do projeto",
+  "38": "teste_correcoes.py",
+  "39": "_ajustar_em_caixa",
+  "40": "_pdf_grafico"
 }

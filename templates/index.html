@@ -378,9 +378,36 @@ body:not(.consultor) .so-consultor{display:none!important;}
     <div class="grid g4" style="margin-top:10px">
       <div><label>Margem desejada <small class="auto">vazio = automática</small></label>
         <input id="margem" class="pct" inputmode="decimal" value="16"></div>
-      <div><label>Financiamento (% a.m.)</label><input id="fin_taxa" class="pct" inputmode="decimal" value="{{cfg.financiamento_padrao.taxa_mes}}"></div>
-      <div><label>Parcelas</label><input id="fin_parcelas" type="number" value="{{cfg.financiamento_padrao.parcelas}}"></div>
-      <div><label>Preço/Wp manual <small class="auto">(avançado)</small></label><input id="wp_manual" inputmode="decimal" placeholder="auto"></div>
+      <div><label>Preço/Wp manual <small class="auto">(avançado)</small></label>
+        <input id="wp_manual" inputmode="decimal" placeholder="auto"></div>
+    </div>
+    <style>
+      .toggle-parcela{display:inline-flex;border:1px solid var(--linha);border-radius:999px;
+        overflow:hidden;cursor:pointer;user-select:none;font-size:13px;background:var(--card2)}
+      .toggle-parcela .tp-opt{padding:9px 20px;color:var(--mudo);transition:background .15s,color .15s;white-space:nowrap}
+      .toggle-parcela[data-forma="cartao"] .tp-cartao,
+      .toggle-parcela[data-forma="financiamento"] .tp-fin{background:var(--verde);color:#04121a;font-weight:600}
+      .campos-parcela{align-items:end;margin-top:10px}
+    </style>
+    <div style="margin-top:14px">
+      <label>Opção de pagamento na proposta <small class="auto">aparece junto do à vista</small></label>
+      <div class="toggle-parcela" id="toggle-parcela" data-forma="cartao" role="button" tabindex="0"
+           onclick="toggleFormaParcela()" title="alterna entre cartão e financiamento">
+        <span class="tp-opt tp-cartao">Cartão (InfiniteTap)</span>
+        <span class="tp-opt tp-fin">Financiamento</span>
+      </div>
+    </div>
+    <div class="grid g4 campos-parcela" id="campos-cartao">
+      <div><label>Cartão InfiniteTap (%) <small class="auto">taxa embutida p/ 12x</small></label>
+        <input id="cartao_taxa" class="pct" inputmode="decimal" value="{{cfg.cartao_infinitetap.taxa_pct}}"></div>
+      <div><label>Parcelas cartão</label>
+        <input id="cartao_parcelas" type="number" value="{{cfg.cartao_infinitetap.parcelas}}"></div>
+    </div>
+    <div class="grid g4 campos-parcela" id="campos-fin" style="display:none">
+      <div><label>Financiamento (% a.m.)</label>
+        <input id="fin_taxa" class="pct" inputmode="decimal" value="{{cfg.financiamento_padrao.taxa_mes}}"></div>
+      <div><label>Parcelas</label>
+        <input id="fin_parcelas" type="number" value="{{cfg.financiamento_padrao.parcelas}}"></div>
     </div>
   </section>
 </div>
@@ -1219,6 +1246,8 @@ function coletar(){
   entrada:num('entrada'),custo_380v:num('custo_380v'),desloc:num('desloc'),
   comissao_pct:num('comissao'),seguro_pct:num('seguro'),
   margem_desejada:num('margem'),fin_taxa_mes:num('fin_taxa'),fin_parcelas:num('fin_parcelas'),
+  cartao_taxa_pct:num('cartao_taxa'),cartao_parcelas:num('cartao_parcelas'),
+  forma_parcela:(document.getElementById('toggle-parcela')||{dataset:{}}).dataset.forma||'cartao',
   preco_venda_manual:vendaMan,
   wp_manual:vendaMan!==''?'':num('wp_manual'),
   mo_manual:num('mo_manual'),material_manual:num('material_manual'),aliquota_pct:num('aliquota_pct'),
@@ -1283,7 +1312,11 @@ async function calc(mostrarErro){
   if(!j.ok){ if(mostrarErro){err.textContent=j.erro;err.style.display='block';} return;}
   err.style.display='none';
   const s=j.resumo;
-  set('r-venda',s.preco_venda); set('r-parcela',`ou ${s.parcela_fin} /mês no financiamento`);
+  set('r-venda',s.preco_venda);
+  const _forma=(document.getElementById('toggle-parcela')||{dataset:{}}).dataset.forma||'cartao';
+  set('r-parcela', _forma==='cartao'
+      ? `ou ${s.cartao_parcelas}x de ${s.parcela_cartao} no cartão`
+      : `ou ${s.parcela_fin} /mês no financiamento`);
   set('r-sem',s.fatura_sem); set('r-com',s.fatura_com); set('r-eco',s.economia_mensal);
   set('r-kwp',`${s.kwp} kWp`);
   set('r-nec',`${s.kwp_necessario} kWp · ${s.modulos_sugeridos} mód.`);
@@ -1322,6 +1355,14 @@ function cheiaLocal(el){
    `com impostos (conferência): TE ${f(te)} · TUSD ${f(tusd)} · cheia ${f(te+tusd)} /kWh`;
 }
 function agendar(){clearTimeout(timer);timer=setTimeout(()=>calc(false),450);}
+function toggleFormaParcela(){
+  const t=document.getElementById('toggle-parcela');
+  t.dataset.forma = t.dataset.forma==='cartao' ? 'financiamento' : 'cartao';
+  const cartao = t.dataset.forma==='cartao';
+  document.getElementById('campos-cartao').style.display = cartao ? '' : 'none';
+  document.getElementById('campos-fin').style.display   = cartao ? 'none' : '';
+  agendar();
+}
 // aplica máscaras conforme a classe do campo
 function aplicarMascaras(root){
  root.querySelectorAll('input.rs').forEach(el=>{
@@ -1585,7 +1626,7 @@ function _setupComboConsultor(){
 }
 const _esc=s=>String(s==null?'':s).replace(/"/g,'&quot;');
 function configHTML(c){
- const g=c.garantias_fixas||{}, fin=c.financiamento_padrao||{};
+ const g=c.garantias_fixas||{}, fin=c.financiamento_padrao||{}, cart=c.cartao_infinitetap||{};
  const linhasMat=(c.material_extra_faixas||[]).map((f,i)=>
    `<div class="inv-linha" style="grid-template-columns:1fr 1fr 1fr auto">
      <input class="mat-min" type="number" step="0.1" value="${_esc(f[0])}">
@@ -1656,6 +1697,11 @@ function configHTML(c){
    <div><label>Financiamento (% a.m.)</label><input id="cf-fin-taxa" type="number" step="0.01" value="${_esc(fin.taxa_mes)}"></div>
    <div><label>Parcelas padrão</label><input id="cf-fin-parc" type="number" value="${_esc(fin.parcelas)}"></div>
    <div><label>Validade da proposta (dias)</label><input id="cf-validade" type="number" value="${_esc(c.validade_dias)}"></div>
+  </div>
+  <div class="grid g3">
+   <div><label>Cartão InfiniteTap (% p/ 12x)</label><input id="cf-cartao-taxa" type="number" step="0.01" value="${_esc(cart.taxa_pct)}"></div>
+   <div><label>Parcelas do cartão</label><input id="cf-cartao-parc" type="number" value="${_esc(cart.parcelas)}"></div>
+   <div></div>
   </div>
   ${H('Imagens padrão do módulo e do inversor')}
   <p class="mudo" style="font-size:12px;margin:-2px 0 8px">Usadas na página 3 da proposta quando você <b>não</b> colar uma foto na tela principal. Cole (Ctrl+V), arraste ou clique para enviar.</p>
@@ -1935,6 +1981,7 @@ function salvarConfig(){
    marcas_modulo:G('cf-marcas-mod').value.split(/[\r\n]+/).map(s=>s.trim()).filter(Boolean),
    marcas_inversor:G('cf-marcas-inv').value.split(/[\r\n]+/).map(s=>s.trim()).filter(Boolean),
    financiamento_padrao:{taxa_mes:_n(G('cf-fin-taxa')),parcelas:_n(G('cf-fin-parc'))},
+   cartao_infinitetap:{taxa_pct:_n(G('cf-cartao-taxa')),parcelas:_n(G('cf-cartao-parc'))},
    validade_dias:_n(G('cf-validade')),
    pasta_saida:G('cf-pasta').value.trim(),
    pasta_drive:G('cf-pasta-drive').value.trim(),

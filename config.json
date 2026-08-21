@@ -284,10 +284,15 @@
   },
   "_tarifas_padrao": "Valores pré-preenchidos por UC (PR!D31:H31, M31). Cada UC pode ser ajustada na tela.",
   "financiamento_padrao": {
-    "taxa_mes": 1.99,
+    "taxa_mes": 0.99,
     "parcelas": 60
   },
   "_financiamento_padrao": "DADOS!M35:M36 — usado no texto 'EM 60x SOB 1,99% AO MÊS' e na parcela estimada.",
+  "cartao_infinitetap": {
+    "taxa_pct": 12.4,
+    "parcelas": 12
+  },
+  "_cartao_infinitetap": "InfiniteTap (InfinitePay): taxa efetiva do parcelamento, REPASSADA ao cliente. valor_no_credito = venda / (1 - taxa%/100); parcela = valor_no_credito / parcelas — assim a S2V recebe a venda cheia e a taxa vira custo embutido no crédito. Copie a taxa da SUA conta no app (varia por plano/bandeira/faturamento). 12x Visa/Master = 12,4%. Confira 1 venda na calculadora do app antes de usar em proposta real.",
   "formato_ptbr": true,
   "_formato_ptbr": "true = números no padrão brasileiro (R$ 8.758,12 / 2,6 ANOS). false = padrão da planilha original salva (R$ 8,758.12 / 2.6 ANOS).",
   "compat_planilha": false,
@@ -474,5 +479,41 @@
   "validade_dias": 7,
   "pasta_saida": "",
   "pasta_drive": "S2V ENGENHARIA/ORÇAMENTOS",
-  "pacotes": []
+  "pacotes": [
+    {
+      "id": "p9daa0835",
+      "nome": "teste",
+      "conexao": "ON-GRID",
+      "estrutura": "FIBROCIMENTO",
+      "qtd_modulos": 8,
+      "marca_modulo": "SUNOVA N-TYPE",
+      "pot_modulo_w": 620,
+      "inversores": [
+        {
+          "marca": "SAJ",
+          "pot_kw": 6,
+          "tensao": 220,
+          "qtd": 1,
+          "micro": false
+        }
+      ],
+      "valor_kit": 10000,
+      "margem_desejada": null,
+      "comissao_pct": 0,
+      "seguro_pct": 0,
+      "desloc": 0,
+      "custo_380v": 0,
+      "mo_manual": null,
+      "material_manual": null,
+      "aliquota_pct": null,
+      "tem_stringbox": false,
+      "sb_qtd": 1,
+      "sb_marca": "",
+      "sb_es": "",
+      "tem_bateria": false,
+      "bat_qtd": 1,
+      "bat_marca": "",
+      "bat_kwh": null
+    }
+  ]
 }

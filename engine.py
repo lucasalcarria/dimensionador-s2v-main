@@ -194,6 +194,12 @@ class Entradas:
     # financiamento -------------------------------------------------------
     fin_taxa_mes: float = 1.99        # DD!M35 (% a.m.)
     fin_parcelas: int = 60            # DD!M36
+    # cartão de crédito (InfiniteTap/InfinitePay) — taxa REPASSADA ao cliente:
+    # o valor no crédito sobe p/ embutir a taxa e a S2V recebe a venda cheia.
+    cartao_taxa_pct: float = 12.4     # taxa efetiva do parcelamento em N vezes
+    cartao_parcelas: int = 12
+    # qual opção aparece na proposta junto do "à vista": 'financiamento' | 'cartao'
+    forma_parcela: str = 'cartao'
     # preço de venda manual (sobrepõe o cálculo, como colar em DD!B75)
     wp_manual: float | None = None
     # valor FINAL da proposta fixado à mão (R$). Tem precedência sobre wp_manual:
@@ -533,6 +539,15 @@ def calcular(e: Entradas, config: dict, ano: int | None = None) -> Resultado:
     r['parcela_fin'] = (r['preco_venda'] * i / (1 - (1 + i) ** -n)
                         if i > 0 and n > 0 else 0.0)
 
+    # cartão InfiniteTap: taxa repassada ao cliente. O valor cobrado no crédito
+    # sobe para embutir a taxa (venda / (1 − taxa)) e a parcela é esse valor / N.
+    # Assim a S2V recebe a venda cheia e a parcela × N = o total pago pelo cliente.
+    tx = e.cartao_taxa_pct / 100.0
+    nc = e.cartao_parcelas
+    r['cartao_parcelas'] = nc
+    r['cartao_valor_credito'] = (r['preco_venda'] / (1 - tx)) if 0 < tx < 1 else 0.0
+    r['parcela_cartao'] = (r['cartao_valor_credito'] / nc) if nc > 0 else 0.0
+
     # textos prontos (aba TEXTO) --------------------------------------
     r['textos'] = _textos(e, r, config)
     return r
@@ -716,4 +731,16 @@ def _textos(e: Entradas, r: Resultado, config: dict) -> dict:
     t['validade_txt'] = f"{int(config.get('validade_dias', 7))} DIAS"
     t['fin_txt'] = (f'EM {e.fin_parcelas}x SOB '
                     f"{_dec(fmt_general(e.fin_taxa_mes), br)}% AO MÊS")     # TX!I2
+    # OPÇÕES DE PARCELAMENTO (pág. 5, dentro do quadro azul do "à vista"): o
+    # switch decide qual texto aparece. Cartão mostra a parcela + "no cartão";
+    # financiamento mostra os termos ("em até Nx de X% ao mês"). A opção não
+    # escolhida fica vazia → proposta.py pula o campo.
+    car_par = (f"{e.cartao_parcelas}x de {moeda(r['parcela_cartao'], br)} no cartão"
+               if r.get('parcela_cartao') else '')
+    fin_par = (f"em até {e.fin_parcelas}x de "
+               f"{_dec(fmt_general(e.fin_taxa_mes), br)}% ao mês"
+               if e.fin_parcelas else '')
+    usa_cartao = (e.forma_parcela == 'cartao')
+    t['fin_parcela_txt'] = '' if usa_cartao else fin_par
+    t['cartao_parcela_txt'] = car_par if usa_cartao else ''
     return t

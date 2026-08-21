@@ -14,6 +14,7 @@ import json
 import os
 
 from pypdf import PdfReader, PdfWriter, Transformation
+from pypdf.generic import ContentStream, FloatObject, TextStringObject
 from reportlab.lib.colors import HexColor
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase import pdfmetrics
@@ -443,6 +444,72 @@ def _desenhar_fotos_p3(c, imagens, page_h):
 
 
 # ------------------------------------------------------------------ overlay
+# bandeira de cartão (bloco único de logos VISA/AmEx/Master/Elo/Hipercard) na
+# coluna CARTÃO DE CRÉDITO da pág. 5 — vem levemente à esquerda no fundo.
+_LOGO_BANDEIRAS = '/FormXob.0bba7f3951b1bf95c99742fb24b11694'
+
+
+def _cm_antes(ops, idx):
+    """Retorna o operando-lista do `cm` imediatamente anterior ao índice idx."""
+    for j in range(idx - 1, -1, -1):
+        oj = ops[j][1]
+        oj = oj.decode() if isinstance(oj, bytes) else oj
+        if oj == 'cm':
+            return ops[j][0]
+    return None
+
+
+def _ajustar_cartao_p5(page, pdf, dx: float) -> None:
+    """Pág. 5, editando o fluxo do fundo (página já anexada ao writer):
+      1. APAGA de vez o texto "EM ATÉ 12X + TAXA DA MAQUININHA" (esvazia o Tj);
+      2. desce a seção OPÇÕES DE PARCELAMENTO 2pt (SECAO): bordas dos dois quadros
+         cinza (traços), 12 logos, títulos "CARTÃO DE CRÉDITO"/"FINANCIAMENTO" e o
+         próprio "OPÇÕES" (este 2pt a mais, pois já vinha 2pt abaixo);
+      3. centra o bloco de bandeiras no quadro: +dx em x e +BANDEIRAS_DY em y
+         (10 = +12 p/ alinhar o centro ao dos logos do financiamento −2 da seção).
+    O "RETORNO FINANCEIRO" volta à posição original (não é mais deslocado): subi-lo
+    antes o afastava da própria seção (conteúdo logo abaixo)."""
+    SECAO = -2.0            # a seção de parcelamento inteira desce 2pt
+    BANDEIRAS_DY = 10.0     # +12 (centra) −2 (acompanha a seção)
+    cs = ContentStream(page.get_contents(), pdf)
+    ops = cs.operations
+    ult_tm = None
+    path = []              # ops de construção de caminho desde a última limpeza
+    for idx, (operandos, op) in enumerate(ops):
+        o = op.decode() if isinstance(op, bytes) else op
+        if o == 'Tm':
+            ult_tm = operandos
+        elif o in ('m', 'l', 'c', 're'):
+            path.append((operandos, o))
+        elif o in ('S', 's'):                     # traço fechado
+            ys = [float(od[1]) for od, oo in path]  # 1º y de cada op basta p/ faixa
+            if ys and 383 < min(ys) and max(ys) < 490:   # borda de um quadro cinza
+                for od, oo in path:
+                    iy = [1] if oo == 're' else range(1, len(od), 2)
+                    for i in iy:
+                        od[i] = FloatObject(float(od[i]) + SECAO)
+            path = []
+        elif o in ('f', 'f*', 'F', 'B', 'B*', 'b', 'b*', 'n'):
+            path = []
+        elif o == 'Tj' and 'MAQUININHA' in str(operandos[0]):
+            operandos[0] = TextStringObject('')
+        elif o == 'Tj' and 'PARCELAMENTO' in str(operandos[0]) and ult_tm:
+            ult_tm[5] = FloatObject(float(ult_tm[5]) + SECAO - 2.0)   # OPÇÕES: −4 total
+        elif o == 'Tj' and ('CART' in str(operandos[0])
+                            or 'FINANCIAMENTO' in str(operandos[0])) and ult_tm:
+            ult_tm[5] = FloatObject(float(ult_tm[5]) + SECAO)         # títulos dos quadros
+        elif o == 'Do':
+            cm = _cm_antes(ops, idx)
+            if cm is None:
+                continue
+            if str(operandos[0]) == _LOGO_BANDEIRAS:
+                cm[4] = FloatObject(float(cm[4]) + dx)
+                cm[5] = FloatObject(float(cm[5]) + BANDEIRAS_DY)
+            elif 383 < float(cm[5]) < 490:                            # logos do financiamento
+                cm[5] = FloatObject(float(cm[5]) + SECAO)
+    page.replace_contents(cs)
+
+
 def gerar_proposta(resultado: dict, caminho_saida: str,
                    textos_extra: dict | None = None,
                    imagens: dict | None = None) -> str:
@@ -507,6 +574,22 @@ def gerar_proposta(resultado: dict, caminho_saida: str,
         if pagina == 4:
             # redesenha a timeline de etapas com círculos perfeitos
             _redesenhar_timeline(c, page_h)
+        if pagina == 5:
+            # quadro azul do "à vista": o original é #004D94 x[168,4;426,1]
+            # y[520,5;611,2] (raio ~11). Redesenho MAIOR e um pouco mais ALTO por
+            # cima do original — mesma cor/raio, então casa sem emenda — para o
+            # bloco de textos (valor · À VISTA · ou · condição) ficar centrado
+            # nele. O "À VISTA" queimado no fundo (baseline 534,6) some coberto e
+            # é reescrito MENOR; abaixo dele um "ou" discreto antes da condição.
+            c.setFillColor(HexColor('#004D94'))
+            c.roundRect(168.4, 510.0, 257.7, 102.0, 11, stroke=0, fill=1)  # topo 612 fixo
+            # "À VISTA" e "ou" em cinza claro (#D9D9D9, a cor do quadro dos logos),
+            # mais discretos que o branco do valor/condição.
+            c.setFillColor(HexColor('#D9D9D9'))
+            c.setFont(_font_key('Sora', False), 10.5)      # 1px menor
+            c.drawCentredString(297.25, 557.0, 'À VISTA')
+            c.setFont(_font_key('Sora', False), 9.5)       # "ou" discreto
+            c.drawCentredString(297.25, 542.0, 'ou')
         for f in lay['fields']:
             if f['page'] != pagina:
                 continue
@@ -564,6 +647,8 @@ def gerar_proposta(resultado: dict, caminho_saida: str,
             page.merge_transformed_page(
                 graf_page, Transformation().translate(tx=rx0, ty=ty))
         out.add_page(page)
+        if i == 4:  # página 5 — centra logos, apaga texto, desce a seção 2pt
+            _ajustar_cartao_p5(out.pages[i], out, dx=5.1)
 
     os.makedirs(os.path.dirname(os.path.abspath(caminho_saida)), exist_ok=True)
     with open(caminho_saida, 'wb') as f:

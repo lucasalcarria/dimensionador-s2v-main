@@ -1,7 +1,7 @@
 {
   "app.py": {
-    "mtime": 1787233400.7079244,
-    "ast_hash": "721e8a90b4bfe6af75d61fad9559a1d2",
+    "mtime": 1787256655.9875338,
+    "ast_hash": "c1ebf336d3a6b3339c91da2ffdfd0a32",
     "semantic_hash": ""
   },
   "conferencia_retorno.py": {
@@ -10,13 +10,13 @@
     "semantic_hash": "49a1dc71ba5f384d66a5cfbe06085903"
   },
   "config.json": {
-    "mtime": 1787233034.369563,
-    "ast_hash": "dee99be4d46cd922171a592bbae0aef7",
+    "mtime": 1787271859.7348127,
+    "ast_hash": "20fb227efb69eb1df671c5cdd6e12598",
     "semantic_hash": ""
   },
   "engine.py": {
-    "mtime": 1787227952.3772264,
-    "ast_hash": "c9d243f536870c8092f9f099bce6102f",
+    "mtime": 1787271617.162977,
+    "ast_hash": "39dd9b8e9bfc4026d8b031897d0b2126",
     "semantic_hash": ""
   },
   "iniciar.sh": {
@@ -30,8 +30,8 @@
     "semantic_hash": ""
   },
   "proposta.py": {
-    "mtime": 1784988827.2958887,
-    "ast_hash": "69b3b34ca985789a581a6e4b3bb0180b",
+    "mtime": 1787276469.088483,
+    "ast_hash": "d82dd26652bfeb18309b6b219742c3d7",
     "semantic_hash": ""
   },
   "resumo_texto.py": {
@@ -60,8 +60,8 @@
     "semantic_hash": ""
   },
   "templates/index.html": {
-    "mtime": 1787236727.951418,
-    "ast_hash": "1b70b36801a45355fc23f554e9231f2d",
+    "mtime": 1787269355.0973346,
+    "ast_hash": "866addc8b34aa485f6b6b58708ac063b",
     "semantic_hash": ""
   },
   ".claude/settings.json": {
@@ -125,8 +125,8 @@
     "semantic_hash": ""
   },
   "MAPA-PROPOSTA.md": {
-    "mtime": 1784989257.7924182,
-    "ast_hash": "cb49f840b28fa673563490c4218c1081",
+    "mtime": 1787275275.30864,
+    "ast_hash": "95801c7064bd151b784ba73a97128d40",
     "semantic_hash": ""
   },
   "drive.py": {

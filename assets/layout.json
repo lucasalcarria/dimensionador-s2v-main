@@ -645,9 +645,9 @@
    "field": "valor_venda",
    "box": {
     "x0": 218.33,
-    "y0": 557.53,
+    "y0": 568.0,
     "x1": 378.3,
-    "y1": 592.39
+    "y1": 602.86
    },
    "style": {
     "size": 27.67,
@@ -656,9 +656,49 @@
     "font": "Sora"
    },
    "algn": "c",
-   "max_w": 260,
+   "max_w": 235,
    "linhas": 1,
-   "cx": 298.32
+   "cx": 297.25
+  },
+  {
+   "page": 5,
+   "field": "cartao_parcela_txt",
+   "box": {
+    "x0": 172.4,
+    "y0": 521.0,
+    "x1": 422.1,
+    "y1": 539.0
+   },
+   "style": {
+    "size": 15.0,
+    "bold": true,
+    "color": "FFFFFF",
+    "font": "Sora"
+   },
+   "algn": "c",
+   "max_w": 235,
+   "linhas": 1,
+   "cx": 297.25
+  },
+  {
+   "page": 5,
+   "field": "fin_parcela_txt",
+   "box": {
+    "x0": 172.4,
+    "y0": 521.0,
+    "x1": 422.1,
+    "y1": 539.0
+   },
+   "style": {
+    "size": 15.0,
+    "bold": true,
+    "color": "FFFFFF",
+    "font": "Sora"
+   },
+   "algn": "c",
+   "max_w": 235,
+   "linhas": 1,
+   "cx": 297.25
   }
  ],
  "chart_rect_pt_top": [
