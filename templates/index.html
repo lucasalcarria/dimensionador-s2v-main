@@ -399,9 +399,9 @@ body:not(.consultor) .so-consultor{display:none!important;}
     </div>
     <div class="grid g4 campos-parcela" id="campos-cartao">
       <div><label>Cartão InfiniteTap (%) <small class="auto">taxa embutida p/ 12x</small></label>
-        <input id="cartao_taxa" class="pct" inputmode="decimal" value="{{cfg.cartao_infinitetap.taxa_pct}}"></div>
+        <input id="cartao_taxa" class="pct" inputmode="decimal" value="{{ cfg.get('cartao_infinitetap', {}).get('taxa_pct', 12.4) }}"></div>
       <div><label>Parcelas cartão</label>
-        <input id="cartao_parcelas" type="number" value="{{cfg.cartao_infinitetap.parcelas}}"></div>
+        <input id="cartao_parcelas" type="number" value="{{ cfg.get('cartao_infinitetap', {}).get('parcelas', 12) }}"></div>
     </div>
     <div class="grid g4 campos-parcela" id="campos-fin" style="display:none">
       <div><label>Financiamento (% a.m.)</label>
