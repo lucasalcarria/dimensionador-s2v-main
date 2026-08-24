@@ -274,6 +274,34 @@ Como foi feito (Cloud Shell, na conta do usuário):
 Notas: reconectar o Drive tem de ser no PC (OAuth Desktop só aceita localhost) —
 o refresh token existente vale na nuvem.
 
+⚠ **Reimplantar NÃO atualiza o `config.json` do bucket.** Na nuvem o programa lê
+o `config.json` do **bucket** (`S2V_DATA_DIR=/data`), não o do código. Então
+mudanças feitas direto no `config.json` versionado (concessionária nova, novo
+subgrupo, chaves que a tela de pré-definições não grava) **não aparecem na nuvem**
+só com `git pull` + `gcloud run deploy` — é preciso mandar o config ao bucket.
+**Nunca sobrescreva o do bucket com o do repo** (o bucket pode ter edições feitas
+pelo celular — tarifas da COPEL, PIS/COFINS). **Mescle**: adicione só o que falta.
+Ex.: para propagar concessionárias novas, no Cloud Shell:
+```bash
+cd ~/dimensionador-s2v-main && git pull
+gcloud storage cp gs://s2v-dimensionador-dados/config.json /tmp/bucket.json
+python3 - <<'PY'
+import json
+repo   = json.load(open('config.json', encoding='utf-8'))
+bucket = json.load(open('/tmp/bucket.json', encoding='utf-8'))
+bc = bucket.setdefault('concessionarias', {})
+add = [n for n, v in (repo.get('concessionarias') or {}).items()
+       if n not in bc and not bc.update({n: v})]   # só adiciona o que falta
+json.dump(bucket, open('/tmp/merged.json','w',encoding='utf-8'),
+          ensure_ascii=False, indent=2)
+print('Adicionadas ao cofre:', add or '(nenhuma)')
+PY
+gcloud storage cp /tmp/merged.json gs://s2v-dimensionador-dados/config.json
+```
+`carregar_config` relê o arquivo a cada requisição → basta recarregar a página no
+celular, sem reimplantar. (Sintoma clássico do esquecimento: no celular só aparece
+a COPEL no seletor de concessionária, embora o repo tenha todas.)
+
 ## Inversores (1 ou vários)
 
 `Entradas.inversores` é uma lista `[{marca,pot_kw,tensao,qtd}]`. Quando vazia,
