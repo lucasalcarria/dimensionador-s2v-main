@@ -70,6 +70,16 @@ summary{cursor:pointer;font-size:12px;color:var(--azul);font-weight:600}
 .res td{padding:5px 2px;border-bottom:1px dashed #232e3a}
 .res td:last-child{text-align:right;font-weight:600}
 .res td small{color:var(--mudo);font-weight:400}
+/* composição do preço: 3 colunas (item | % da venda | R$) */
+.res .tb-comp th{color:var(--mudo);font-size:11px;font-weight:600;text-align:left;
+  padding:0 2px 4px;border-bottom:1px solid var(--borda)}
+.res .tb-comp th:nth-child(2),.res .tb-comp th:last-child{text-align:right}
+.res .tb-comp td:nth-child(2){text-align:right;color:var(--mudo);font-weight:400;
+  width:78px;white-space:nowrap}
+.res .tb-comp tr.tot td{font-weight:700;border-bottom:1px solid var(--borda)}
+.res .tb-comp tr.tot td:nth-child(2){color:var(--texto);font-weight:700}
+.res .tb-comp tr.venda td{color:var(--verde)}
+.res .tb-comp tr.zero td{opacity:.45}
 .destaque{background:linear-gradient(135deg,#0d2b46,#0e3a33);border:1px solid #1e4d5e;border-radius:10px;
  padding:12px;margin:10px 0;text-align:center}
 .destaque .v{font-size:26px;font-weight:800;color:#fff}
@@ -449,16 +459,16 @@ body:not(.consultor) .so-consultor{display:none!important;}
       <tr><td>Economia estimada em 25 anos</td><td id="r-25">—</td></tr>
     </table>
     <details style="margin-top:10px" class="so-admin"><summary>Composição do preço</summary>
-      <table style="margin-top:6px">
-        <tr><td>Mão de obra <small id="c-mo-a"></small></td><td id="c-mo">—</td></tr>
-        <tr><td>Material extra <small id="c-mat-a"></small></td><td id="c-mat">—</td></tr>
-        <tr><td>Transformador <span id="c-trafo-desc"></span></td><td id="c-trafo">—</td></tr>
-        <tr><td>Imposto (<span id="c-aliq">8</span>% s/ venda − kit)</td><td id="c-imp">—</td></tr>
-        <tr><td>Comissão · seguro</td><td id="c-com">—</td></tr>
-        <tr><td>Custo total</td><td id="c-tot">—</td></tr>
-        <tr><td>Margem usada</td><td id="c-marg">—</td></tr>
-        <tr><td>Preço por Wp (convergido)</td><td id="c-wp">—</td></tr>
-        <tr><td>Lucro</td><td id="c-lucro">—</td></tr>
+      <table style="margin-top:6px" class="tb-comp">
+        <thead><tr><th>item</th><th>% da venda</th><th>R$</th></tr></thead>
+        <tbody id="comp-linhas"></tbody>
+        <tfoot>
+          <tr class="tot"><td>Custo total</td><td id="c-tot-p">—</td><td id="c-tot">—</td></tr>
+          <tr class="tot"><td>Lucro</td><td id="c-lucro-p">—</td><td id="c-lucro">—</td></tr>
+          <tr class="tot venda"><td>Valor de venda</td><td>100%</td><td id="c-venda">—</td></tr>
+          <tr><td>Margem usada (tabela)</td><td id="c-marg">—</td><td></td></tr>
+          <tr><td>Preço por Wp (convergido)</td><td></td><td id="c-wp">—</td></tr>
+        </tfoot>
       </table>
     </details>
     <div class="erro" id="erro"></div>
@@ -1234,7 +1244,7 @@ function coletar(){
  // (o motor derivaria o preço do Wp) para não haver dois overrides brigando.
  const vendaMan=num('venda_manual');
  const iv0=invs[0]||{marca:'',pot_kw:'',tensao:220};
- return {nome:v('nome'),endereco:v('endereco'),numero:v('numero'),cidade:v('cidade'),consultor:v('consultor'),
+ return {nome:v('nome'),cep:v('cep'),endereco:v('endereco'),numero:v('numero'),cidade:v('cidade'),consultor:v('consultor'),
   pacote_id:(document.getElementById('pacote_sel')||{}).value,
   ucs:[...document.getElementById('ucs').children].map(lerUC),
   perfil_irradiacao:v('perfil')==='__custom__'?'3.8':v('perfil'),
@@ -1300,6 +1310,28 @@ function atualizarEditVenda(s){
  }
 }
 
+// Composição do preço: TODOS os itens que somam o custo (kit, mão de obra,
+// material, padrão de entrada, deslocamento, transformador, adicional 380 V,
+// comissão, seguro e imposto), cada um em % do valor de venda e em R$. A lista
+// vem pronta do servidor (`app._composicao`) para não haver duas versões da
+// mesma conta. Itens zerados continuam na tela, só esmaecidos — a soma tem de
+// fechar com o custo total.
+function renderComposicao(s){
+ const tb=document.getElementById('comp-linhas'); if(!tb) return;
+ const esc=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+ tb.innerHTML=(s.composicao||[]).map(it=>{
+   const zero=!it.pct;
+   return `<tr class="${zero?'zero':''}"><td>${esc(it.rotulo)}`
+     +`${it.obs?` <small>(${esc(it.obs)})</small>`:''}</td>`
+     +`<td>${fmtBR(it.pct,1)}%</td><td>${esc(it.rs)}</td></tr>`;
+ }).join('');
+ set('c-tot',s.custo_total); set('c-tot-p',`${fmtBR(s.custo_total_pct,1)}%`);
+ set('c-lucro',s.lucro_rs);  set('c-lucro-p',`${fmtBR(s.lucro_pct,2)}%`);
+ set('c-venda',s.preco_venda);
+ set('c-marg',`${fmtBR(s.margem_usada_pct,2)}%`);
+ set('c-wp',`R$ ${fmtBR(s.preco_wp,4).replace(/,?0+$/,'')}/Wp`);
+}
+
 let timer=null;
 async function calc(mostrarErro){
  clearTimeout(timer);
@@ -1323,16 +1355,9 @@ async function calc(mostrarErro){
   set('r-ger',`${s.geracao_media} kWh/mês`); set('r-cons',`${s.consumo_medio} kWh/mês`);
   set('r-comp',`${s.compensacao_pct}%`); set('r-area',`${s.area_m2} m²`);
   set('r-pay',s.payback); set('r-25',s.retorno_25);
-  set('c-mo',s.custo_mo); set('c-mat',s.custo_material);
-  set('c-mo-a',v('mo_manual')!==''?`(auto: ${s.custo_mo_auto})`:'');
-  set('c-mat-a',v('material_manual')!==''?`(auto: ${s.custo_material_auto})`:'');
   document.getElementById('mo-auto').textContent=`auto: ${s.custo_mo_auto}`;
   document.getElementById('mat-auto').textContent=`auto: ${s.custo_material_auto}`;
-  set('c-aliq',s.aliquota_usada_pct);
-  set('c-trafo',s.custo_trafo); set('c-trafo-desc',s.trafo_desc?`(${s.trafo_desc})`:'');
-  set('c-imp',s.custo_imposto); set('c-com',`${s.custo_comissao} · ${s.custo_seguro}`);
-  set('c-tot',s.custo_total); set('c-marg',`${s.margem_usada_pct}%`);
-  set('c-wp',`R$ ${s.preco_wp}/Wp`); set('c-lucro',`${s.lucro_pct}% (${s.lucro_rs})`);
+  renderComposicao(s);
   atualizarEditVenda(s);
   document.getElementById('sugestao').textContent=s.modulos_sugeridos?`· sugerido: ${s.modulos_sugeridos}`:'';
   // tarifa cheia (com impostos) por UC, para conferência
@@ -2035,6 +2060,9 @@ function _set(id,val){
  // deixando a máscara idempotente (10000 -> "R$ 10.000,00", não "R$ 100,00").
  if(val!=='' && el.classList.contains('rs'))       el.value='R$ '+fmtBR(Number(val),2);
  else if(val!=='' && el.classList.contains('kwh')) el.value=fmtBR(Number(val),2)+' kWh';
+ // <input type="number"> só aceita PONTO decimal: com vírgula o navegador
+ // descarta o valor e o campo volta vazio do import.
+ else if(el.type==='number')                       el.value=String(val).replace(',','.');
  else el.value=String(val).replace('.',',');
  el.dispatchEvent(new Event('input',{bubbles:true}));
  el.dispatchEvent(new Event('blur',{bubbles:true}));
@@ -2051,7 +2079,11 @@ function _chk(id,val){
  el.checked=!!val; el.dispatchEvent(new Event('change',{bubbles:true}));
 }
 function aplicar(d){
- _set('nome',d.nome); _set('endereco',d.endereco); _set('numero',d.numero); _set('cidade',d.cidade); _set('consultor',d.consultor);
+ _set('nome',d.nome); _set('cep',d.cep); _set('endereco',d.endereco); _set('numero',d.numero); _set('cidade',d.cidade); _set('consultor',d.consultor);
+ // fotos do módulo/inversor: vêm da pasta do projeto (MODULO/INVERSOR), não do
+ // DADOS.json. Só mexe nas caixas quando o projeto salvo trouxe imagem.
+ if(d.img_modulo)   _setFoto('mod', d.img_modulo);
+ if(d.img_inversor) _setFoto('inv', d.img_inversor);
  // kit escolhido (consultor): o servidor injeta preço/imagem pelo pacote_id
  const _ps=document.getElementById('pacote_sel');
  if(_ps){ _ps.value=d.pacote_id||'';
@@ -2061,6 +2093,10 @@ function aplicar(d){
  _set('valor_kit',d.valor_kit); _set('entrada',d.entrada); _set('custo_380v',d.custo_380v); _set('desloc',d.desloc);
  _set('comissao',d.comissao_pct); _set('seguro',d.seguro_pct); _set('margem',d.margem_desejada);
  _set('fin_taxa',d.fin_taxa_mes); _set('fin_parcelas',d.fin_parcelas); _set('wp_manual',d.wp_manual);
+ // cartão (InfiniteTap) e a forma de parcelamento escolhida na proposta salva
+ _set('cartao_taxa',d.cartao_taxa_pct); _set('cartao_parcelas',d.cartao_parcelas);
+ if(d.forma_parcela){ const _tp=document.getElementById('toggle-parcela');
+   if(_tp && _tp.dataset.forma!==d.forma_parcela) toggleFormaParcela(); }
  // valor final fixado à mão (abre o editor se o projeto salvo tinha um)
  if(d.preco_venda_manual!==undefined&&d.preco_venda_manual!==null&&d.preco_venda_manual!==''){
    _set('venda_manual',d.preco_venda_manual);
@@ -2094,6 +2130,9 @@ function preencherUC(el,u){
    // inteiro (ex.: ilum. 40) viraria R$ 0,40 — formatamos com 2 casas antes.
    if(v!=='' && x.classList.contains('rs'))       x.value='R$ '+fmtBR(Number(v),2);
    else if(v!=='' && x.classList.contains('kwh')) x.value=fmtBR(Number(v),2)+' kWh';
+   // type=number com vírgula é valor inválido -> o campo fica VAZIO. Era o que
+   // apagava PIS (1,44) e COFINS (6,63) ao importar um projeto.
+   else if(x.type==='number')                     x.value=String(v).replace(',','.');
    else x.value=String(v).replace('.',',');
    x.dispatchEvent(new Event('input',{bubbles:true})); x.dispatchEvent(new Event('blur',{bubbles:true}));};
  const sel=(c,v)=>{const x=el.querySelector(c); if(x&&v!=null){x.value=v; x.dispatchEvent(new Event('change',{bubbles:true}));}};

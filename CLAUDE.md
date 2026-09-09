@@ -172,14 +172,21 @@ O motor está preparado para outras concessionárias sem cirurgia:
   automaticamente** numa nova aba (`window.open`), com link de download de
   reserva. Cada projeto vai para uma **subpasta nomeada**
   `<base>/<CONSULTOR>/<NOME>/<7,44KWP ONGRID CHINT 5K 220V COLONIAL>/` contendo
-  `RESUMO.txt`, `CONFERENCIA.txt`, `DADOS.json` e `<nome>.pdf`. O rótulo do
+  `RESUMO.txt`, `CONFERENCIA.txt`, `DADOS.json`, `<nome>.pdf` e as **fotos que
+  foram para o PDF** (`MODULO.<ext>` / `INVERSOR.<ext>` — arquivos soltos, não
+  base64 dentro do `DADOS.json`, que ficaria enorme). O rótulo do
   projeto sai de `app._nome_projeto()` (kWp + conexão + inversores + estrutura).
   **Microinversor:** quando `e.tem_micro()`, o rótulo ganha **MICRO** após a
   conexão (ex.: `4,96KWP ONGRID MICRO CHINT 6K 220V FIBROCIMENTO`) e o PDF ganha
   o sufixo **" - MICRO"** (`JOÃO ... - MICRO.pdf`); string fica como está.
   O **consultor** é um campo livre em Cliente (`app._pasta_projeto` insere esse
   nível só quando preenchido). O botão **Importar projeto** varre a base em
-  qualquer profundidade (`os.walk`, procura `DADOS.json`) e repovoa via `aplicar()`.
+  qualquer profundidade (`os.walk`, procura `DADOS.json`) e repovoa via `aplicar()`
+  — incluindo o **CEP** e as **fotos** (o `/api/importar-resumo` lê o MODULO/
+  INVERSOR da pasta com `_ler_imgs_projeto` e devolve como data URL).
+  ⚠ Campo `<input type="number">` **não aceita vírgula**: escrever "6,63" nele
+  deixa o campo VAZIO. Por isso `_set`/`preencherUC` usam ponto nesses campos
+  (era o que apagava PIS/COFINS ao importar).
 - **Pasta base configurável** (`config.pasta_saida`, editável nas pré-definições):
   vazio = `clientes/` local; pode apontar para uma pasta do Google Drive para
   Desktop (ex.: `G:\Meu Drive\ORÇAMENTOS`). Cai no local se o caminho não existir.
@@ -315,6 +322,18 @@ somado). Há ainda `Entradas.custo_380v`: custo manual em reais que entra na
 composição quando há inversor 380 V (campo condicional na tela, entre Entrada e
 Deslocamento). A UI manda os inversores como lista e repete o 1º nos campos
 legados por segurança.
+
+## Composição do preço (painel da direita)
+
+O bloco "Composição do preço" mostra **todos** os itens que somam o custo, em
+**% do valor de venda e em R$**: kit, mão de obra, material extra, padrão de
+entrada, transformador (com o **adicional 380 V somado dentro**), deslocamento,
+comissão, seguro e imposto — seguidos de custo total, lucro e venda (100%). Itens zerados
+continuam visíveis (esmaecidos) para a soma poder ser conferida. A lista é
+montada **no servidor** (`app._composicao`), a partir das mesmas chaves que
+`engine.calcular` usa em `custo_total` — assim não existe uma segunda versão da
+conta no JavaScript. `engine` expõe `custo_kit` e `custo_380v` só para isso (já
+entravam na conta antes, não apareciam no resultado).
 
 ## Editor de pré-definições (⚙ no cabeçalho)
 

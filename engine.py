@@ -399,6 +399,11 @@ def calcular(e: Entradas, config: dict, ano: int | None = None) -> Resultado:
     r['custo_trafo'], r['trafo_desc'] = _trafo(e, config)    # PR!T21 = Σ DD!S26:S34
     r['custo_desloc'] = e.desloc                             # PR!V21
     r['custo_entrada'] = e.entrada                           # PR!R21
+    # os dois abaixo já entravam na conta (custo_total / preco_convergido); só
+    # não apareciam no resultado — a tela precisa deles para mostrar TODOS os
+    # itens da composição do preço.
+    r['custo_kit'] = e.valor_kit                             # PR!U21
+    r['custo_380v'] = e.custo_380v                           # adicional 380 V
 
     # ---------------- preço de venda (CÁLCULO WP) --------------------- DD!74:95
     faixas = config['faixas_margem']                         # DD!B78

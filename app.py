@@ -288,6 +288,64 @@ def _img_bytes(dataurl):
         return None
 
 
+# ---- fotos gravadas JUNTO da proposta (pasta do projeto) -----------------
+# As imagens que foram para o PDF ficam na pasta do projeto como arquivos soltos
+# (MODULO.png / INVERSOR.jpg …), NÃO dentro do DADOS.json — base64 no JSON
+# incharia o arquivo. Ao importar o projeto elas voltam para a tela.
+_IMG_MIME_EXT = {'image/png': '.png', 'image/jpeg': '.jpg',
+                 'image/jpg': '.jpg', 'image/webp': '.webp',
+                 'image/gif': '.gif'}
+_IMG_EXT_MIME = {'.png': 'image/png', '.jpg': 'image/jpeg',
+                 '.jpeg': 'image/jpeg', '.webp': 'image/webp',
+                 '.gif': 'image/gif'}
+
+
+def _img_ext(dataurl) -> str:
+    """Extensão do arquivo a partir do cabeçalho do data URL (padrão .png)."""
+    m = re.match(r'data:([\w/+.-]+)[;,]', str(dataurl or ''))
+    return _IMG_MIME_EXT.get((m.group(1) if m else '').lower(), '.png')
+
+
+def _gravar_img_projeto(pasta: str, qual: str, dataurl):
+    """Grava a foto usada no PDF na pasta do projeto. Devolve
+    (nome, bytes, mime) — ou None quando não há imagem."""
+    base = 'MODULO' if qual == 'modulo' else 'INVERSOR'
+    for ext in _IMG_EXT_MIME:                    # limpa versões antigas
+        velho = os.path.join(pasta, base + ext)
+        if os.path.exists(velho):
+            try:
+                os.remove(velho)
+            except OSError:
+                pass
+    dados = _img_bytes(dataurl)
+    if not dados:
+        return None
+    nome = base + _img_ext(dataurl)
+    with open(os.path.join(pasta, nome), 'wb') as f:
+        f.write(dados)
+    return nome, dados, _IMG_EXT_MIME.get(_img_ext(dataurl), 'image/png')
+
+
+def _ler_imgs_projeto(pasta: str) -> dict:
+    """Data URLs das fotos salvas na pasta do projeto, no mesmo formato que a
+    tela usa ({'img_modulo': 'data:image/png;base64,…'})."""
+    import base64
+    out = {}
+    for qual, base in (('modulo', 'MODULO'), ('inversor', 'INVERSOR')):
+        for ext, mime in _IMG_EXT_MIME.items():
+            caminho = os.path.join(pasta, base + ext)
+            if not os.path.isfile(caminho):
+                continue
+            try:
+                with open(caminho, 'rb') as f:
+                    b64 = base64.b64encode(f.read()).decode('ascii')
+            except OSError:
+                break
+            out['img_' + qual] = 'data:%s;base64,%s' % (mime, b64)
+            break
+    return out
+
+
 # ---- imagens PADRÃO de módulo/inversor (fallback global) -----------------
 # Ficam num arquivo de texto (o data URL inteiro) na pasta de dados
 # (dir_execucao → bucket no Cloud Run), NUNCA no config.json versionado: são
@@ -462,10 +520,44 @@ def _montar_entradas(d: dict) -> engine.Entradas:
         sb_es=(d.get('sb_es') or '').strip())
 
 
+def _composicao(r: dict, m) -> list:
+    """TODOS os itens que somam o custo, na ordem em que aparecem na planilha
+    (PR!Q21:Y21 + PR!X25), cada um em R$ e em % do valor de venda. É a mesma
+    soma de `r['custo_total']` — nada fica de fora, nem quando vale R$ 0,00."""
+    venda = r['preco_venda'] or 0.0
+    pct = lambda v: round(v / venda * 100, 1) if venda else 0.0
+    auto = lambda v, a: ('auto: ' + m(a)) if abs(v - a) > 0.005 else ''
+    itens = [
+        ('Kit (módulos + inversores)', r['custo_kit'], ''),
+        ('Mão de obra', r['custo_mo'], auto(r['custo_mo'], r['custo_mo_auto'])),
+        ('Material extra', r['custo_material'],
+         auto(r['custo_material'], r['custo_material_auto'])),
+        ('Padrão de entrada', r['custo_entrada'], ''),
+        ('Deslocamento', r['custo_desloc'], ''),
+        # o adicional 380 V entra JUNTO do transformador (é o mesmo item de
+        # custo para o cliente); a descrição do trafo continua na observação
+        ('Transformador', r['custo_trafo'] + r['custo_380v'],
+         r['trafo_desc'] or ''),
+        ('Comissão', r['custo_comissao'], ''),
+        ('Seguro', r['custo_seguro'], ''),
+        ('Imposto', r['custo_imposto'],
+         '%s%% s/ venda − kit' % engine.fmt_general(
+             round(r['aliquota_usada'] * 100, 2)).replace('.', ',')),
+    ]
+    return [{'rotulo': rot, 'rs': m(v), 'pct': pct(v), 'obs': obs}
+            for rot, v, obs in itens]
+
+
 def _resumo(r: dict, cfg: dict) -> dict:
     br = cfg.get('formato_ptbr', True)
     m = lambda v: engine.moeda(v, br)
+    venda = r['preco_venda'] or 0.0
     return dict(
+        composicao=_composicao(r, m),
+        custo_kit=m(r['custo_kit']), custo_desloc=m(r['custo_desloc']),
+        custo_entrada=m(r['custo_entrada']), custo_380v=m(r['custo_380v']),
+        custo_total_pct=(round(r['custo_total'] / venda * 100, 1)
+                         if venda else 0.0),
         kwp=round(r['kwp'], 2),
         kwp_necessario=r['kwp_necessario'],
         modulos_sugeridos=r['modulos_sugeridos'],
@@ -1229,7 +1321,10 @@ def api_importar_resumo():
         if not os.path.isfile(caminho):
             raise ValueError('projeto não encontrado')
         with open(caminho, encoding='utf-8') as f:
-            return jsonify(ok=True, dados=json.load(f))
+            dados = json.load(f)
+        # fotos do módulo/inversor guardadas ao lado do DADOS.json
+        dados.update(_ler_imgs_projeto(os.path.dirname(caminho)))
+        return jsonify(ok=True, dados=dados)
     except Exception as exc:                                    # noqa: BLE001
         return jsonify(ok=False, erro=str(exc)), 400
 
@@ -1264,10 +1359,16 @@ def api_proposta():
         imagens = {'modulo': _img_bytes(img_mod),
                    'inversor': _img_bytes(img_inv)}
         imagens = {k: v for k, v in imagens.items() if v}
+        # as MESMAS fotos que foram para o PDF ficam soltas na pasta do projeto
+        # (MODULO.png / INVERSOR.jpg) — o import as devolve para a tela
+        arq_imgs = [it for it in (_gravar_img_projeto(pasta, 'modulo', img_mod),
+                                  _gravar_img_projeto(pasta, 'inversor', img_inv))
+                    if it]
 
         txt_resumo = resumo_texto.resumo_texto(e, cfg)
         txt_conf = conferencia_retorno.relatorio_conferencia(e, cfg)
         # DADOS.json repovoa a tela depois; as fotos (base64 grande) ficam fora
+        # dele — vão como arquivos MODULO/INVERSOR na mesma pasta (acima)
         d_salvar = {k: v for k, v in d.items()
                     if k not in ('img_modulo', 'img_inversor')}
         txt_dados = json.dumps(d_salvar, ensure_ascii=False, indent=1)
@@ -1299,7 +1400,8 @@ def api_proposta():
                      ('CONFERENCIA.txt', txt_conf.encode('utf-8'), 'text/plain'),
                      ('DADOS.json', txt_dados.encode('utf-8'),
                       'application/json'),
-                     (f'{nome_pdf}.pdf', pdf_bytes, 'application/pdf')])
+                     (f'{nome_pdf}.pdf', pdf_bytes, 'application/pdf')]
+                    + arq_imgs)
                 enviado_drive = True
             except Exception as exc:                           # noqa: BLE001
                 aviso_drive = str(exc)[:300]
