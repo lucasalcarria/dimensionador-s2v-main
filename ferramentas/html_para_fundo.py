@@ -29,6 +29,9 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
 from reportlab.pdfgen.canvas import FILL_EVEN_ODD, FILL_NON_ZERO
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import vetor_icones                                             # noqa: E402
+
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ASSETS = os.path.join(RAIZ, 'assets')
 FONTES_DIR = os.path.join(ASSETS, 'fonts')
@@ -321,12 +324,16 @@ def _pontos_do_path(d: str):
 
 
 def desenhar_svg(c, svg: str, pular=lambda tag, attrs, bbox: False,
-                 origem=(0.0, 0.0), tamanho=None, ajustes=()) -> None:
+                 origem=(0.0, 0.0), tamanho=None, ajustes=(),
+                 icones=None) -> None:
     """Redesenha a arte da página no canvas. `pular` filtra elementos.
 
     `origem`/`tamanho` permitem recortar um pedaço da página (usado para tirar
     cada cartão da pág. 3 em separado, já que eles se reagrupam).
-    `ajustes` reduz/aumenta ícones específicos sem sair do lugar (ver AJUSTES)."""
+    `ajustes` reduz/aumenta ícones específicos sem sair do lugar (ver AJUSTES).
+    `icones`: se for uma lista, os ícones (PNG de uma cor só) NÃO são
+    estampados — entram na lista já traçados em vetor, com a caixa onde a
+    imagem seria desenhada (ver ferramentas/vetor_icones.py)."""
     ox, oy = origem
     _, alt = tamanho or PAGINA
 
@@ -437,8 +444,15 @@ def desenhar_svg(c, svg: str, pular=lambda tag, attrs, bbox: False,
                 continue
             dados = base64.b64decode(_attr(attrs, 'href', '').split(',', 1)[1])
             aj[:] = ajuste_de(_tinta_da_imagem(dados, caixa))
-            img = ImageReader(io.BytesIO(_suavizar(dados, w * esc * aj[0])))
             ex, ey = T((x0, y0 + h))          # canto inferior-esquerdo no SVG
+            if icones is not None and vetor_icones.eh_icone(dados):
+                # mesma caixa da imagem: o vetor ocupa exatamente o lugar dela
+                icones.append(dict(x=round(ex, 3), y=round(y(ey), 3),
+                                   w=round(w * esc * aj[0], 3),
+                                   h=round(h * esc * aj[0], 3),
+                                   **vetor_icones.tracar(dados)))
+                continue
+            img = ImageReader(io.BytesIO(_suavizar(dados, w * esc * aj[0])))
             c.drawImage(img, ex, y(ey), width=w * esc * aj[0],
                         height=h * esc * aj[0], mask='auto',
                         preserveAspectRatio=False)
@@ -497,7 +511,7 @@ def desenhar_svg(c, svg: str, pular=lambda tag, attrs, bbox: False,
 
 # ------------------------------------------------------------ campos dinâmicos
 # (página, topo aproximado, x aproximado) -> nome do campo em resultado['textos']
-# O texto que está no HTML é só uma AMOSTRA (o caso NEUZA); o que importa aqui
+# O texto que está no HTML é só uma AMOSTRA (o caso PLANILHA); o que importa aqui
 # é a posição, a fonte e a cor.
 CAMPOS = {
     (1, 668, 69): 'nome_proper',
@@ -712,10 +726,13 @@ def _gerar_cartoes(pag3: dict) -> dict:
         c = canvas.Canvas(buf, pagesize=(tw, th))
         c.setFillColor(HexColor('#FFFFFF'))
         c.rect(0, 0, tw, th, stroke=0, fill=1)
+        icones = []
         desenhar_svg(c, pag3['svg'], fora, origem=(cx0 - mg, ctop - mg),
-                     tamanho=(tw, th), ajustes=AJUSTES[3])
+                     tamanho=(tw, th), ajustes=AJUSTES[3], icones=icones)
 
         info = {'w': tw, 'h': th}
+        if icones:              # desenhados em vetor pela proposta, por cima
+            info['icones'] = icones
         for b in pag3['blocos']:
             texto, est = b['trechos'][0]
             fonte = _fonte(est['fam'], est['bold'])
@@ -786,8 +803,10 @@ def _gerar_garantias(pag3: dict, destino: str) -> dict:
     c = canvas.Canvas(buf, pagesize=(w, h))
     c.setFillColor(HexColor('#FFFFFF'))
     c.rect(0, 0, w, h, stroke=0, fill=1)
+    icones = []
     desenhar_svg(c, pag3['svg'], lambda t, a, bb: not _nas_garantias(bb),
-                 origem=(g['x0'], g['top']), tamanho=(w, h), ajustes=AJUSTES[3])
+                 origem=(g['x0'], g['top']), tamanho=(w, h), ajustes=AJUSTES[3],
+                 icones=icones)
     for b in pag3['blocos']:
         texto, est = b['trechos'][0]
         fonte = _fonte(est['fam'], est['bold'])
@@ -803,8 +822,11 @@ def _gerar_garantias(pag3: dict, destino: str) -> dict:
     buf.seek(0)
     pdfium.PdfDocument(buf.read())[0].render(scale=600 / 72).to_pil().convert(
         'RGB').save(os.path.join(destino, 'garantias.png'))
-    return {'x0': g['x0'], 'top': g['top'], 'w': w, 'h': h,
-            'desloc_sem_bateria': GARANTIAS_DESLOC}
+    out = {'x0': g['x0'], 'top': g['top'], 'w': w, 'h': h,
+           'desloc_sem_bateria': GARANTIAS_DESLOC}
+    if icones:
+        out['icones'] = icones
+    return out
 
 
 # ------------------------------------------------------------------- principal
@@ -914,12 +936,38 @@ def converter(caminho_html: str) -> None:
     with open(caminho_deco, 'w', encoding='utf-8') as f:
         json.dump(deco, f, ensure_ascii=False, indent=1)
 
-    print(f'  fundo.pdf   : 5 páginas')
+    # ícones do fundo: imagem -> vetor, no lugar exato de cada uma
+    trocados = vetor_icones.vetorizar_fundo(
+        os.path.join(ASSETS, 'fundo.pdf'), vetor_icones.nativos_do_html(caminho_html))
+    print(f'  fundo.pdf   : 5 páginas ({len(trocados)} ícones em vetor)')
     print(f'  layout.json : {len(campos)} campos dinâmicos')
     print(f'  cards/      : {len(meta["cards"])} cartões')
 
 
+def so_icones(caminho_html: str) -> None:
+    """Vetoriza os ícones SEM reconstruir o fundo. Use este modo: o fundo.pdf e
+    o layout.json atuais têm ajustes feitos à mão depois do último build
+    (pág. 5) que um `converter()` completo apagaria. Aqui:
+      * o fundo.pdf existente tem cada imagem-ícone trocada por vetor no lugar;
+      * os cartões e as garantias da pág. 3 (que o build reproduz idênticos)
+        são regerados sem o ícone, que vai em vetor para o layout_cards.json.
+    Rodar de novo não muda nada (o que já é vetor fica como está)."""
+    paginas = ler_paginas(caminho_html)
+    _registrar_fontes()
+    meta = _gerar_cartoes(paginas[2])
+    trocados = vetor_icones.vetorizar_fundo(
+        os.path.join(ASSETS, 'fundo.pdf'), vetor_icones.nativos_do_html(caminho_html))
+    n_card = sum(len(c.get('icones', [])) for c in meta['cards'].values())
+    n_gar = len(meta.get('garantias', {}).get('icones', []))
+    print(f'  fundo.pdf : {len(trocados)} ícones trocados por vetor')
+    print(f'  cartões   : {n_card} ícones em vetor · garantias: {n_gar}')
+
+
 if __name__ == '__main__':
-    if len(sys.argv) != 2:
+    args = [a for a in sys.argv[1:] if not a.startswith('--')]
+    if len(args) != 1:
         raise SystemExit(__doc__)
-    converter(sys.argv[1])
+    if '--so-icones' in sys.argv:
+        so_icones(args[0])
+    else:
+        converter(args[0])

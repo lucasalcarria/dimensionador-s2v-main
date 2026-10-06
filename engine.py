@@ -17,7 +17,7 @@ import math
 import os
 import shutil
 import sys
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field, asdict, replace
 from datetime import date
 
 DIAS_MES = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
@@ -94,8 +94,160 @@ class UC:
     # A isenção do ICMS na energia COMPENSADA (Convênio 16/2015) alcança a TUSD?
     # Varia por estado: COPEL/PR e RS = não (a TUSD abatida ainda paga ICMS);
     # SP e MG = sim (a TUSD abatida fica 100% isenta, como a TE). Padrão False =
-    # COPEL (fatura validada, NEUZA R$ 125,70).
+    # COPEL (fatura validada, PLANILHA R$ 125,70).
     abat_tusd_inclui_icms: bool = False
+    # A energia COMPENSADA é isenta de ICMS (Convênio 16/2015)? Com a isenção
+    # valendo, o crédito DEVOLVE o ICMS da TE (True = caso PLANILHA/COPEL,
+    # validado). Onde o prazo do convênio acabou, o ICMS é pago sobre o consumo
+    # CHEIO e o crédito volta só com PIS/COFINS (False = fatura FATURA-A
+    # 09/2026, A4). Vale para grupo A e B.
+    abat_te_inclui_icms: bool = True
+    # Fio B (R$/MWh, valor CHEIO, antes do escalonamento) da concessionária
+    # desta UC. Varia muito entre distribuidoras (CELESC 132,79 … ENERGISA
+    # 346,13 em 2026) — usar um valor só para todas errava a proposta em até
+    # ~40 %. `None` = cai no `config.fio_b_rs_mwh` global (é o que a planilha e
+    # os testes usam).
+    fio_b_rs_mwh: float | None = None
+    # ...e o convênio tem PRAZO, que corre por PARECER DE ACESSO (no PR, ~4
+    # anos). Não é uma data do estado nem do cliente: cada parecer tem o seu
+    # relógio — uma usina nova, com parecer novo, começa a contagem do zero
+    # ainda que a usina antiga do mesmo cliente já tenha perdido a isenção.
+    # Aqui vão os anos que ainda RESTAM para o parecer DESTA proposta (4 numa
+    # usina nova, 0 numa fora do prazo). None = não modelar a virada (a isenção
+    # informada em `abat_te_inclui_icms` vale para sempre) — comportamento de
+    # antes, que mantém as propostas do grupo B idênticas.
+    isencao_icms_anos: float | None = None
+    # ---- usinas de GD que a UC JÁ TEM antes deste orçamento ----
+    # Cada item: {nome, kwp, injetado_kwh, geracao_kwh, isento_icms}.
+    # `injetado_kwh` sai da fatura ("ENERGIA INJETADA" / registrador GERAC) e é
+    # o que compensa a conta de HOJE — por isso entra na fatura SEM o novo
+    # projeto, impedindo a proposta de cobrar de novo uma economia que já existe.
+    # `geracao_kwh` é a geração REAL do mês, que **só o app de monitoramento
+    # informa**: o medidor da concessionária não enxerga o que foi gerado e
+    # consumido no mesmo instante. A diferença entre os dois é o AUTOCONSUMO,
+    # e ele falta nos DOIS lados da conta ao mesmo tempo:
+    #     consumo real = consumo medido + autoconsumo
+    #     geração real = injetado       + autoconsumo
+    # Sem `geracao_kwh` o programa só conhece o que o medidor viu.
+    gds_existentes: list = field(default_factory=list)
+
+    # ------------------------------------------------------------ GRUPO A
+    # Cliente de MÉDIA tensão (A4, A3a…). A fatura é outra bicho: paga DEMANDA
+    # em R$/kW (que a geração solar NÃO abate), a energia vem separada em PONTA
+    # e FORA PONTA com tarifas diferentes, e não existe custo de disponibilidade
+    # (o piso da conta é a demanda contratada). Só o ADMIN cadastra grupo A.
+    grupo: str = 'B'                   # 'B' (baixa tensão) ou 'A' (média tensão)
+    subgrupo_a: str = 'A4'             # A4, A3a, A3, A2 (informativo)
+    modalidade_a: str = 'VERDE'        # 'VERDE' (demanda única) ou 'AZUL'
+    # no grupo A, `consumos` acima é o consumo FORA PONTA; a ponta vem aqui
+    consumos_ponta: list = field(default_factory=lambda: [0.0] * 12)
+    demanda_kw: float = 0.0            # contratada (Verde: única; Azul: fora ponta)
+    demanda_kw_p: float = 0.0          # contratada na ponta (só Azul)
+    demanda_medida_kw: float = 0.0     # medida no mês (0 = usa a contratada)
+    demanda_medida_kw_p: float = 0.0
+    # kW que a fatura realmente cobrou (linha DEMANDA USD). Vazio = a regra
+    # geral max(contratada, medida) — mas cada distribuidora tem a sua, e o que
+    # está impresso na fatura manda (a FATURA-A cobrou 167,47 kW de 175 kW
+    # contratados). Preenchido, ganha da regra.
+    demanda_faturada_kw: float = 0.0
+    demanda_faturada_kw_p: float = 0.0
+    # itens da fatura que o sistema não muda (reativo excedente, multas…), em
+    # R$/mês já com impostos — entram igual na conta com e sem solar, mas fazem
+    # a "fatura sem" bater com a fatura de verdade.
+    outros_rs: float = 0.0
+    te_ponta: float = 0.0              # R$/kWh SEM impostos
+    te_fora: float = 0.0
+    tusd_kwh_ponta: float = 0.0        # TUSD-energia R$/kWh SEM impostos
+    tusd_kwh_fora: float = 0.0
+    tusd_demanda: float = 0.0          # TUSD-demanda R$/kW SEM impostos
+    tusd_demanda_p: float = 0.0        # (só Azul)
+    # ---- TUSD-G (demanda de GERAÇÃO) ----
+    # Opcional e disponível para GD1 e GD2. Bem mais barata que a demanda de
+    # consumo (~R$ 10,58/kW COM impostos). Na prática o cliente contrata como
+    # TUSD-G só o que FALTA para cobrir a potência dos inversores, além da
+    # demanda de consumo que já tem. Deixando `demanda_g_kw` em 0, o motor
+    # calcula sozinho: max(kW de inversores − demanda de consumo contratada, 0).
+    demanda_g_kw: float = 0.0          # kW (0 = calcula pelo inversor)
+    tusd_g_rs_kw: float = 0.0          # R$/kW SEM impostos (0 = não cobra)
+    # Fator de correção da ponta: quantos kWh gerados fora ponta são precisos
+    # para abater 1 kWh de ponta. None = calcula pela relação das TEs
+    # (REN 1.059/2023); preenchido, manda o que o usuário apurou.
+    fator_ponta_manual: float | None = None
+
+    def __post_init__(self):
+        # a lista da ponta pode chegar curta (import antigo, payload da tela)
+        cp = list(self.consumos_ponta or [])
+        self.consumos_ponta = (cp + [0.0] * 12)[:12]
+        self.gds_existentes = list(self.gds_existentes or [])
+
+    def autoconsumo_existente(self) -> float:
+        """kWh/mês que as usinas já instaladas geram e a própria UC consome na
+        hora — invisível para o medidor. Só dá para saber informando a geração
+        real (app de monitoramento); sem ela, vale zero."""
+        t = 0.0
+        for g in self.gds_existentes:
+            try:
+                ger = float(g.get('geracao_kwh') or 0)
+                inj = float(g.get('injetado_kwh') or 0)
+            except (TypeError, ValueError, AttributeError):
+                continue
+            if ger > 0:
+                t += max(ger - inj, 0.0)
+        return t
+
+    def geracao_existente(self) -> float:
+        """Geração REAL total das usinas já instaladas (injetado + autoconsumo).
+        Sem a geração informada, cai no injetado — que é o piso conhecido."""
+        return self.injecao_existente() + self.autoconsumo_existente()
+
+    def fracao_autoconsumo(self) -> float | None:
+        """Quanto da geração a própria UC consome na hora, **MEDIDO** nas usinas
+        que ela já tem: autoconsumo ÷ geração real.
+
+        É o único jeito honesto de saber isso — depende do perfil de carga do
+        cliente contra o perfil do sol, e nenhuma fatura revela. Quando a UC já
+        tem usina **com a geração do app informada**, o próprio cliente nos diz
+        a sua fração. `None` quando não há como medir.
+        """
+        ger = self.geracao_existente()
+        auto = self.autoconsumo_existente()
+        if ger <= 0 or auto <= 0:
+            return None
+        return min(auto / ger, 1.0)
+
+    @property
+    def consumo_real_medio(self) -> float:
+        """O que a UC de fato consome: o medido na fatura MAIS o que as usinas
+        existentes entregaram direto, sem passar pelo medidor."""
+        return self.consumo_medio + self.autoconsumo_existente()
+
+    def consumos_reais(self) -> list:
+        """Consumo mensal REAL (o medido + o autoconsumo das usinas atuais,
+        rateado igualmente nos 12 meses)."""
+        extra = self.autoconsumo_existente()
+        return [c + extra for c in self.consumos_totais()]
+
+    def usinas_existentes(self) -> list:
+        """[(kWh injetados/mês, ainda isenta de ICMS?)] das usinas que a UC já
+        tem. **O prazo do Convênio 16/2015 corre por PARECER DE ACESSO**, então
+        cada usina tem o seu relógio: a de 2019 pode já ter perdido a isenção
+        enquanto a de 2024 ainda a tem. Sem o campo, herda o estado da UC."""
+        out = []
+        for g in self.gds_existentes:
+            try:
+                kwh = float(g.get('injetado_kwh') or 0)
+            except (TypeError, ValueError, AttributeError):
+                continue
+            if kwh <= 0:
+                continue
+            iso = g.get('isento_icms') if isinstance(g, dict) else None
+            out.append((kwh, self.abat_te_inclui_icms if iso is None
+                        else bool(iso)))
+        return out
+
+    def injecao_existente(self) -> float:
+        """kWh/mês que as usinas JÁ instaladas nesta UC injetam na rede."""
+        return sum(k for k, _ in self.usinas_existentes())
 
     # ---- derivados
     @property
@@ -103,7 +255,25 @@ class UC:
         return bool(self.tipo)
 
     @property
+    def eh_grupo_a(self) -> bool:
+        """UC de média tensão (grupo A) e ativa."""
+        return self.ativa and (self.grupo or 'B').strip().upper() == 'A'
+
+    def consumos_totais(self) -> list:
+        """Consumo mensal somando os postos. No grupo B a ponta é sempre zero,
+        então isto é idêntico a `consumos` (a planilha não muda)."""
+        return [self.consumos[m] + self.consumos_ponta[m] for m in range(12)]
+
+    @property
     def consumo_medio(self) -> float:          # DD!D48 = AVERAGE(PR!H6:S6)
+        return sum(self.consumos_totais()) / 12.0
+
+    @property
+    def consumo_ponta_medio(self) -> float:    # grupo A: média da ponta
+        return sum(self.consumos_ponta) / 12.0
+
+    @property
+    def consumo_fora_medio(self) -> float:     # grupo A: média fora ponta
         return sum(self.consumos) / 12.0
 
     @property
@@ -142,9 +312,18 @@ class UC:
     def tarifa_cheia(self) -> float:
         return self.te_com_imposto() + self.tusd_com_imposto() if self.ativa else 0.0
 
-    # PR!K31 — abatimento TE (igual a I31)
-    def abat_te(self) -> float:
-        return self.te_com_imposto()
+    # PR!K31 — abatimento TE (igual a I31 enquanto vale o Convênio 16/2015)
+    def abat_te(self, com_icms: bool | None = None) -> float:
+        """R$ devolvidos por kWh compensado, lado TE.
+
+        Com o Convênio ICMS 16/2015 em vigor, a energia compensada é isenta e o
+        crédito devolve também o ICMS (comportamento validado na PLANILHA). Onde o
+        convênio caducou, o ICMS incide sobre o consumo cheio e o crédito volta
+        só com PIS/COFINS — é o que a fatura FATURA-A 09/2026 mostra.
+        """
+        if self.abat_te_inclui_icms if com_icms is None else com_icms:
+            return self.te_com_imposto()
+        return self.te / (1 - (self.pis + self.cofins))
 
     # PR!L31 — abatimento TUSD líquido do Fio B (Lei 14.300).
     # COPEL/PR: a TUSD abatida NÃO re-embute o ICMS (assimetria proposital com
@@ -155,6 +334,80 @@ class UC:
         tusd = (self.tusd / (1 - self.icms)
                 if self.abat_tusd_inclui_icms and self.icms_tusd else self.tusd)
         return (tusd - fio_b_rs_kwh) / (1 - (self.pis + self.cofins))
+
+    # ------------------------------------------------------ grupo A: tarifas
+    def _cheia(self, te: float, tusd: float) -> float:
+        """Tarifa cheia (com impostos) de um posto — mesma conta do grupo B."""
+        pc = 1 - (self.cofins + self.pis)
+        return (te / (self._fator_icms_te() * pc)
+                + tusd / (self._fator_icms_tusd() * pc))
+
+    def tarifa_cheia_ponta(self) -> float:
+        return self._cheia(self.te_ponta, self.tusd_kwh_ponta)
+
+    def tarifa_cheia_fora(self) -> float:
+        return self._cheia(self.te_fora, self.tusd_kwh_fora)
+
+    def abat_posto(self, ponta: bool, com_icms: bool | None = None) -> float:
+        """R$ devolvidos por kWh compensado no posto.
+
+        **Sem Fio B.** No grupo A o fio é remunerado pela DEMANDA, não pelo kWh:
+        o escalonamento da Lei 14.300 que corta o crédito no grupo B não é
+        aplicado aqui — nem em GD1 nem em GD2. O kWh compensado abate a TE e a
+        TUSD-energia inteiras. É o que a fatura FATURA-A mostra: a linha
+        "ENERGIA INJETADA FP TUSD" devolve R$ 0,159457, que é a TUSD cheia
+        (0,146590) só dividida por PIS/COFINS — sem desconto nenhum.
+
+        Mantém a assimetria validada no grupo B: a TE volta COM ICMS enquanto o
+        Convênio 16/2015 vale, a TUSD não (salvo estado em que a isenção
+        alcança a TUSD).
+        """
+        te = self.te_ponta if ponta else self.te_fora
+        tusd = self.tusd_kwh_ponta if ponta else self.tusd_kwh_fora
+        pc = 1 - (self.pis + self.cofins)
+        if self.abat_tusd_inclui_icms and self.icms_tusd:
+            tusd = tusd / (1 - self.icms)
+        isento = self.abat_te_inclui_icms if com_icms is None else com_icms
+        a_te = te / (self._fator_icms_te() * pc) if isento else te / pc
+        return a_te + tusd / pc
+
+    def band_cheia(self, band: float) -> float:
+        """Adicional de bandeira COBRADO por kWh medido (com todos os impostos)."""
+        return band / ((1 - self.icms) * (1 - (self.cofins + self.pis)))
+
+    def band_credito(self, band: float, com_icms: bool | None = None) -> float:
+        """Adicional de bandeira DEVOLVIDO por kWh compensado. Segue a mesma
+        regra do ICMS da TE: sem o Convênio 16/2015 volta só com PIS/COFINS
+        (é a linha 'ENERGIA INJ. BAND. AMARELA' da fatura FATURA-A)."""
+        if self.abat_te_inclui_icms if com_icms is None else com_icms:
+            return self.band_cheia(band)
+        return band / (1 - (self.cofins + self.pis))
+
+    def fator_ajuste_ponta(self) -> float:
+        """Quantos kWh gerados FORA PONTA abatem 1 kWh de PONTA.
+
+        Padrão: a relação entre as TEs dos dois postos (REN 1.059/2023).
+        `fator_ponta_manual` sobrepõe — a relação que a distribuidora aplica
+        precisa ser apurada caso a caso, e em A4 Verde a diferença entre usar
+        só a TE ou a tarifa cheia é enorme (a TUSD da ponta é ~10× a de fora
+        ponta). `fator_ajuste_cheia()` existe para a tela mostrar as duas
+        contas lado a lado e o usuário escolher sabendo.
+        """
+        if self.fator_ponta_manual:
+            return self.fator_ponta_manual
+        return (self.te_ponta / self.te_fora) if self.te_fora else 1.0
+
+    def tusd_g_com_imposto(self) -> float:
+        """TUSD-G em R$/kW com os impostos por dentro — mesmo gross-up da
+        demanda de consumo. A entrada na tela é SEM impostos, como todas as
+        outras tarifas, e quem embute é o programa."""
+        pc = 1 - (self.pis + self.cofins)
+        return self.tusd_g_rs_kw / (self._fator_icms_tusd() * pc)
+
+    def fator_ajuste_cheia(self) -> float:
+        """O mesmo fator, mas pela tarifa CHEIA (TE+TUSD) de cada posto."""
+        f = self.tarifa_cheia_fora()
+        return (self.tarifa_cheia_ponta() / f) if f else 1.0
 
 
 @dataclass
@@ -295,33 +548,245 @@ def fator_fio_b(config: dict, ano: int | None = None) -> float:
     return tab[max(tab)] if ano > max(tab) else tab[min(tab)]
 
 
+def _demanda_rs(u: 'UC', contratada: float, medida: float,
+                tarifa: float, faturada: float = 0.0) -> tuple:
+    """Parcela de DEMANDA de um posto (R$/mês, já com impostos).
+
+    * faturada = o kW impresso na fatura, quando informado; senão a regra
+      geral max(contratada, medida) — a contratada é paga mesmo sem uso;
+    * ULTRAPASSAGEM: passando de 105 % da contratada, o excedente é cobrado
+      mais uma vez (sai, no total, pelo dobro da tarifa);
+    * ICMS só sobre a demanda efetivamente UTILIZADA (Súmula 391 do STJ): a
+      parcela contratada e não usada leva apenas PIS/COFINS.
+    A geração solar NÃO abate nada disto — é o piso da conta no grupo A.
+    """
+    if tarifa <= 0 or (contratada <= 0 and medida <= 0 and faturada <= 0):
+        return 0.0, {}
+    med = medida or contratada
+    fat = faturada or max(contratada, med)
+    pc = 1 - (u.pis + u.cofins)
+    fi = u._fator_icms_tusd()
+    usada = min(med, fat)
+    valor = usada * tarifa / (fi * pc) + (fat - usada) * tarifa / pc
+    ultra = 0.0
+    if contratada > 0 and med > contratada * 1.05:
+        ultra = (med - contratada) * tarifa / (fi * pc)
+        valor += ultra
+    return valor, dict(contratada=contratada, medida=med, faturada=fat,
+                       tarifa=tarifa, ultrapassagem=ultra, valor=valor)
+
+
+def _fatura_grupo_a(u: 'UC', ger_uc: float, config: dict,
+                    pot_inversores_kw: float = 0.0) -> dict:
+    """Fatura SEM e COM solar de uma UC do GRUPO A (média tensão).
+
+    O que muda em relação ao grupo B:
+      * paga DEMANDA em R$/kW, que a geração não abate (piso da fatura);
+      * energia separada em PONTA e FORA PONTA, cada posto com sua tarifa;
+      * não existe custo de disponibilidade (30/50/100 kWh);
+      * o crédito injetado (fora ponta, onde o sol está) abate primeiro o
+        consumo fora ponta; a sobra abate a ponta corrigida pelo fator de
+        ajuste da REN 1.059/2023;
+      * **não há Fio B**: o fio é pago na demanda, então o kWh compensado
+        abate a TE e a TUSD-energia inteiras (GD1 e GD2 iguais nisso);
+      * pode haver **TUSD-G** (demanda de geração), bem mais barata, contratada
+        só para cobrir o que a potência dos inversores passa da demanda de
+        consumo — é um custo que existe apenas COM o sistema.
+    """
+    cp, cf = u.consumo_ponta_medio, u.consumo_fora_medio
+    tar_p, tar_f = u.tarifa_cheia_ponta(), u.tarifa_cheia_fora()
+    azul = (u.modalidade_a or '').strip().upper() == 'AZUL'
+    dem_f, det_f = _demanda_rs(u, u.demanda_kw, u.demanda_medida_kw,
+                               u.tusd_demanda, u.demanda_faturada_kw)
+    dem_p, det_p = (_demanda_rs(u, u.demanda_kw_p, u.demanda_medida_kw_p,
+                                u.tusd_demanda_p, u.demanda_faturada_kw_p)
+                    if azul else (0.0, {}))
+    demanda = dem_f + dem_p
+    faj = u.fator_ajuste_ponta()
+    band = config['bandeiras'].get(u.bandeira, 0.0)             # DD!J54:J57
+    b_cheia = u.band_cheia(band)
+    # exibição: o abatimento do projeto NOVO (o das usinas antigas vai por balde)
+    abat_p, abat_f = u.abat_posto(True), u.abat_posto(False)
+
+    def _balde(kwh: float, isento: bool) -> dict:
+        """Um lote de energia injetada com o tratamento de ICMS do SEU parecer
+        de acesso — o crédito vale mais enquanto o Convênio 16/2015 alcança
+        aquela usina."""
+        return dict(kwh=kwh, isento=isento,
+                    ap=u.abat_posto(True, isento),
+                    af=u.abat_posto(False, isento),
+                    bc=u.band_credito(band, isento))
+
+    def _conta(autoc: float, baldes: list) -> dict:
+        """Energia + bandeira de um cenário. `autoc` some da conta pela tarifa
+        cheia (nem é medido); os `baldes` são a energia injetada, um por usina,
+        cada um com o abatimento do SEU parecer de acesso. Compensa primeiro o
+        FORA PONTA; a sobra vai para a PONTA corrigida pelo fator de correção
+        (REN 1.059/2023).
+
+        O crédito devolvido é a **média ponderada** dos baldes pelo kWh que cada
+        um injetou: a energia entra num pote só e nada distingue de qual usina
+        veio o kWh que abateu este ou aquele posto. Ratear proporcionalmente não
+        privilegia nenhuma usina — com um balde só, é idêntico à conta direta."""
+        cf_fat = max(cf - autoc, 0.0)          # fora ponta ainda medido
+        total = sum(b['kwh'] for b in baldes)
+        comp_f = min(cf_fat, total)
+        sobra = total - comp_f
+        comp_p = min(cp, sobra / faj) if (faj > 0 and sobra > 0) else 0.0
+        credito = band_cred = 0.0
+        if total > 0:
+            for b in baldes:
+                peso = b['kwh'] / total
+                credito += comp_f * peso * b['af'] + comp_p * peso * b['ap']
+                band_cred += (comp_f + comp_p) * peso * b['bc']
+        medido = cp * tar_p + cf_fat * tar_f
+        return dict(
+            cf_fat=cf_fat, comp_f=comp_f, comp_p=comp_p, medido=medido,
+            energia=medido - credito,
+            band=(cp + cf_fat) * b_cheia - band_cred)
+
+    # ---- no grupo A o rateio dia/noite sai do próprio ponta/fora ponta ----
+    # O sol só gera fora ponta, então a geração vai contra o consumo fora ponta.
+    # Parte dela é consumida NA HORA (autoconsumo, que evita a tarifa CHEIA) e o
+    # resto é injetado, virando crédito. Quanto fica em cada lado depende do
+    # perfil de carga do cliente — coisa que nenhuma fatura revela:
+    #   * se a UC JÁ TEM usina e a geração do app foi informada, usamos a fração
+    #     MEDIDA nela (o próprio cliente nos diz o seu perfil);
+    #   * sem essa medição, assume-se absorção total até o consumo fora ponta.
+    #     É o limite OTIMISTA — `r['autoconsumo_medido']` avisa quando o número
+    #     veio de medição e quando veio dessa hipótese.
+    existentes = [_balde(k, iso) for k, iso in u.usinas_existentes()]
+    inj_existente = sum(b['kwh'] for b in existentes)
+    fr = u.fracao_autoconsumo()
+    autoconsumo = min(cf, ger_uc if fr is None else ger_uc * fr)
+    injetado = _trunc(max(ger_uc - autoconsumo, 0.0), 0)
+    # o projeto NOVO tem parecer novo: usa a isenção declarada na UC
+    novo = [_balde(injetado, u.abat_te_inclui_icms)] if injetado > 0 else []
+
+    hoje = _conta(0.0, existentes)             # só as usinas que já existem
+    depois = _conta(autoconsumo, existentes + novo)     # + o novo projeto
+
+    # ---- TUSD-G: demanda de GERAÇÃO (só existe COM o sistema) ----
+    # Contrata-se apenas o que a potência dos inversores passa da demanda de
+    # consumo já contratada; abaixo disso não há o que contratar.
+    dem_g = (u.demanda_g_kw if u.demanda_g_kw > 0
+             else max(pot_inversores_kw - u.demanda_kw, 0.0))
+    custo_g = dem_g * u.tusd_g_com_imposto() if ger_uc > 0 else 0.0
+
+    # demanda, COSIP e os "outros" (reativo, multas) não mudam com o sistema
+    piso = demanda + u.ilum_publica + u.outros_rs + custo_g
+    fatura_sem = demanda + hoje['energia'] + hoje['band'] + u.ilum_publica \
+        + u.outros_rs
+    total = max(demanda + depois['energia'] + depois['band'] + u.ilum_publica
+                + u.outros_rs + custo_g, piso)
+    return dict(
+        grupo='A', tipo=u.tipo, modalidade='AZUL' if azul else 'VERDE',
+        subgrupo=u.subgrupo_a, consumo=cp + cf,
+        consumo_ponta=cp, consumo_fora=cf,
+        geracao_rateada=ger_uc, fator_ajuste=faj,
+        autoconsumo=autoconsumo, injetado=injetado,
+        autoconsumo_medido=(fr is not None), fracao_autoconsumo=fr,
+        injecao_existente=inj_existente,
+        consumo_fora_medido=depois['cf_fat'],
+        consumo_medido_rs=depois['medido'],
+        compensado_ponta=depois['comp_p'], compensado_fora=depois['comp_f'],
+        compensado_hoje=hoje['comp_p'] + hoje['comp_f'],
+        tarifa_ponta=tar_p, tarifa_fora=tar_f,
+        abat_ponta=abat_p, abat_fora=abat_f,
+        fator_cheia=u.fator_ajuste_cheia(), fator_manual=u.fator_ponta_manual,
+        demanda_g_kw=dem_g, tusd_g_rs_kw=u.tusd_g_rs_kw,
+        tusd_g_cheia=u.tusd_g_com_imposto(), custo_g=custo_g,
+        demanda_rs=demanda, demanda_fp=det_f, demanda_p=det_p,
+        consumo_sem_rs=hoje['energia'], consumo_com_rs=depois['energia'],
+        band_sem_rs=hoje['band'], outros_rs=u.outros_rs,
+        bandeira=u.bandeira, extra_bandeira=depois['band'],
+        ilum_publica=u.ilum_publica, total=total, fatura_sem_uc=fatura_sem,
+        # chaves que o resto do programa espera achar em qualquer UC
+        rateio=0.0, maior=cp + cf, faturado=cp + cf, disponibilidade=0.0,
+        pct_noturno=1.0, compensado=depois['comp_p'] + depois['comp_f'],
+        tarifa=tar_f, abat_te=0.0, abat_tusd=0.0,
+        piso=piso, liquido=total, taxa_min=total)
+
+
 def _faturas_uc(e: 'Entradas', geracao_media: float, config: dict, ano: int):
     """Fatura SEM e COM sistema para um nível de geração média e um ano (→ Fio B
     escalonado). Devolve (fatura_sem, fatura_com, detalhes_uc)."""
     ucs_ativas = [u for u in e.ucs if u.ativa]
     soma_consumo = sum(u.consumo_medio for u in ucs_ativas) or 1.0      # DD!D57
-    fio_b = fator_fio_b(config, ano) * config['fio_b_rs_mwh'] / 1000.0  # DD!K50
+    fator_b = fator_fio_b(config, ano)                                  # DD!J50
+    # potência instalada dos inversores — base da TUSD-G no grupo A
+    pot_inv = sum(iv['pot_kw'] * iv['qtd'] for iv in e.lista_inversores())
     detalhes, parcelas, fatura_sem = [], [], 0.0
     for u in e.ucs:
+        # DD!K50 — Fio B DESTA UC: o da concessionária dela, senão o global
+        fio_b = fator_b * (u.fio_b_rs_mwh or config['fio_b_rs_mwh']) / 1000.0
         if not u.ativa:
             detalhes.append(None)
             continue
         rateio = u.consumo_medio / soma_consumo               # DD!E48
         ger_uc = rateio * geracao_media                       # DD!F48
+        if u.eh_grupo_a:                    # média tensão: outra fatura
+            d = _fatura_grupo_a(u, ger_uc, config, pot_inv)
+            d['rateio'] = rateio
+            fatura_sem += d['fatura_sem_uc']
+            detalhes.append(d)
+            parcelas.append(d['total'])
+            continue
         maior = max(u.consumo_medio, ger_uc)                  # DD!G48
-        fatura_sem += u.tarifa_cheia() * maior + u.ilum_publica   # DD!B48
+        # usinas que a UC JÁ TEM: injetam energia todo mês e já compensam
+        # parte da conta atual. Cada uma tem o seu parecer de acesso, logo o
+        # seu próprio estado de isenção de ICMS.
+        usinas_ex = u.usinas_existentes()
+        inj_ex = sum(k for k, _ in usinas_ex)
+        # fatura SEM o novo projeto. Sem usina existente é a fórmula da
+        # planilha, intocada. Com usina existente, a conta de HOJE já vem
+        # compensada — senão a proposta cobraria de novo uma economia que o
+        # cliente já tem.
+        inj_ex0 = inj_ex
+        if inj_ex0 <= 0:
+            sem_uc = u.tarifa_cheia() * maior + u.ilum_publica    # DD!B48
+        else:
+            fat0 = _trunc(u.consumo_medio * u.pct_noturno_efetivo, 0)
+            comp0 = max(min(fat0, inj_ex0), 0.0)
+            at0 = u.abat_tusd(0.0 if u.gd == 'GD1' else fio_b)
+            # aqui só existem as usinas antigas: rateio proporcional entre elas
+            dev0 = sum(comp0 * (kwh / inj_ex0) * (u.abat_te(iso) + at0)
+                       for kwh, iso in usinas_ex) if inj_ex0 > 0 else 0.0
+            liq0 = fat0 * u.tarifa_cheia() - dev0
+            sem_uc = max(u.disponibilidade * u.tarifa_cheia(), liq0) \
+                + u.ilum_publica
+        fatura_sem += sem_uc
         # GD1 é isenta de Fio B (compensa a TUSD integral); GD2 paga o escalonado
         fio_b_uc = 0.0 if u.gd == 'GD1' else fio_b
         pct_not = u.pct_noturno_efetivo                       # M31 / M32:M39
         faturado = _trunc(maior * pct_not, 0)                 # PR!N31
         # Lei 14.300: o crédito compensado NÃO pode passar da energia gerada
         # (em 100%+ 'maior' é a geração, então isto é um no-op).
-        ger_faturavel = _trunc(ger_uc * pct_not, 0)
-        compensado = min(faturado - u.disponibilidade, ger_faturavel)  # PR!O31
+        # a injeção das usinas antigas soma-se ao que o novo sistema vai gerar
+        ger_faturavel = _trunc(ger_uc * pct_not, 0) + inj_ex
+        # PR!O31 — compensa TUDO o que houver crédito. A planilha subtraía aqui
+        # a disponibilidade, o que cobrava DUAS vezes: os 50 kWh pela tarifa
+        # cheia MAIS a sobra de Fio B sobre o resto. A regra real é o MAIOR
+        # valor entre os dois, e quem faz isso é o `taxa_min` logo abaixo.
+        compensado = min(faturado, ger_faturavel)
         piso = u.disponibilidade * u.tarifa_cheia()
         atusd = u.abat_tusd(fio_b_uc)
-        liquido = (faturado * u.tarifa_cheia() -
-                   compensado * (u.abat_te() + atusd))
+        if not usinas_ex:                       # caminho da planilha, intocado
+            devolvido = compensado * (u.abat_te() + atusd)
+        else:
+            # cada usina devolve conforme o SEU parecer de acesso. O crédito é
+            # rateado em PROPORÇÃO ao que cada uma injetou (mais o projeto novo),
+            # porque a energia entra num pote só — nada diz de qual usina veio o
+            # kWh que abateu a conta.
+            ger_novo = max(ger_faturavel - inj_ex, 0.0)
+            pote = inj_ex + ger_novo
+            if pote <= 0:
+                devolvido = compensado * (u.abat_te() + atusd)
+            else:
+                devolvido = sum(compensado * (kwh / pote) * (u.abat_te(iso) + atusd)
+                                for kwh, iso in usinas_ex)
+                devolvido += compensado * (ger_novo / pote) * (u.abat_te() + atusd)
+        liquido = faturado * u.tarifa_cheia() - devolvido
         taxa_min = max(piso, liquido)                         # PR!Q31
         band = config['bandeiras'].get(u.bandeira, 0.0)       # DD!J54:J57
         band_gross = band / ((1 - u.icms) * (1 - (u.cofins + u.pis)))  # DD!K55..
@@ -336,7 +801,7 @@ def _faturas_uc(e: 'Entradas', geracao_media: float, config: dict, ano: int):
             piso=piso, liquido=liquido, taxa_min=taxa_min,
             bandeira=u.bandeira, extra_bandeira=extra_band,
             ilum_publica=u.ilum_publica, total=total_uc,
-            fatura_sem_uc=u.tarifa_cheia() * maior + u.ilum_publica))
+            injecao_existente=inj_ex0, fatura_sem_uc=sem_uc))
         parcelas.append(total_uc)
     return fatura_sem, sum(parcelas), detalhes
 
@@ -348,7 +813,17 @@ def calcular(e: Entradas, config: dict, ano: int | None = None) -> Resultado:
     geradora = next((u for u in e.ucs if u.tipo == 'GERADORA'), None)
 
     # ---------------- consumo -------------------------------------- PR!15
-    tot_mes = [sum(u.consumos[m] for u in ucs_ativas) for m in range(12)]
+    # no grupo A o consumo é a soma dos dois postos (ponta + fora ponta);
+    # no grupo B a ponta é sempre zero, então a conta é a mesma de antes
+    tem_a = any(u.eh_grupo_a for u in ucs_ativas)
+    r['tem_grupo_a'] = tem_a
+    # O consumo MOSTRADO (e o do gráfico da proposta) é o REAL: o medido na
+    # fatura mais o autoconsumo das usinas que a UC já tem. Sem usina
+    # existente — ou sem a geração informada — é idêntico ao de sempre.
+    tot_mes = [sum(u.consumos_reais()[m] for u in ucs_ativas)
+               for m in range(12)]
+    r['consumo_medido_anual'] = sum(sum(u.consumos_totais()) for u in ucs_ativas)
+    r['autoconsumo_existente'] = sum(u.autoconsumo_existente() for u in ucs_ativas)
     r['consumo_anual'] = sum(tot_mes)                       # PR!V9
     r['consumo_medio'] = r['consumo_anual'] / 12.0          # PR!U9
     # o gráfico da pág. 4 mostra o consumo do jeito que foi digitado: reto
@@ -364,9 +839,28 @@ def calcular(e: Entradas, config: dict, ano: int | None = None) -> Resultado:
     r['kwh_kwp_ano'] = sum(kwh_kwp_mes)                      # DD!O9
 
     pr_perf = config['performance_ratio']                    # 0.75 na planilha
+    # Consumo EQUIVALENTE: no grupo A, 1 kWh de ponta só é zerado com
+    # `fator_ajuste` kWh gerados fora ponta (REN 1.059/2023) — então o sistema
+    # precisa ser maior. No grupo B isto é exatamente o consumo anual.
+    equiv = 0.0
+    inj_ex_ano = 0.0
+    for u in ucs_ativas:
+        # consumo REAL do ano (medido + autoconsumo das usinas atuais)
+        auto_ano = u.autoconsumo_existente() * 12.0
+        e_uc = (sum(u.consumos) + sum(u.consumos_ponta) * u.fator_ajuste_ponta()
+                if u.eh_grupo_a else sum(u.consumos_totais())) + auto_ano
+        # ...de onde se desconta a GERAÇÃO REAL das usinas que já existem
+        # (injetado + autoconsumo). O autoconsumo entra nos dois lados e se
+        # cancela: o saldo é o mesmo "medido − injetado", mas agora as duas
+        # grandezas estão certas quando a geração real é informada.
+        ger_ano = u.geracao_existente() * 12.0
+        inj_ex_ano += ger_ano
+        equiv += max(e_uc - ger_ano, 0.0)
+    r['consumo_anual_equiv'] = equiv
+    r['geracao_existente_ano'] = inj_ex_ano
     # DD!B21 — potência FV necessária p/ compensar o consumo anual
     r['kwp_necessario'] = _excel_round(
-        r['consumo_anual'] / (pr_perf * r['kwh_kwp_ano']), 2) if r['kwh_kwp_ano'] else 0.0
+        equiv / (pr_perf * r['kwh_kwp_ano']), 2) if r['kwh_kwp_ano'] else 0.0
     # PR!U12 — sugestão de nº de módulos
     r['modulos_sugeridos'] = int(_excel_round(
         r['kwp_necessario'] * 1000 / e.pot_modulo_w, 0)) if e.pot_modulo_w else 0
@@ -378,8 +872,8 @@ def calcular(e: Entradas, config: dict, ano: int | None = None) -> Resultado:
     r['geracao_anual'] = sum(r['geracao_mensal'])            # PR!J21
     r['geracao_media'] = r['geracao_anual'] / 12.0           # PR!I21
     # PR!L20 — compensação (geração anual / consumo anual)
-    r['compensacao'] = (r['geracao_anual'] / r['consumo_anual']
-                        if r['consumo_anual'] else 0.0)
+    r['compensacao'] = (r['geracao_anual'] / r['consumo_anual_equiv']
+                        if r['consumo_anual_equiv'] else 0.0)
 
     # DD!O28 — área ocupada / PR!X9
     if e.estrutura != 'SOLO':
@@ -496,11 +990,30 @@ def calcular(e: Entradas, config: dict, ano: int | None = None) -> Resultado:
     else:
         kwh_ano1 = 0.0
 
+    # ---- fim da isenção do ICMS no meio da vida do sistema ----
+    # O Convênio 16/2015 vale por um prazo contado da conexão da usina. Quando
+    # alguma UC informa quantos anos ainda restam, a projeção desce de patamar a
+    # partir dali: a economia passa a ser a de uma conta SEM a devolução do ICMS
+    # na energia compensada. Sem esse dado, nada muda (projeção de sempre).
+    anos_isencao = min((u.isencao_icms_anos for u in ucs_ativas
+                        if u.isencao_icms_anos is not None), default=None)
+    r['anos_isencao'] = anos_isencao
+    r['economia_pos_isencao'] = None
+    if anos_isencao is not None and 0 <= anos_isencao < 25:
+        ucs_pos = [replace(u, abat_te_inclui_icms=False)
+                   if (u.ativa and u.isencao_icms_anos is not None) else u
+                   for u in e.ucs]
+        fs_pos, fc_pos, _ = _faturas_uc(replace(e, ucs=ucs_pos),
+                                        r['geracao_media'], config, ano)
+        r['economia_pos_isencao'] = fs_pos - fc_pos
+
     reaj = config['reajuste_tarifa_aa']
     serie = []
-    if config.get('compat_planilha'):
+    if config.get('compat_planilha') and not tem_a:
         # Reprodução exata da planilha (DD!P42 dividia a tarifa média pelas 9
-        # linhas de UC, mesmo vazias, e reajustava a tarifa já no 1º ano).
+        # linhas de UC, mesmo vazias). A planilha não conhece o grupo A — com
+        # uma UC de média tensão a projeção usa sempre a estimativa realista.
+        # (o bug do COUNTA), e reajustava a tarifa já no 1º ano.
         tarifa_media = sum(u.tarifa_cheia() for u in e.ucs) / 9
         kwh, tar = kwh_ano1, tarifa_media
         for ano_i in range(25):                               # DD!O43:Q67
@@ -517,13 +1030,19 @@ def calcular(e: Entradas, config: dict, ano: int | None = None) -> Resultado:
         # ao ano a partir do 2º ano e aplica a degradação dos módulos
         # (−2,5 % no 2º ano, −0,7 % a.a. depois).
         econ_ano = max(r['economia_mensal'], 0.0) * 12.0
+        econ_pos = (max(r['economia_pos_isencao'], 0.0) * 12.0
+                    if r['economia_pos_isencao'] is not None else econ_ano)
         fator_ger = 1.0
         for ano_i in range(25):
             if ano_i == 1:
                 fator_ger *= (1 - config['degradacao_ano1'])
             elif ano_i > 1:
                 fator_ger *= (1 - config['degradacao_demais'])
-            serie.append(econ_ano * (1 + reaj) ** ano_i * fator_ger)
+            # enquanto a isenção do ICMS vale, a economia é a cheia; depois do
+            # prazo do Convênio 16/2015, cai para a economia sem a devolução
+            base = (econ_ano if (anos_isencao is None or ano_i < anos_isencao)
+                    else econ_pos)
+            serie.append(base * (1 + reaj) ** ano_i * fator_ger)
     r['retorno_25'] = sum(serie)                              # PR!O25
     r['retorno_serie'] = serie
 

@@ -5,7 +5,7 @@ Teste de validação contra a planilha original.
 Rode com:  py -3 teste_planilha.py   (Windows)   ou   python3 teste_planilha.py
 
 O que é verificado:
-  1. O caso salvo dentro da planilha (cliente NEUZA ZAMFERRARI) — todos os
+  1. O caso salvo dentro da planilha (cliente CLIENTE PLANILHA) — todos os
      valores de fatura, economia, retorno, preço de venda, payback, parcela e
      textos da proposta devem bater centavo a centavo com as células gravadas
      no arquivo .xlsm (modo `compat_planilha`).
@@ -45,8 +45,8 @@ def caso_planilha():
              te=0.27575, tusd=0.36667, icms=0.19, cofins=0.058, pis=0.0126,
              pct_noturno=0.65, bandeira='VERDE')
     return Entradas(
-        nome='NEUZA ZAMFERRARI', endereco='RUA MANOEL SAES, 213',
-        cidade='Mandaguaçu - PR', uc_numero='16285387',
+        nome='CLIENTE PLANILHA', endereco='RUA EXEMPLO, 213',
+        cidade='Cidade Exemplo - PR', uc_numero='00000000',
         ucs=[uc1] + [UC() for _ in range(8)],
         qtd_modulos_kit=6, marca_inversor='CHINT', pot_inversor_kw=3,
         tensao_inversor=220, valor_kit=4974.72, conexao='HÍBRIDO',
@@ -63,6 +63,10 @@ def secao(t):
 cfg = carregar_config()
 cfg['compat_planilha'] = True      # replica a planilha à risca
 cfg['formato_ptbr'] = False        # a planilha foi salva no formato en-US
+# O Fio B muda a cada revisão tarifária e o usuário o mantém nas pré-definições.
+# Aqui ele fica FIXO no valor da época da planilha: senão, atualizar o config
+# (coisa que o usuário deve fazer) quebraria esta validação sem nenhum motivo.
+cfg['fio_b_rs_mwh'] = 159.14
 
 secao('1. Caso salvo na planilha (modo compatível)')
 e = caso_planilha()
@@ -78,8 +82,15 @@ ok('PR!Q21  mão de obra', r['custo_mo'], 850, 0)
 ok('PR!S21  material', r['custo_material'], 800, 0)
 ok('PR!T21  transformador', r['custo_trafo'], 0, 0)
 ok('PR!L25  fatura SEM sistema', r['fatura_sem'], 403.3183937801772, 1e-6)
-ok('PR!M25  fatura COM sistema', r['fatura_com'], 125.69641635251203, 1e-6)
-ok('PR!N25  economia mensal', r['economia_mensal'], 277.6219774276652, 1e-6)
+# ⚠ Os dois valores abaixo NÃO são mais os da planilha. A planilha subtraía a
+# disponibilidade do que era compensado, cobrando DUAS vezes: os 50 kWh pela
+# tarifa cheia MAIS a sobra de Fio B sobre o resto. A regra real é o MAIOR
+# valor entre os dois (confirmada pela fatura COPEL de 09/2026 da UC
+# 000000000000002). A planilha dava 125,70 / 277,62.
+ok('PR!M25  fatura COM sistema (regra do maior valor)',
+   r['fatura_com'], 92.79249453384234, 1e-6)
+ok('PR!N25  economia mensal (regra do maior valor)',
+   r['economia_mensal'], 310.5258992463349, 1e-6)
 ok('PR!O25  retorno 25 anos (fórmula da planilha)',
    r['retorno_25'], 16651.447413837283, 1e-4)
 
@@ -98,7 +109,7 @@ rm = calcular(e, cfg, ano=2026)
 ok('PR!U35  valor de venda (planilha salva)', rm['preco_venda'], 8758.12225045372, 1e-6)
 ok('PR!X25  custo total', rm['custo_total'], 6927.392180036298, 1e-6)
 ok('PR!U32  lucro %', rm['lucro_pct'], 0.20903225806451606, 1e-9)
-ok('PR!O20  payback (anos)', rm['payback_anos'], 2.6, 1e-9)
+ok('PR!O20  payback (anos)', rm['payback_anos'], 2.3, 1e-9)   # era 2.6
 ok('PR!U37  parcela financiamento (R$)', rm['parcela_fin'], 251.34370541051413, 1e-6)
 
 secao('3. Textos da proposta (aba TEXTO, formato da planilha)')
@@ -116,7 +127,7 @@ ok("TX!C13 '2x'", t['estr_qtd'], '2x')
 ok("TX!I6  '10 ANOS' (garantia inversor)", t['gar_inversor'], '10 ANOS')
 ok("TX!I7  '15 ANOS'", t['gar_instalacao'], '15 ANOS')
 ok("TX!I3  '30 ANOS' (garantia módulos)", t['gar_modulos'], '30 ANOS')
-ok("PR!O20 '2.6 ANOS'", t['payback_txt'], '2.6 ANOS')
+ok("PR!O20 payback em texto", t['payback_txt'], '2.3 ANOS')   # era '2.6 ANOS'
 ok("PR!U35 'R$ 8,758.12'", t['valor_venda'], 'R$ 8,758.12')
 
 secao('4. Identidade de convergência (venda = custo ÷ (1 − margem))')

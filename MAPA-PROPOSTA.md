@@ -35,10 +35,10 @@ desenhar. Hoje são **34 posições**.
 
 | O que aparece | Chave | De onde vem |
 |---|---|---|
-| Neuza Zamferrari | `nome_proper` | nome digitado, em Caixa Alta Inicial |
+| Planilha Zamferrari | `nome_proper` | nome digitado, em Caixa Alta Inicial |
 | 12345, 23456, 34567 | `uc_numero` | os nº de UC de **todas** as faturas cadastradas, juntos |
 | Rua Manoel Saes, 213 | `endereco` | logradouro **+ número** (campos separados na tela) |
-| Mandaguaçu - PR | `cidade` | cidade digitada (ou vinda do CEP) |
+| Cidade Exemplo - PR | `cidade` | cidade digitada (ou vinda do CEP) |
 | 3,72 kWp | `kwp_txt` | `resultado['kwp']` arredondado p/ cima, 2 casas |
 
 Os quatro campos de dados da capa (nome, UC, local, sistema) ficam em colunas
@@ -125,7 +125,7 @@ arte (x 130,2–508,7 · y 230,1–350,0 pt). Fixo: o cartão "PROJETOS REALIZAD
 | R$ 16.651,45 (25 anos) | `retorno_25` | economia projetada em 25 anos |
 | 7 DIAS (validade) | `validade_txt` | `config.json → validade_dias` |
 | "referentes a jul/2026" | `disclaimer_data` | mês/ano de hoje, automático |
-| NEUZA ZAMFERRARI | `nome_upper` | nome em maiúsculas, sobre a linha de aceite |
+| CLIENTE PLANILHA | `nome_upper` | nome em maiúsculas, sobre a linha de aceite |
 
 **Parcela dentro do quadro azul do "à vista"**: um **toggle na tela** — no fim do
 quadro "Custos, margem & financiamento" — decide o que aparece embaixo do à vista.

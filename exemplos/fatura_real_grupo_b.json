@@ -1,0 +1,63 @@
+{
+  "_comentario": "REPRODUZ A FATURA REAL — Cliente B, COPEL, ref. 09/2026, TOTAL R$ 117,53. UC 000000000000002, Cidade Exemplo-PR, B1 bifasico, ja microgerador. Enviar em POST /api/calcular: a resposta deve trazer fatura_sem = R$ 117,53. ATENCAO: o Fio B NAO vai no JSON — ele vem das pre-definicoes, e hoje esta em 214.57 R$/MWh, que e o valor que faz esta fatura fechar (a linha ENERGIA INJETADA TUSD devolve 0,328431 contra 0,457170 da cheia: 0,128739/kWh, que a 60% em 2026 implica 214,57). Mudando esse numero nas pre-definicoes, este exemplo deixa de bater.",
+  "nome": "CLIENTE B",
+  "endereco": "Rua Exemplo",
+  "numero": "275",
+  "cidade": "Cidade Exemplo - PR",
+  "cep": "00000-000",
+  "consultor": "",
+  "ucs": [
+    {
+      "_comentario": "Consumo 307 kWh = o MEDIDO na fatura (ja liquido do autoconsumo). Por isso pct_noturno = 100: aplicar o %noturno de novo cobraria duas vezes o autoconsumo.",
+      "uc_numero": "000000000000002",
+      "grupo": "B",
+      "gd": "GD2",
+      "tipo": "GERADORA",
+      "ligacao": "BIFASICO",
+      "conc": "COPEL (PR)",
+      "sub": "B1",
+      "consumos": [307, 307, 307, 307, 307, 307, 307, 307, 307, 307, 307, 307],
+      "te": 0.31085,
+      "tusd": 0.45717,
+      "icms": 19,
+      "cofins": 6.6555,
+      "pis": 1.4485,
+      "pct_noturno": 100,
+      "bandeira": "AMARELA",
+      "ilum_publica": 38.7,
+      "icms_te": true,
+      "icms_tusd": true,
+      "abat_tusd_inclui_icms": false,
+      "abat_te_inclui_icms": true,
+      "gds_existentes": [
+        {
+          "_comentario": "injetado_kwh = registrador GERAC do medidor (2367-1937). geracao_kwh so o app de monitoramento informa; deixando 0, o programa conhece apenas o que o medidor viu. isento_icms true: a fatura devolve o ICMS da TE (linha ENERGIA INJETADA TE com ICMS -24,36).",
+          "nome": "usina atual",
+          "kwp": 3.8,
+          "injetado_kwh": 430,
+          "geracao_kwh": 0,
+          "isento_icms": true
+        }
+      ]
+    }
+  ],
+  "qtd_modulos_kit": 0,
+  "marca_modulo": "ASTRONERGY N-TYPE",
+  "pot_modulo_w": 620,
+  "inversores": [{ "marca": "GOODWE", "pot_kw": 7.5, "tensao": 220, "qtd": 1, "micro": false }],
+  "marca_inversor": "GOODWE",
+  "pot_inversor_kw": 7.5,
+  "tensao_inversor": 220,
+  "conexao": "HIBRIDO",
+  "estrutura": "FIBROCIMENTO",
+  "perfil_irradiacao": "3.8",
+  "valor_kit": 0,
+  "entrada": 0,
+  "custo_380v": 0,
+  "desloc": 0,
+  "comissao_pct": 0,
+  "seguro_pct": 0,
+  "margem_desejada": 16,
+  "tem_stringbox": true,
+  "tem_bateria": false
+}

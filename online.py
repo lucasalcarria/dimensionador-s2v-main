@@ -135,6 +135,74 @@ def buscar_tarifa_aneel(sigla: str, subgrupo: str = 'B1') -> dict:
             'sigla': sigla, 'subgrupo': subgrupo}
 
 
+def _num_bruto(s) -> float:
+    """'20,45' -> 20.45 (sem dividir por mil — usado nas tarifas de DEMANDA)."""
+    try:
+        return float(str(s).strip().replace('.', '').replace(',', '.'))
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def buscar_tarifa_aneel_a(sigla: str, subgrupo: str = 'A4',
+                          modalidade: str = 'VERDE') -> dict:
+    """Tarifas do GRUPO A (média tensão) de uma distribuidora, na ANEEL.
+
+    Devolve TE e TUSD-energia por posto (R$/kWh) e a TUSD-demanda (R$/kW),
+    todas SEM impostos, da vigência mais recente. A base separa as linhas por
+    `NomPostoTarifario` (Ponta / Fora ponta / Não se aplica) e pela unidade
+    (MWh = energia, kW = demanda) — então pedimos todas as linhas do subgrupo +
+    modalidade e classificamos aqui, que é mais resistente a mudança de rótulo
+    do que filtrar campo por campo.
+
+    Nunca levanta para o chamador decidir o que é "não achei": se algum valor
+    não vier, ele volta zero e a tela pede o número à mão (é o caminho
+    recomendado — o grupo A tem componentes que variam por contrato).
+    """
+    mod = 'Azul' if (modalidade or '').strip().upper() == 'AZUL' else 'Verde'
+    # DscDetalhe separa a tarifa NORMAL ('Não se aplica') das linhas especiais
+    # do mesmo subgrupo: 'APE' (autoprodutor equiparado) e 'SCEE' (sistema de
+    # compensação, cuja TE é outra — 0,03009 na COPEL contra 0,47555 da normal).
+    # Sem este filtro a última linha da resposta vencia e a TE saía errada.
+    filtros = {'SigAgente': sigla, 'DscBaseTarifaria': 'Tarifa de Aplicação',
+               'DscSubGrupo': subgrupo.upper(),
+               'DscModalidadeTarifaria': mod,
+               'DscDetalhe': 'Não se aplica'}
+    p = urllib.parse.urlencode({
+        'resource_id': ANEEL_RID,
+        'filters': json.dumps(filtros, ensure_ascii=False),
+        'sort': 'DatInicioVigencia desc', 'limit': 200})
+    data = _get_json('https://dadosabertos.aneel.gov.br/api/3/action/'
+                     'datastore_search?' + p)
+    recs = ((data.get('result') or {}).get('records')) or []
+    if not recs:
+        raise LookupError(f'ANEEL sem tarifa p/ {sigla} {subgrupo} {mod}')
+    vig = max((x.get('DatInicioVigencia') or '') for x in recs)
+    recs = [x for x in recs if (x.get('DatInicioVigencia') or '') == vig]
+    out = {'te_ponta': 0.0, 'te_fora': 0.0, 'tusd_kwh_ponta': 0.0,
+           'tusd_kwh_fora': 0.0, 'tusd_demanda': 0.0, 'tusd_demanda_p': 0.0}
+    for x in recs:
+        posto = (x.get('NomPostoTarifario') or '').strip().lower()
+        unid = (x.get('DscUnidadeTerciaria') or '').strip().lower()
+        # demanda: unidade em kW (ou, se o rótulo mudar, linha sem TE)
+        demanda = unid.startswith('kw') or (unid == '' and
+                                            _num_bruto(x.get('VlrTE')) == 0)
+        if demanda:
+            if posto.startswith('ponta'):
+                out['tusd_demanda_p'] = _num_bruto(x.get('VlrTUSD'))
+            else:            # 'fora ponta' (Azul) ou 'não se aplica' (Verde)
+                out['tusd_demanda'] = _num_bruto(x.get('VlrTUSD'))
+            continue
+        if posto.startswith('ponta'):
+            out['te_ponta'] = _num_aneel(x.get('VlrTE'))
+            out['tusd_kwh_ponta'] = _num_aneel(x.get('VlrTUSD'))
+        elif posto.startswith('fora'):
+            out['te_fora'] = _num_aneel(x.get('VlrTE'))
+            out['tusd_kwh_fora'] = _num_aneel(x.get('VlrTUSD'))
+    out.update(sigla=sigla, subgrupo=subgrupo.upper(), modalidade=mod,
+               vigencia=vig, reh=(recs[0].get('DscREH') or '').strip())
+    return out
+
+
 def geocodificar(cidade: str) -> dict:
     """Nome da cidade -> {nome, uf, lat, lon}. Prioriza resultados no Brasil."""
     q = urllib.parse.quote(cidade.strip())

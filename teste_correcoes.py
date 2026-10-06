@@ -4,7 +4,7 @@
 Complementa o `teste_planilha.py` (réplica exata da planilha, compat=True).
 Aqui travamos:
   1. Que o APP (compat=False) reproduz a fatura REAL da COPEL — sem nenhuma
-     "correção" de ICMS que afaste do valor validado (R$ 125,70 no NEUZA).
+     "correção" de ICMS que afaste do valor validado (R$ 125,70 no PLANILHA).
      Na COPEL: TE abatida INCLUI ICMS; TUSD abatida NÃO inclui ICMS.
   2. Lei 14.300 — abatimento limitado à geração real (corrige a superestimativa
      em sistemas subdimensionados; no-op em sistemas 100%+).
@@ -42,14 +42,14 @@ def secao(t):
     print(f'\n=== {t} ===')
 
 
-def neuza():
-    """Caso de validação (NEUZA, COPEL, superdimensionado)."""
+def caso_planilha():
+    """Caso de validação (PLANILHA, COPEL, superdimensionado)."""
     uc1 = UC(tipo='GERADORA', ilum_publica=38.7, ligacao='BIFASICO',
              consumos=[344, 384, 256, 250, 300, 300, 300, 300, 300, 300, 300, 300],
              te=0.27575, tusd=0.36667, icms=0.19, cofins=0.058, pis=0.0126,
              pct_noturno=0.65, bandeira='VERDE')
     return Entradas(
-        nome='NEUZA', cidade='Mandaguaçu - PR',
+        nome='PLANILHA', cidade='Cidade Exemplo - PR',
         ucs=[uc1] + [UC() for _ in range(8)],
         qtd_modulos_kit=6, marca_inversor='CHINT', pot_inversor_kw=3,
         tensao_inversor=220, valor_kit=4974.72, conexao='HÍBRIDO',
@@ -58,24 +58,120 @@ def neuza():
 
 
 cfg = carregar_config()
+cfg['fio_b_rs_mwh'] = 159.14        # fixo: o config é editado pelo usuário
 cfg_real = dict(cfg); cfg_real['compat_planilha'] = False
 cfg_plan = dict(cfg); cfg_plan['compat_planilha'] = True
 
 # ------------------ 1) app reproduz a planilha/realidade (guarda de regressão)
-secao('1. NEUZA: app (compat=False) == planilha == fatura real (R$ 125,70)')
-rp = calcular(neuza(), cfg_plan, ano=2026)
-rr = calcular(neuza(), cfg_real, ano=2026)
-ok('planilha (compat=True) fatura_com', rp['fatura_com'], 125.69641635251203, 1e-4)
-ok('APP (compat=False) fatura_com NÃO diverge', rr['fatura_com'], 125.69641635251203, 1e-4)
+secao('1. PLANILHA: regra do MAIOR VALOR (disponibilidade x sobra de Fio B)')
+rp = calcular(caso_planilha(), cfg_plan, ano=2026)
+rr = calcular(caso_planilha(), cfg_real, ano=2026)
+# A planilha dava 125,70 porque cobrava os DOIS: tirava 50 kWh do compensado
+# (pela tarifa cheia) e ainda cobrava a sobra de Fio B sobre o resto. A conta
+# real escolhe o MAIOR entre custo de disponibilidade e sobra de Fio B.
+ok('planilha (compat=True) fatura_com', rp['fatura_com'], 92.79249453384234, 1e-4)
+ok('APP (compat=False) fatura_com NÃO diverge', rr['fatura_com'], 92.79249453384234, 1e-4)
 dr = rr['detalhes_uc'][0]
-ok('cap é no-op em superdim. (compensado = faturado−disp)',
-   dr['compensado'], dr['faturado'] - dr['disponibilidade'], 1e-9)
+ok('superdimensionado: compensa TUDO o que foi faturado',
+   dr['compensado'], dr['faturado'], 1e-9)
+# e quem garante o mínimo é o max(piso, liquido), não a subtração no crédito
+sobra = dr['faturado'] * (dr['tarifa'] - dr['abat_te'] - dr['abat_tusd'])
+ok('cobrado = max(disponibilidade, sobra do Fio B)',
+   dr['taxa_min'], max(dr['piso'], sobra), 1e-9)
+ok('aqui ganha a sobra do Fio B (consumo alto)', sobra > dr['piso'], True)
+
+# --- consumo BAIXO: aí quem ganha é o custo de disponibilidade ---
+uc_pouco = UC(tipo='GERADORA', ilum_publica=0.0, ligacao='BIFASICO',
+              consumos=[60.0] * 12, te=0.27575, tusd=0.36667, icms=0.19,
+              cofins=0.058, pis=0.0126, pct_noturno=1.0, bandeira='VERDE')
+# sistema pequeno de propósito: se a geração passar do consumo, o 'maior' da
+# planilha faz o faturado subir junto e o piso deixa de ser o que manda
+e_pouco = Entradas(nome='pouco', ucs=[uc_pouco] + [UC() for _ in range(8)],
+                   qtd_modulos_kit=2, marca_inversor='CHINT', pot_inversor_kw=3,
+                   tensao_inversor=220, valor_kit=5000,
+                   marca_modulo='ASTRONERGY N-TYPE', pot_modulo_w=620,
+                   estrutura='FIBROCIMENTO', perfil_irradiacao='3.8',
+                   margem_desejada=0.16)
+dp = calcular(e_pouco, cfg_real, ano=2026)['detalhes_uc'][0]
+sobra_p = dp['faturado'] * (dp['tarifa'] - dp['abat_te'] - dp['abat_tusd'])
+ok('consumo baixo: ganha o custo de disponibilidade', dp['taxa_min'], dp['piso'], 1e-9)
+ok('...e a sobra do Fio B fica abaixo do piso', sobra_p < dp['piso'], True)
 # assimetria proposital da COPEL: TE abatida COM ICMS, TUSD abatida SEM ICMS
-u = neuza().ucs[0]
+u = caso_planilha().ucs[0]
 fio_b = cfg['fio_b_rs_mwh'] / 1000.0 * 0.60          # 2026 = 60 %
 ok('COPEL: abat_TE inclui ICMS (= TE com imposto)', u.abat_te(), u.te_com_imposto(), 1e-12)
 ok('COPEL: abat_TUSD NÃO inclui ICMS = (TUSD−FioB)/(1−p−c)',
    u.abat_tusd(fio_b), (u.tusd - fio_b) / (1 - (u.pis + u.cofins)), 1e-9)
+
+# ------------ 1b) FATURA REAL do grupo B: FATURA-B (COPEL, 09/2026) ------------
+# UC 000000000000002, Cidade Exemplo-PR, B1 bifásico, TOTAL R$ 117,53.
+# Consumo medido 307 kWh; a usina que ele já tem injetou 430 kWh (registrador
+# GERAC) e os 307 foram compensados INTEIROS — a TE zera na fatura
+# (128,20 − 128,20 = 0). O custo de disponibilidade NÃO aparece porque a sobra
+# de Fio B (R$ 78,83) é maior que ele (R$ 51,59): é a regra do MAIOR VALOR.
+secao('1b. Fatura real do grupo B — FATURA-B (COPEL 09/2026, R$ 117,53)')
+cfg_fb = dict(cfg)
+cfg_fb['compat_planilha'] = False
+# Fio B que ESTA fatura cobra: a linha "ENERGIA INJETADA TUSD" devolve a TUSD
+# já líquida (0,328431 contra 0,457170 cheia) -> 0,128739 R$/kWh a 60 % (2026).
+cfg_fb['fio_b_rs_mwh'] = (0.457170 - 0.328431) / 0.60 * 1000
+
+uc_fb = UC(tipo='GERADORA', ligacao='BIFASICO', uc_numero='000000000000002',
+              consumos=[307.0] * 12, te=0.310850, tusd=0.457170,
+              icms=0.19, cofins=0.066555, pis=0.014485,
+              pct_noturno=1.0,          # o consumo da fatura já é o medido
+              bandeira='AMARELA', ilum_publica=38.70, gd='GD2',
+              gds_existentes=[{'nome': 'usina atual', 'injetado_kwh': 430.0}])
+e_fb = Entradas(nome='CLIENTE B', cidade='Cidade Exemplo - PR',
+                   ucs=[uc_fb] + [UC() for _ in range(8)],
+                   qtd_modulos_kit=0, pot_modulo_w=620, valor_kit=0,
+                   marca_inversor='GOODWE', pot_inversor_kw=7.5,
+                   tensao_inversor=220, estrutura='FIBROCIMENTO',
+                   perfil_irradiacao='3.8', margem_desejada=0.16)
+r_l = calcular(e_fb, cfg_fb, ano=2026)
+d_l = r_l['detalhes_uc'][0]
+pc_l = 1 - (0.066555 + 0.014485)
+g_l = (1 - 0.19) * pc_l
+ok('TE com impostos', 0.310850 / g_l, 0.417590, 1e-4)
+ok('TUSD com impostos', 0.457170 / g_l, 0.614137, 1e-4)
+ok('crédito da TE devolve o ICMS (convênio vigente)',
+   d_l['abat_te'], 0.417590, 1e-4)
+ok('crédito da TUSD não devolve o ICMS', d_l['abat_tusd'], 0.357362, 1e-4)
+ok('compensa os 307 kWh INTEIROS', d_l['compensado'], 307.0)
+ok('sobra do Fio B', d_l['liquido'], 78.83, 0.02)
+ok('custo de disponibilidade (não pega aqui)', d_l['piso'], 51.59, 0.02)
+ok('cobrado = o maior dos dois', d_l['taxa_min'], 78.83, 0.02)
+ok('bandeira amarela se anula (cobrada = devolvida)', d_l['extra_bandeira'], 0.0, 0.02)
+ok('TOTAL DA FATURA (papel: R$ 117,53)', r_l['fatura_sem'], 117.53, 0.02)
+
+# ------------ 1c) Fio B POR CONCESSIONÁRIA ------------
+secao('1c. Fio B é o da concessionária da UC, não um valor único')
+def _uc_fb(fb):
+    return UC(tipo='GERADORA', ligacao='BIFASICO', consumos=[400.0] * 12,
+              te=0.31085, tusd=0.45717, icms=0.19, cofins=0.066555,
+              pis=0.014485, pct_noturno=1.0, gd='GD2', fio_b_rs_mwh=fb)
+def _calc_fb(fb):
+    e = Entradas(nome='fb', ucs=[_uc_fb(fb)] + [UC() for _ in range(8)],
+                 qtd_modulos_kit=6, marca_inversor='CHINT', pot_inversor_kw=3,
+                 tensao_inversor=220, valor_kit=5000, pot_modulo_w=620,
+                 estrutura='FIBROCIMENTO', perfil_irradiacao='3.8',
+                 margem_desejada=0.16)
+    return calcular(e, cfg_real, ano=2026)['detalhes_uc'][0]
+d_cel, d_ems, d_glob = _calc_fb(132.7903), _calc_fb(346.1256), _calc_fb(None)
+pc_fb = 1 - (0.066555 + 0.014485)
+ok('CELESC: abatimento da TUSD usa o Fio B dela',
+   d_cel['abat_tusd'], (0.45717 - 0.6 * 0.1327903) / pc_fb, 1e-9)
+ok('ENERGISA: idem, com o dela', d_ems['abat_tusd'],
+   (0.45717 - 0.6 * 0.3461256) / pc_fb, 1e-9)
+ok('Fio B maior -> conta com sistema maior',
+   d_ems['total'] > d_cel['total'], True)
+ok('sem concessionária: usa o global do config', d_glob['abat_tusd'],
+   (0.45717 - 0.6 * cfg_real['fio_b_rs_mwh'] / 1000) / pc_fb, 1e-9)
+import app as _app_fb
+ok('o servidor acha o Fio B pela concessionária',
+   _app_fb._fio_b_da_conc('CELESC (SC)'), 132.7903, 1e-6)
+ok('concessionária desconhecida -> None (cai no global)',
+   _app_fb._fio_b_da_conc('NAO EXISTE') is None, True)
 
 # ------------------ 2) abatimento parcial (subdimensionado) — Lei 14.300
 secao('2. Subdimensionado: crédito limitado à geração real (Lei 14.300)')

@@ -118,6 +118,8 @@ def _rota_admin(req) -> bool:
     if p in ('/api/imagens-padrao', '/api/atualizar-tarifa',
              '/api/drive/desconectar') and m == 'POST':
         return True
+    if p == '/api/aneel-tarifa-a':              # tarifas do grupo A: só admin
+        return True
     if p in ('/api/resumos-salvos', '/api/importar-resumo'):
         return True                             # importar projeto: só admin
     if p.startswith('/oauth2/'):                # conectar Google Drive
@@ -418,6 +420,19 @@ def _gravar_img_pacote(pid, qual: str, dataurl) -> None:
     _salvar_pac_imgs(d)
 
 
+def _pode_admin() -> bool:
+    """True quando quem está na sessão tem poderes de administrador.
+
+    Usado para blindar recursos exclusivos do admin no SERVIDOR (esconder o
+    campo na tela não é trava). Fora de uma requisição (testes, scripts) vale
+    como admin, igual ao uso local sem senha.
+    """
+    try:
+        return not _eh_consultor()
+    except Exception:                                          # noqa: BLE001
+        return True
+
+
 def _regra_bool(valor, padrao: bool = True) -> bool:
     """Lê uma regra booleana vinda do front/JSON (True/'false'/0/…)."""
     if valor is None:
@@ -427,15 +442,88 @@ def _regra_bool(valor, padrao: bool = True) -> bool:
     return str(valor).strip().lower() not in ('false', '0', 'nao', 'não', 'no', '')
 
 
+def _fio_b_da_conc(nome) -> float | None:
+    """Fio B (R$/MWh) cadastrado na concessionária, ou None."""
+    try:
+        v = (engine.carregar_config().get('concessionarias') or {}).get(
+            (nome or '').strip()) or {}
+        x = v.get('fio_b_rs_mwh')
+        return float(x) if x else None
+    except (ValueError, TypeError, AttributeError):
+        return None
+
+
+def _cfg_num(chave: str, padrao: float) -> float:
+    """Número do config.json, com padrão quando a chave ainda não existe."""
+    try:
+        return float(engine.carregar_config().get(chave, padrao))
+    except (ValueError, TypeError):
+        return padrao
+
+
 def _montar_entradas(d: dict) -> engine.Entradas:
     d = _aplicar_pacote(d)          # consultor: injeta equipamento+custos do pacote
     # padrão de segurança para TE/TUSD quando o campo vem vazio: o ÚLTIMO valor
     # da COPEL vindo da ANEEL (cache), em vez de um número fixo desatualizado.
     _cache = _ler_cache_tarifas().get('COPEL-DIS|B1') or {}
     _pte, _ptusd = _cache.get('te', 0.27575), _cache.get('tusd', 0.36667)
+    # GRUPO A é exclusivo do ADMIN: para o consultor toda UC volta a ser grupo B
+    # (a tela dele não mostra o campo, mas a trava de verdade é esta).
+    _admin = _pode_admin()
     ucs = []
     for u in d.get('ucs', []):
+        grupo = ((u.get('grupo') or 'B').strip().upper()
+                 if _admin else 'B')
+        grupo = 'A' if grupo == 'A' else 'B'
+        ga = {}
+        if grupo == 'A':                     # campos da fatura de média tensão
+            ga = dict(
+                subgrupo_a=(u.get('subgrupo_a') or 'A4').strip().upper(),
+                modalidade_a=(u.get('modalidade_a') or 'VERDE').strip().upper(),
+                consumos_ponta=[_f(x) for x in (u.get('consumos_ponta')
+                                                or [0] * 12)],
+                demanda_kw=_f(u.get('demanda_kw')),
+                demanda_kw_p=_f(u.get('demanda_kw_p')),
+                demanda_medida_kw=_f(u.get('demanda_medida_kw')),
+                demanda_medida_kw_p=_f(u.get('demanda_medida_kw_p')),
+                demanda_faturada_kw=_f(u.get('demanda_faturada_kw')),
+                demanda_faturada_kw_p=_f(u.get('demanda_faturada_kw_p')),
+                outros_rs=_f(u.get('outros_rs')),
+                te_ponta=_f(u.get('te_ponta')),
+                te_fora=_f(u.get('te_fora')),
+                tusd_kwh_ponta=_f(u.get('tusd_kwh_ponta')),
+                tusd_kwh_fora=_f(u.get('tusd_kwh_fora')),
+                tusd_demanda=_f(u.get('tusd_demanda')),
+                tusd_demanda_p=_f(u.get('tusd_demanda_p')),
+                # TUSD-G: demanda de geração (GD1 e GD2). Vazia = calculada
+                # pelo motor a partir da potência dos inversores.
+                demanda_g_kw=_f(u.get('demanda_g_kw')),
+                tusd_g_rs_kw=_f(u.get('tusd_g_rs_kw'),
+                                _cfg_num('tusd_g_rs_kw', 7.88)),
+                # fator de correção da ponta (vazio = relação das TEs)
+                fator_ponta_manual=(None if u.get('fator_ponta_manual')
+                                    in (None, '', 0)
+                                    else _f(u.get('fator_ponta_manual'))))
+        # usinas de GD que a UC já tinha ANTES deste orçamento (A e B).
+        # Só o que é número interessa ao cálculo: os kWh injetados por mês.
+        gds = []
+        for g in (u.get('gds_existentes') or []):
+            inj = _f(g.get('injetado_kwh'))
+            if inj <= 0 and not (g.get('nome') or '').strip():
+                continue
+            # cada usina tem o SEU parecer de acesso, logo o seu prazo de
+            # isenção de ICMS. Ausente = herda o estado declarado na UC.
+            iso = g.get('isento_icms')
+            gds.append({'nome': (g.get('nome') or '').strip(),
+                        'kwp': _f(g.get('kwp')),
+                        'injetado_kwh': inj,
+                        # geração REAL do mês (app de monitoramento). O medidor
+                        # não vê o que foi gerado e consumido no mesmo instante.
+                        'geracao_kwh': _f(g.get('geracao_kwh')),
+                        'isento_icms': (None if iso is None
+                                        else _regra_bool(iso, True))})
         ucs.append(engine.UC(
+            grupo=grupo, gds_existentes=gds, **ga,
             tipo=(u.get('tipo') or '').strip(),
             ilum_publica=_f(u.get('ilum_publica')),
             ligacao=u.get('ligacao') or 'MONOFASICO',
@@ -451,7 +539,16 @@ def _montar_entradas(d: dict) -> engine.Entradas:
             gd=(u.get('gd') or 'GD2').strip().upper(),
             icms_te=_regra_bool(u.get('icms_te'), True),
             icms_tusd=_regra_bool(u.get('icms_tusd'), True),
-            abat_tusd_inclui_icms=_regra_bool(u.get('abat_tusd_inclui_icms'), False)))
+            abat_tusd_inclui_icms=_regra_bool(u.get('abat_tusd_inclui_icms'), False),
+            # Convênio ICMS 16/2015 (crédito devolve o ICMS da TE): vem da
+            # concessionária, e a UC do grupo A pode sobrepor na tela.
+            abat_te_inclui_icms=_regra_bool(u.get('abat_te_inclui_icms'), True),
+            # Fio B da concessionária escolhida na UC (config). Sem
+            # concessionária ou sem valor cadastrado, o motor usa o global.
+            fio_b_rs_mwh=_fio_b_da_conc(u.get('conc')),
+            # anos que ainda restam de isenção NESTE parecer de acesso
+            isencao_icms_anos=(None if u.get('isencao_icms_anos') in (None, '')
+                               else _f(u.get('isencao_icms_anos')))))
     while len(ucs) < 9:
         ucs.append(engine.UC())
 
@@ -564,6 +661,8 @@ def _resumo(r: dict, cfg: dict) -> dict:
         area_m2=round(r['area_m2'], 1),
         geracao_media=round(r['geracao_media'], 1),
         consumo_medio=round(r['consumo_medio'], 1),
+        consumo_medido=round(r['consumo_medido_anual'] / 12.0, 1),
+        autoconsumo_existente=round(r['autoconsumo_existente'], 1),
         compensacao_pct=round(r['compensacao'] * 100, 1),
         geracao_mensal=[round(v, 1) for v in r['geracao_mensal']],
         custo_mo=m(r['custo_mo']), custo_material=m(r['custo_material']),
@@ -588,7 +687,44 @@ def _resumo(r: dict, cfg: dict) -> dict:
         aliquota_usada_pct=round(r['aliquota_usada'] * 100, 2),
         tarifas_cheias=[(round(t, 4) if t is not None else None)
                         for t in r['tarifas_cheias']],
+        tem_grupo_a=bool(r.get('tem_grupo_a')),
+        anos_isencao=r.get('anos_isencao'),
+        economia_pos_isencao=(m(r['economia_pos_isencao'])
+                              if r.get('economia_pos_isencao') is not None
+                              else None),
+        grupo_a=_resumo_grupo_a(r, m),
         textos=r['textos'])
+
+
+def _resumo_grupo_a(r: dict, m) -> list:
+    """Resumo por UC de média tensão (grupo A) para o painel da tela: o que é
+    demanda (não abate), o que é energia e quanto foi compensado em cada posto."""
+    out = []
+    for i, d in enumerate(r.get('detalhes_uc') or []):
+        if not d or d.get('grupo') != 'A':
+            continue
+        out.append(dict(
+            uc=i + 1, modalidade=d['modalidade'], subgrupo=d['subgrupo'],
+            consumo_ponta=round(d['consumo_ponta'], 1),
+            consumo_fora=round(d['consumo_fora'], 1),
+            demanda=m(d['demanda_rs']),
+            energia_sem=m(d['consumo_sem_rs']), energia_com=m(d['consumo_com_rs']),
+            compensado_ponta=round(d['compensado_ponta'], 0),
+            compensado_fora=round(d['compensado_fora'], 0),
+            autoconsumo=round(d['autoconsumo'], 0),
+            autoconsumo_medido=bool(d['autoconsumo_medido']),
+            injetado=round(d['injetado'], 0),
+            outros=m(d['outros_rs']),
+            fator_ajuste=round(d['fator_ajuste'], 3),
+            fator_cheia=round(d['fator_cheia'], 3),
+            demanda_g_kw=round(d['demanda_g_kw'], 2),
+            custo_g=m(d['custo_g']),
+            tusd_g_cheia=round(d['tusd_g_cheia'], 4),
+            injecao_existente=round(d['injecao_existente'], 0),
+            tarifa_ponta=round(d['tarifa_ponta'], 5),
+            tarifa_fora=round(d['tarifa_fora'], 5),
+            fatura_sem=m(d['fatura_sem_uc']), fatura_com=m(d['total'])))
+    return out
 
 
 # ------------------------------------------------------------------ rotas
@@ -798,12 +934,19 @@ def api_sugestao():
     try:
         d = request.get_json(force=True) or {}
         cfg = engine.carregar_config()
-        # consumo anual das UCs ativas (as que têm tipo preenchido)
+        # consumo anual das UCs ativas (as que têm tipo preenchido). No grupo A
+        # a ponta entra corrigida pelo fator de ajuste (REN 1.059/2023): 1 kWh
+        # de ponta só é zerado com `fator` kWh gerados fora ponta.
         consumo_anual = 0.0
         for u in (d.get('ucs') or []):
             if not (u.get('tipo') or '').strip():
                 continue
             consumo_anual += sum(_f(x) for x in (u.get('consumos') or []))
+            if (u.get('grupo') or 'B').strip().upper() == 'A' and _pode_admin():
+                tef, tep = _f(u.get('te_fora')), _f(u.get('te_ponta'))
+                fator = (tep / tef) if tef else 1.0
+                consumo_anual += sum(_f(x) for x in
+                                     (u.get('consumos_ponta') or [])) * fator
         # irradiação: customizada, ou o perfil (o consultor usa o padrão)
         irr = d.get('irradiacao_customizada')
         if irr:
@@ -845,6 +988,10 @@ def api_concessionarias():
                               icms_sobre_tusd=bool(v.get('icms_sobre_tusd', True)),
                               # isenção do ICMS na compensada alcança a TUSD?
                               abat_tusd_inclui_icms=bool(v.get('abat_tusd_inclui_icms', False)),
+                              # o Convênio ICMS 16/2015 ainda vale aqui? (o
+                              # crédito devolve o ICMS da TE). Onde o prazo
+                              # caducou, isto vira false.
+                              abat_te_inclui_icms=bool(v.get('abat_te_inclui_icms', True)),
                               aneel_sigla=v.get('aneel_sigla', ''),
                               site_tarifas=v.get('site_tarifas', ''),
                               site_tributos=v.get('site_tributos', ''),
@@ -903,6 +1050,42 @@ def api_aneel_tarifa():
         if cached:                                    # sem internet: último salvo
             return jsonify(ok=True, cache=True,
                            aviso=f'ANEEL indisponível ({exc}) — usei o último registro',
+                           **cached)
+        return jsonify(ok=False, erro=str(exc)), 502
+
+
+@app.get('/api/aneel-tarifa-a')
+def api_aneel_tarifa_a():
+    """Tarifas do GRUPO A (TE/TUSD por posto + TUSD-demanda) na ANEEL.
+
+    Params: `conc` (nome no config) ou `sigla`, `sub` (A4, A3a…) e `mod`
+    (VERDE/AZUL). Mesmo esquema do grupo B: online busca e grava no cache;
+    offline devolve o último registro salvo. Exclusivo do administrador.
+    """
+    if _eh_consultor():
+        return jsonify(ok=False, erro='sem permissão'), 403
+    cfg = engine.carregar_config()
+    nome = (request.args.get('conc') or '').strip()
+    sub = (request.args.get('sub') or 'A4').strip().upper()
+    mod = (request.args.get('mod') or 'VERDE').strip().upper()
+    v = (cfg.get('concessionarias') or {}).get(nome) or {}
+    sigla = (request.args.get('sigla') or v.get('aneel_sigla') or '').strip()
+    if not sigla:
+        return jsonify(ok=False, erro=f'sem sigla ANEEL para {nome!r}'), 400
+    chave = f'{sigla}|{sub}|{mod}'
+    import online
+    try:
+        t = online.buscar_tarifa_aneel_a(sigla, sub, mod)
+        if not (t.get('te_fora') and t.get('tusd_demanda')):
+            raise LookupError('a ANEEL respondeu, mas sem TE fora ponta / '
+                              'TUSD-demanda p/ este subgrupo')
+        _salvar_cache_tarifa(chave, t)
+        return jsonify(ok=True, cache=False, **t)
+    except Exception as exc:                                   # noqa: BLE001
+        cached = _ler_cache_tarifas().get(chave)
+        if cached:
+            return jsonify(ok=True, cache=True,
+                           aviso=f'ANEEL indisponível ({exc}) — último registro',
                            **cached)
         return jsonify(ok=False, erro=str(exc)), 502
 

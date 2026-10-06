@@ -46,6 +46,34 @@ def _carregar_layout():
 _cards = None
 
 
+def _desenhar_icones(c, icones, ox: float, oy: float) -> None:
+    """Desenha em VETOR os ícones de um cartão (ou do bloco de garantias), por
+    cima do PNG dele — que vem sem o ícone. Cada ícone traz a caixa onde a
+    imagem original era desenhada (x, y = canto inferior-esquerdo, em pt, no
+    sistema do próprio cartão) e o caminho na caixa unitária, com y PARA BAIXO.
+    Gerados por ferramentas/vetor_icones.py — aqui é só ReportLab puro."""
+    import re
+    from reportlab.pdfgen.canvas import FILL_EVEN_ODD
+    for ic in icones or ():
+        x0, y0, w, h = ox + ic['x'], oy + ic['y'], ic['w'], ic['h']
+        c.setFillColor(HexColor('#' + ic['cor']))
+        p = c.beginPath()
+        for op, nums in re.findall(r'([MCLZ])([^MCLZ]*)', ic['p']):
+            n = [float(v) for v in nums.split()]
+            pt = [(x0 + n[i] * w, y0 + (1 - n[i + 1]) * h)
+                  for i in range(0, len(n), 2)]
+            if op == 'M':
+                p.moveTo(*pt[0])
+            elif op == 'L':
+                for q in pt:
+                    p.lineTo(*q)
+            elif op == 'C':
+                p.curveTo(*pt[0], *pt[1], *pt[2])
+            elif op == 'Z':
+                p.close()
+        c.drawPath(p, stroke=0, fill=1, fillMode=FILL_EVEN_ODD)
+
+
 def _carregar_cards():
     """Metadados dos 6 cartões da página 3 (tiles + offsets de qtd/desc)."""
     global _cards
@@ -543,6 +571,9 @@ def gerar_proposta(resultado: dict, caminho_saida: str,
                 caminho = os.path.join(ASSETS, 'cards', f'{nome}.png')
                 c.drawImage(caminho, x0, page_h - (top + h), width=w, height=h,
                             mask='auto', preserveAspectRatio=False)
+                # o ícone do cartão vem em vetor, por cima (o PNG não o tem)
+                _desenhar_icones(c, _carregar_cards()['cards'].get(nome, {})
+                                 .get('icones'), x0, page_h - (top + h))
             _desenhar_cards_p3(c, _stamp, textos, resultado, page_h)
 
             # fotos do módulo/inversor coladas na tela (cobrem a arte genérica
@@ -571,6 +602,8 @@ def gerar_proposta(resultado: dict, caminho_saida: str,
                             gr['x0'], page_h - (gr['top'] + dg + gr['h']),
                             width=gr['w'], height=gr['h'], mask='auto',
                             preserveAspectRatio=False)
+                _desenhar_icones(c, gr.get('icones'), gr['x0'],
+                                 page_h - (gr['top'] + dg + gr['h']))
         if pagina == 4:
             # redesenha a timeline de etapas com círculos perfeitos
             _redesenhar_timeline(c, page_h)

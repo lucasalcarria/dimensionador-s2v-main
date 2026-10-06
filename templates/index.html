@@ -36,6 +36,20 @@ input,select{width:100%;min-width:0;padding:7px 9px;border:1px solid var(--borda
 input::placeholder{color:#5a6875}
 input:focus,select:focus{outline:2px solid #1e4d78;border-color:var(--azul)}
 .grid{display:grid;gap:10px}
+/* rótulo de seção dentro do bloco do grupo A */
+/* abas dentro da UC: Consumo · Tarifas · Demanda · Usinas */
+.uc-abas{display:flex;gap:2px;margin:12px 0 0;border-bottom:1px solid var(--borda);
+  flex-wrap:wrap}
+.uc-abas button{background:transparent;border:0;border-bottom:2px solid transparent;
+  color:var(--mudo);padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;
+  border-radius:6px 6px 0 0;margin-bottom:-1px}
+.uc-abas button:hover{color:var(--texto)}
+.uc-abas button.on{color:var(--azul);border-bottom-color:var(--azul)}
+.uc-pane{padding-top:12px}
+.sub-rot{font-size:11px;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--mudo);font-weight:600;margin:14px 0 6px;
+  border-bottom:1px solid var(--borda);padding-bottom:4px}
+.sub-rot .auto{text-transform:none;letter-spacing:0;font-weight:400}
 .g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:1fr 1fr 1fr}
 .g4{grid-template-columns:repeat(4,1fr)}
 .linha{display:flex;gap:8px;align-items:end}
@@ -47,6 +61,21 @@ button{cursor:pointer;border:0;border-radius:8px;padding:9px 14px;font-size:14px
 .bt-mini{padding:5px 10px;font-size:12px}
 button:disabled{opacity:.5;cursor:wait}
 /* toggle de duas opções (rápido/detalhado, pré-definida/internet, …) */
+/* chave deslizante: substitui os seletores de duas opções, que deixavam a
+   tela densa. Guarda o valor num <input type=hidden> irmão, então todo o JS
+   que lê `.u-gd`/`.u-grupo`/`.u-a-mod` por .value continua igual. */
+.sw-wrap{display:inline-flex;align-items:center;gap:8px;cursor:pointer;
+  font-size:13px;color:var(--texto);user-select:none;margin:0}
+.sw-in{position:absolute;opacity:0;width:0;height:0;margin:0}
+.sw{position:relative;width:38px;height:22px;flex:0 0 38px;border-radius:11px;
+  background:var(--borda);transition:background .18s}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;
+  border-radius:50%;background:#fff;transition:transform .18s}
+.sw-in:checked+.sw{background:var(--verde-forte)}
+.sw-in:checked+.sw::after{transform:translateX(16px)}
+.sw-in:focus-visible+.sw{outline:2px solid var(--azul);outline-offset:2px}
+.sw-in:disabled+.sw{opacity:.45}
+.sw-rot{white-space:nowrap}
 .toggle{display:inline-flex;border:1px solid var(--borda);border-radius:8px;overflow:hidden;background:var(--card2)}
 .toggle button{background:transparent;color:var(--mudo);border:0;padding:6px 12px;font-size:12px;cursor:pointer;font-weight:600}
 .toggle button.on{background:var(--azul-forte);color:#fff}
@@ -328,8 +357,9 @@ body:not(.consultor) .so-consultor{display:none!important;}
     </div>
 
     <div class="opt so-admin">
-      <div class="cab"><input type="checkbox" id="tem_stringbox" onchange="toggleOpt(this,'campos-sb')">
-        <b>String box CC</b></div>
+      <div class="cab"><label class="sw-wrap">
+        <input type="checkbox" class="sw-in" id="tem_stringbox" onchange="toggleOpt(this,'campos-sb')">
+        <span class="sw"></span><span class="sw-rot"><b>String box CC</b></span></label></div>
       <div class="campos grid g3" id="campos-sb" style="display:none">
         <div><label>Quantidade</label><input id="sb_qtd" type="number" value="1" min="1"></div>
         <div><label>Marca (opcional)</label><input id="sb_marca" placeholder="ex.: CLAMPER"></div>
@@ -337,8 +367,9 @@ body:not(.consultor) .so-consultor{display:none!important;}
       </div>
     </div>
     <div class="opt so-admin">
-      <div class="cab"><input type="checkbox" id="tem_bateria" onchange="toggleOpt(this,'campos-bat')">
-        <b>Bateria de lítio</b></div>
+      <div class="cab"><label class="sw-wrap">
+        <input type="checkbox" class="sw-in" id="tem_bateria" onchange="toggleOpt(this,'campos-bat')">
+        <span class="sw"></span><span class="sw-rot"><b>Bateria de lítio</b></span></label></div>
       <div class="campos grid g3" id="campos-bat" style="display:none">
         <div><label>Quantidade</label><input id="bat_qtd" type="number" value="1" min="1"></div>
         <div><label>Marca</label><input id="bat_marca" placeholder="ex.: BYD"></div>
@@ -448,6 +479,11 @@ body:not(.consultor) .so-consultor{display:none!important;}
       <div><div class="v" id="r-com">—</div><div class="l">fatura com S2V</div></div>
       <div><div class="v" id="r-eco">—</div><div class="l">economia/mês</div></div>
     </div>
+    <div id="aviso-isencao" class="so-admin" style="display:none;margin-top:8px;
+         font-size:12px;color:var(--mudo);border-left:3px solid var(--borda);padding-left:8px"></div>
+    <!-- média tensão: mostra o que é demanda (o solar não abate) e o que é energia -->
+    <div id="box-ga" class="so-admin" style="display:none;margin:10px 0 0;
+         border:1px solid var(--borda);border-radius:10px;padding:10px"></div>
     <table>
       <tr><td>Potência do sistema</td><td id="r-kwp">—</td></tr>
       <tr><td>kWp p/ compensar · módulos sugeridos</td><td id="r-nec">—</td></tr>
@@ -670,7 +706,10 @@ async function aplicarConc(el){
    uc.querySelector('.u-icms').value=a.icms_pct;
    if(sub==='B2') notaIcms=a.icms_pct===0?' · ICMS rural isento':` · ICMS rural ${a.icms_pct}%`;
  }
- if(obs) obs.innerHTML=`✔ ${nome} · ${sub} · ${baseTar}${notaIcms}`;
+ // no grupo A a TE/TUSD de kWh único não é usada — o aviso mostra só o que vale
+ if(obs) obs.innerHTML = ehGrupoA(uc)
+   ? `✔ ${nome} · impostos aplicados${notaIcms||''} — as tarifas por posto ficam no bloco do grupo A`
+   : `✔ ${nome} · ${sub} · ${baseTar}${notaIcms}`;
  cheiaLocal(uc); agendar();
  // se esta é a GERADORA (UC 1), as beneficiárias seguem a mesma concessionária
  if(uc===concGeradoraEl()) sincronizarConcBeneficiarias();
@@ -775,15 +814,14 @@ function ucHTML(i){
     <span class="uc-rot">UC ${i+1}</span>
     <input class="u-numero digitos" inputmode="numeric" placeholder="nº da UC"
       style="width:130px;font-weight:400">
-    <select class="u-gd" style="width:auto;font-weight:400" title="modalidade de geração distribuída: GD2 paga o Fio B escalonado; GD1 é isenta até 2045">
-      <option value="GD2">GD2 (paga Fio B)</option>
-      <option value="GD1">GD1 (isenta)</option></select>
+    ${swHTML('u-gd','GD2','GD1','GD2 · paga Fio B','GD1 · isenta','',false,
+      'GD2 paga o Fio B escalonado (Lei 14.300). GD1 é isenta até 2045.')}
+    <span class="so-admin">${swHTML('u-grupo','B','A','Grupo B · baixa tensão','Grupo A · média tensão','setGrupo',false,
+      'Grupo A: paga demanda contratada em kW e separa a energia em ponta e fora ponta')}</span>
     <span style="flex:1"></span>
-    <span class="toggle u-modo" data-modo="medio">
-      <button type="button" class="on" onclick="setModo(this,'medio')">Rápido</button>
-      <button type="button" onclick="setModo(this,'meses')">Detalhado</button></span>
     <span class="rm" onclick="rmUC(${i})" ${i==0?'style="display:none"':''}>remover</span>
   </h3>
+
   <div class="grid g4">
     <div><label>Tipo</label><select class="u-tipo">
       <option value="GERADORA" ${i==0?'selected':''}>GERADORA</option>
@@ -793,19 +831,65 @@ function ucHTML(i){
       <option value="BIFASICO">BIFÁSICO (50)</option>
       <option value="TRIFASICO">TRIFÁSICO (100)</option></select></div>
     <div><label>Ilum. pública</label><input class="u-ilum rs" inputmode="decimal" value="R$ 0,00"></div>
-    <div><label>% noturno <small class="auto u-not-obs"></small></label><input class="u-not" type="number" step="1" value="${PCT(T.pct_noturno)}"></div>
+    <div class="so-grupo-b"><label>% noturno <small class="auto u-not-obs"></small></label>
+      <input class="u-not" type="number" step="1" value="${PCT(T.pct_noturno)}"></div>
   </div>
-  <details style="margin-top:10px"><summary>tarifas (sem impostos) e bandeira desta UC</summary>
-    <div class="linha" style="margin-top:8px;gap:8px;flex-wrap:wrap">
+
+  <div class="uc-abas">
+    <button type="button" class="on" data-pane="consumo" onclick="setAba(this,'consumo')">Consumo</button>
+    <button type="button" data-pane="tarifas" onclick="setAba(this,'tarifas')">Tarifas</button>
+    <button type="button" data-pane="demanda" class="so-grupo-a" style="display:none"
+      onclick="setAba(this,'demanda')">Demanda</button>
+    <button type="button" data-pane="usinas" onclick="setAba(this,'usinas')">Usinas</button>
+  </div>
+
+  <!-- ============================ CONSUMO ============================ -->
+  <div class="uc-pane" data-pane="consumo">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+      <span class="mudo" style="font-size:12px">Como informar o consumo:</span>
+      <span class="toggle u-modo" data-modo="medio">
+        <button type="button" class="on" onclick="setModo(this,'medio')">Rápido</button>
+        <button type="button" onclick="setModo(this,'meses')">Detalhado</button></span>
+    </div>
+    <div class="grid u-consumo" style="grid-template-columns:1fr">
+      <div class="u-box-medio">
+        <label class="u-rot-medio">Consumo médio (kWh/mês)</label>
+        <input class="u-medio" type="number">
+      </div>
+      <div class="u-box-pmedio" style="display:none">
+        <label>Consumo na PONTA (kWh/mês)</label>
+        <input class="u-a-pmedio" type="number">
+      </div>
+    </div>
+    <div class="u-box-meses" style="display:none">
+      <label class="u-rot-meses">Consumo mês a mês (kWh)</label>
+      <div class="meses">${MESES.map(m=>`<input class="u-mes" placeholder="${m}" type="number">`).join('')}</div>
+    </div>
+    <div class="u-box-pmeses" style="display:none;margin-top:10px">
+      <label>Consumo na PONTA mês a mês (kWh)</label>
+      <div class="meses">${MESES.map(m=>`<input class="u-a-pmes" placeholder="${m}" type="number">`).join('')}</div>
+    </div>
+    <div class="tarifa-cheia so-grupo-a" style="display:none;color:var(--mudo)"
+      title="O sol só gera fora ponta: a geração cobre primeiro o consumo fora ponta (autoconsumo, pela tarifa cheia) e o excedente é injetado, virando crédito — que abate a ponta pelo fator de correção.">
+      Sem "% noturno" aqui: o rateio sai do próprio ponta/fora ponta.</div>
+  </div>
+
+  <!-- ============================ TARIFAS ============================ -->
+  <div class="uc-pane" data-pane="tarifas" hidden>
+    <div class="linha" style="gap:8px;flex-wrap:wrap">
       <div style="flex:1;min-width:140px"><label>Concessionária</label>
         <select class="u-conc" onchange="aplicarConc(this)"><option value="">— selecione —</option></select></div>
-      <div style="width:170px"><label>Modalidade</label>
+      <div style="width:170px" class="so-grupo-b"><label>Modalidade</label>
         <select class="u-sub" onchange="aplicarConc(this)"></select></div>
+      <div style="width:190px" class="so-grupo-a" style="display:none"><label>&nbsp;</label>
+        <button type="button" class="bt-claro" style="width:100%" onclick="buscarTarifaA(this)"
+          title="tenta preencher as tarifas pela base da ANEEL (confira sempre com a fatura)">buscar na ANEEL</button></div>
     </div>
     <div class="tarifa-cheia u-conc-obs" style="color:var(--mudo)"></div>
+
     <div class="grid g4" style="margin-top:8px">
-      <div><label>TE s/ imposto (R$/kWh)</label><input class="u-te" value=""></div>
-      <div><label>TUSD s/ imposto (R$/kWh)</label><input class="u-tusd" value=""></div>
+      <div class="so-grupo-b"><label>TE s/ imposto (R$/kWh)</label><input class="u-te" value=""></div>
+      <div class="so-grupo-b"><label>TUSD s/ imposto (R$/kWh)</label><input class="u-tusd" value=""></div>
       <div><label>ICMS (%)</label><input class="u-icms" type="number" step="0.01" value=""></div>
       <div><label>COFINS (%)</label><input class="u-cofins" type="number" step="0.01" value="${PCT(T.cofins)}"></div>
       <div><label>PIS (%)</label><input class="u-pis" type="number" step="0.01" value="${PCT(T.pis)}"></div>
@@ -813,15 +897,102 @@ function ucHTML(i){
         <option>VERDE</option><option>AMARELA</option>
         <option>VERMELHA P1</option><option>VERMELHA P2</option></select></div>
     </div>
+
+    <div class="so-grupo-a" style="display:none">
+      <div class="sub-rot">tarifas por posto <span class="auto">— coluna "Tarifa unit." da fatura, SEM tributos</span></div>
+      <div class="grid g4">
+        <div><label>TE ponta (R$/kWh)</label><input class="u-a-tep"></div>
+        <div><label>TUSD ponta (R$/kWh)</label><input class="u-a-tup"></div>
+        <div><label>TE fora ponta (R$/kWh)</label><input class="u-a-tef"></div>
+        <div><label>TUSD fora ponta (R$/kWh)</label><input class="u-a-tuf"></div>
+      </div>
+      <div class="grid g2" style="margin-top:8px">
+        <div><label>Preço do kW de demanda (R$/kW)</label>
+          <input class="u-a-tud"
+            title="Quanto custa UM kW de demanda por mês, sem impostos. Linha DEMANDA USD, coluna Tarifa unit. (R$) — não é a quantidade contratada, que fica na aba Demanda."></div>
+        <div><label>Fator de correção da ponta</label>
+          <input class="u-a-fator" placeholder="automático"
+            title="Quantos kWh gerados fora ponta abatem 1 kWh de ponta. Vazio = calculado pela relação das TEs (REN 1.059/2023), que costuma dar ~1,6. Preencha se a sua distribuidora aplicar outro."></div>
+      </div>
+      <div class="grid g2 so-azul" style="display:none;margin-top:8px">
+        <div><label>Preço do kW de demanda PONTA (R$/kW)</label><input class="u-a-tudp"></div>
+      </div>
+      <div class="tarifa-cheia u-a-obs" style="color:var(--mudo)"></div>
+    </div>
     <div class="tarifa-cheia u-cheia"></div>
     <div class="tarifa-cheia u-cheia-srv"></div>
-  </details>
-  <div class="u-box-medio" style="margin-top:10px">
-    <label>Consumo médio (kWh/mês)</label><input class="u-medio" type="number" placeholder="kWh/mês">
   </div>
-  <div class="u-box-meses" style="display:none;margin-top:10px">
-    <label>Consumo mês a mês (kWh)</label>
-    <div class="meses">${MESES.map(m=>`<input class="u-mes" placeholder="${m}" type="number">`).join('')}</div>
+
+  <!-- ===================== DEMANDA (só grupo A) ====================== -->
+  <div class="uc-pane" data-pane="demanda" hidden>
+    <div class="grid g2">
+      <div><label>Subgrupo</label><select class="u-a-sub" onchange="agendar()">
+        <option>A4</option><option>A3a</option><option>A3</option><option>A2</option></select></div>
+      <div><label>Modalidade</label>
+        <div style="height:36px;display:flex;align-items:center">${swHTML('u-a-mod','VERDE','AZUL',
+          'VERDE · demanda única','AZUL · demanda por posto','setModalidadeA',false,
+          'Verde: uma demanda só. Azul: demanda de ponta e de fora ponta separadas.')}</div></div>
+    </div>
+
+    <div class="sub-rot">demanda contratada, em kW <span class="auto">— o solar não abate esta parte</span></div>
+    <div class="grid g3">
+      <div><label>Contratada (kW) <small class="auto u-a-dem-rot"></small></label>
+        <input class="u-a-dem" type="number" step="0.01"
+          title="a demanda que está no contrato — GRANDEZAS CONTRATADAS da fatura"></div>
+      <div><label>Medida (kW)</label>
+        <input class="u-a-demm" type="number" step="0.01" placeholder="= a contratada"
+          title="a demanda registrada pelo medidor no mês. Serve para apurar ultrapassagem. Vazio: usa a contratada."></div>
+      <div><label>Faturada (kW)</label>
+        <input class="u-a-demf" type="number" step="0.01" placeholder="pela regra"
+          title="a QUANTIDADE de kW que a fatura cobrou — linha DEMANDA USD, coluna Quant. Vazio: usa a regra geral, o maior entre contratada e medida."></div>
+    </div>
+    <div class="grid g3 so-azul" style="display:none;margin-top:8px">
+      <div><label>Contratada na PONTA (kW)</label><input class="u-a-demp" type="number" step="0.01"></div>
+      <div><label>Medida na PONTA (kW)</label><input class="u-a-demmp" type="number" step="0.01" placeholder="= a contratada"></div>
+      <div><label>Faturada na PONTA (kW)</label><input class="u-a-demfp" type="number" step="0.01" placeholder="pela regra"></div>
+    </div>
+
+    <div class="sub-rot">demanda de geração (TUSD-G) <span class="auto">— opcional</span></div>
+    <div class="grid g2">
+      <div><label>Demanda de geração (kW)</label>
+        <input class="u-a-demg" type="number" step="0.01" placeholder="automático"
+          title="Contrata-se como TUSD-G só o que a potência dos inversores passa da demanda de consumo já contratada. Vazio: o programa calcula essa diferença sozinho."></div>
+      <div><label>Preço do kW de TUSD-G, sem impostos (R$/kW)</label>
+        <input class="u-a-tusdg"
+          title="Preço do kW de demanda de GERAÇÃO, SEM impostos — o programa embute ICMS e PIS/COFINS. 7,88 sem impostos dá ~R$ 10,58/kW com impostos. O padrão vem das pré-definições."></div>
+    </div>
+
+    <div class="sub-rot">outros itens da fatura</div>
+    <div class="grid g2">
+      <div><label>Outros itens fixos da fatura (R$/mês)</label>
+        <input class="u-a-outros rs" inputmode="decimal" value="R$ 0,00"
+          title="o que a fatura cobra e o sistema não muda. Entra igual com e sem solar, só para a fatura bater com a de verdade."></div>
+    </div>
+  </div>
+
+  <!-- ============================ USINAS ============================= -->
+  <div class="uc-pane" data-pane="usinas" hidden>
+    <p style="margin:0 0 10px;color:var(--mudo);font-size:12px"
+       title="O injetado já abate a conta de hoje, então entra na fatura SEM o novo projeto — sem isso a proposta cobraria de novo uma economia que o cliente já tem. O medidor não enxerga o que a usina gera e a casa consome no mesmo instante: informando a geração real, o programa descobre esse autoconsumo e mostra o consumo verdadeiro da UC. O prazo do Convênio de ICMS corre por parecer de acesso, por isso cada usina tem a sua chave.">
+      Usinas que o cliente <b>já tem</b>, antes deste orçamento.</p>
+    <div class="u-gds"></div>
+    <button type="button" class="bt-claro bt-mini" onclick="addGD(this)">+ adicionar usina</button>
+
+    <div class="so-grupo-a" style="display:none">
+      <div class="sub-rot">isenção de ICMS do projeto NOVO</div>
+      <div class="grid g2">
+        <div><label>Anos restantes neste parecer</label>
+          <input class="u-a-isen" type="number" step="0.5" min="0" placeholder="não modelar" onchange="agendar()"
+            title="O prazo do Convênio 16/2015 corre por PARECER DE ACESSO: a usina desta proposta começa a contagem do zero. Preenchido, a projeção de 25 anos desce de patamar quando o prazo acabar."></div>
+        <div style="display:flex;align-items:flex-end">
+          <label class="sw-wrap" style="margin:0 0 9px"
+            title="Com o Convênio ICMS 16/2015 valendo, a energia compensada é isenta e o crédito devolve o ICMS. Fora do prazo, desligue: o ICMS passa a incidir sobre o consumo CHEIO e o crédito volta só com PIS/COFINS.">
+            <input type="checkbox" class="sw-in u-a-conv" checked onchange="agendar()">
+            <span class="sw"></span><span class="sw-rot">crédito devolve o ICMS da TE</span>
+          </label>
+        </div>
+      </div>
+    </div>
   </div>
  </div>`;
 }
@@ -1202,13 +1373,181 @@ function rmUC(i){const box=document.getElementById('ucs');box.children[i].remove
  sincronizarConcBeneficiarias();   // a UC 1 continua sendo a geradora; re-trava as demais
  document.getElementById('badge-ucs').textContent=box.children.length; calc();}
 
+// Mostra/esconde os campos de consumo conforme o modo (rápido/detalhado) e o
+// grupo. No grupo A a PONTA aparece ao lado do FORA PONTA e segue o mesmo modo.
+function aplicarModo(uc){
+ const tg=uc.querySelector('.u-modo'); if(!tg) return;
+ const meses=(tg.dataset.modo||'medio')==='meses', a=ehGrupoA(uc);
+ const ver=(sel,v)=>{const el=uc.querySelector(sel); if(el) el.style.display=v?'':'none';};
+ ver('.u-consumo',!meses);      ver('.u-box-meses',meses);
+ ver('.u-box-pmedio',!meses&&a); ver('.u-box-pmeses',meses&&a);
+ const bm=uc.querySelector('.u-box-meses'); if(bm) bm.style.marginTop='10px';
+ const cx=uc.querySelector('.u-consumo');
+ if(cx) cx.style.gridTemplateColumns=a?'1fr 1fr':'1fr';
+}
 function setModo(btn,modo){
  const tg=btn.closest('.toggle'); tg.dataset.modo=modo;
  [...tg.children].forEach(b=>b.classList.toggle('on',b===btn));
- const uc=tg.closest('.uc'); const meses=modo==='meses';
- uc.querySelector('.u-box-medio').style.display=meses?'none':'';
- uc.querySelector('.u-box-meses').style.display=meses?'':'none';
+ aplicarModo(tg.closest('.uc'));
  agendar();
+}
+// ---------------- GRUPO A (média tensão) — só o administrador ----------------
+// Grupo B = do jeito que sempre foi. Grupo A abre o bloco da fatura de média
+// tensão: demanda em kW (que o solar NÃO abate) + energia separada em ponta e
+// fora ponta. Quando A está ligado, o consumo de sempre passa a ser o FORA
+// PONTA e a ponta ganha campos próprios.
+// ---- chave deslizante (liga/desliga) ----
+// `cls` vira a classe do input escondido que guarda o valor — quem lê o campo
+// não percebe diferença nenhuma em relação ao <select> que havia antes.
+function swHTML(cls,valOff,valOn,rotOff,rotOn,acao,ligado,titulo){
+ const on=!!ligado;
+ return `<label class="sw-wrap" title="${titulo||''}">`+
+  `<input type="checkbox" class="sw-in ${cls}-sw" data-off="${valOff}" data-on="${valOn}"`+
+  ` data-rot-off="${rotOff}" data-rot-on="${rotOn}" data-acao="${acao||''}"`+
+  `${on?' checked':''} onchange="swSync(this)">`+
+  `<span class="sw"></span><span class="sw-rot">${on?rotOn:rotOff}</span>`+
+  `<input type="hidden" class="sw-val ${cls}" value="${on?valOn:valOff}">`+
+  `</label>`;
+}
+function _swRot(chk){
+ const r=chk.closest('.sw-wrap').querySelector('.sw-rot'); if(!r) return;
+ r.textContent = chk.checked ? (chk.dataset.rotOn||chk.dataset.on)
+                             : (chk.dataset.rotOff||chk.dataset.off);
+}
+function swSync(chk){
+ const val=chk.closest('.sw-wrap').querySelector('.sw-val');
+ if(val) val.value = chk.checked ? chk.dataset.on : chk.dataset.off;
+ _swRot(chk);
+ const fn=chk.dataset.acao;                 // ex.: 'setGrupo' / 'setModalidadeA'
+ if(fn && typeof window[fn]==='function') window[fn](val);
+ else agendar();
+}
+// posiciona a chave a partir de um valor (usado ao importar um projeto).
+// Devolve false quando o campo NÃO é uma chave, para o chamador seguir o
+// caminho antigo (<select>/<input> comum).
+function swSet(el,v){
+ const w=el.closest?el.closest('.sw-wrap'):null; if(!w) return false;
+ const chk=w.querySelector('.sw-in');
+ chk.checked=(String(v)===chk.dataset.on);
+ el.value=chk.checked?chk.dataset.on:chk.dataset.off;
+ _swRot(chk);
+ return true;
+}
+// ---- usinas de GD que a UC já tinha antes deste orçamento ----
+function gdHTML(g){
+ g=g||{};
+ const iso=(g.isento_icms==null)?true:!!g.isento_icms;
+ return `<div class="gd-linha" style="display:grid;grid-template-columns:1fr 70px 110px 110px 170px 58px;gap:8px;align-items:end;margin-bottom:8px">
+   <div><label>Identificação</label>
+     <input class="gd-nome" placeholder="ex.: usina 2022" value="${(g.nome||'').replace(/"/g,'&quot;')}"></div>
+   <div><label>kWp</label>
+     <input class="gd-kwp" type="number" step="0.01" value="${g.kwp||''}"
+       title="potência instalada desta usina (opcional, só informativo)"></div>
+   <div><label>Injeta na rede (kWh/mês)</label>
+     <input class="gd-inj" type="number" step="1" value="${g.injetado_kwh||''}"
+       title="a energia que esta usina INJETA na rede por mês — está na fatura, na linha ENERGIA INJETADA (ou no registrador GERAC do medidor)"></div>
+   <div><label>Gerou no total (kWh/mês)</label>
+     <input class="gd-ger" type="number" step="1" value="${g.geracao_kwh||''}"
+       title="a geração REAL do mês, que só o aplicativo de monitoramento informa. O medidor da concessionária não enxerga o que foi gerado e consumido no mesmo instante — essa parte some da fatura mas não deixou de existir. A diferença entre esta geração e o injetado é o autoconsumo."></div>
+   <div><label>ICMS do crédito</label>
+     <label class="sw-wrap" style="height:36px"
+       title="O prazo do Convênio 16/2015 corre por PARECER DE ACESSO. Ligado: esta usina ainda está no prazo e o crédito dela devolve o ICMS da TE. Desligado: o prazo desta usina acabou (usina com mais de ~4 anos) e o crédito volta só com PIS/COFINS.">
+       <input type="checkbox" class="sw-in gd-iso" ${iso?'checked':''} onchange="agendar()">
+       <span class="sw"></span><span class="sw-rot">ainda isenta</span></label></div>
+   <div><span class="rm" onclick="rmGD(this)">remover</span></div>
+ </div>`;
+}
+function addGD(bt,g){
+ // a aba Usinas é um .uc-pane (era um <details> antes das abas): procurar a
+ // lista pela UC, senão o closest devolve null e o botão não faz nada
+ const uc=bt.closest('.uc'); if(!uc) return;
+ const cx=uc.querySelector('.u-gds'); if(!cx) return;
+ cx.insertAdjacentHTML('beforeend',gdHTML(g));
+ wire(cx.lastElementChild); contarGDs(uc); agendar();
+}
+function rmGD(el){
+ const uc=el.closest('.uc'), l=el.closest('.gd-linha');
+ if(l) l.remove();
+ if(uc) contarGDs(uc);
+ agendar();
+}
+// mostra na própria aba quantas usinas a UC já tem — sem precisar entrar nela
+function contarGDs(uc){
+ const n=uc.querySelectorAll('.gd-linha').length;
+ const b=uc.querySelector('.uc-abas button[data-pane="usinas"]');
+ if(b) b.textContent = n ? `Usinas (${n})` : 'Usinas';
+}
+function lerGDs(uc){
+ return [...uc.querySelectorAll('.gd-linha')].map(l=>({
+   nome:l.querySelector('.gd-nome').value.trim(),
+   kwp:numBR(l.querySelector('.gd-kwp').value)||0,
+   injetado_kwh:numBR(l.querySelector('.gd-inj').value)||0,
+   geracao_kwh:numBR(l.querySelector('.gd-ger').value)||0,
+   isento_icms:l.querySelector('.gd-iso').checked
+ })).filter(g=>g.injetado_kwh>0||g.nome);
+}
+function ehGrupoA(uc){ const g=uc.querySelector('.u-grupo'); return !!g && g.value==='A'; }
+// ---- abas da UC (Consumo · Tarifas · Demanda · Usinas) ----
+// Os painéis continuam TODOS no DOM, só escondidos: lerUC lê a UC inteira por
+// querySelector, então trocar de aba não muda nada no que é enviado ao servidor.
+function setAba(btn, nome){
+ const uc=btn.closest('.uc'); if(!uc) return;
+ uc.querySelectorAll('.uc-abas button').forEach(b=>b.classList.toggle('on',b===btn));
+ uc.querySelectorAll('.uc-pane').forEach(p=>{ p.hidden=(p.dataset.pane!==nome); });
+}
+function _irPara(uc, nome){
+ const b=uc.querySelector(`.uc-abas button[data-pane="${nome}"]`);
+ if(b) setAba(b, nome);
+}
+function setGrupo(sel){
+ const uc=sel.closest('.uc'); const a=sel.value==='A';
+ // o que é exclusivo de cada grupo aparece/some junto (inclusive a aba Demanda)
+ uc.querySelectorAll('.so-grupo-b').forEach(d=>d.style.display=a?'none':'');
+ uc.querySelectorAll('.so-grupo-a').forEach(d=>d.style.display=a?'':'none');
+ const rm=uc.querySelector('.u-rot-medio'), rs=uc.querySelector('.u-rot-meses');
+ if(rm) rm.textContent=a?'Consumo FORA PONTA (kWh/mês)':'Consumo médio (kWh/mês)';
+ if(rs) rs.textContent=a?'Consumo FORA PONTA mês a mês (kWh)':'Consumo mês a mês (kWh)';
+ // no grupo A não existe custo de disponibilidade: a ligação não é usada
+ const lig=uc.querySelector('.u-lig'); if(lig){ lig.disabled=a;
+   lig.title=a?'No grupo A não existe custo de disponibilidade — o piso da conta é a demanda contratada':''; }
+ if(a) setModalidadeA(uc.querySelector('.u-a-mod'));
+ // voltando para o grupo B, a aba Demanda some: não deixar o usuário num painel invisível
+ const ab=uc.querySelector('.uc-abas button.on');
+ if(!a && ab && ab.dataset.pane==='demanda') _irPara(uc,'consumo');
+ aplicarModo(uc); cheiaLocal(uc); agendar();
+}
+function setModalidadeA(sel){
+ if(!sel) return; const uc=sel.closest('.uc'); const azul=sel.value==='AZUL';
+ uc.querySelectorAll('.so-azul').forEach(d=>d.style.display=azul?'':'none');
+ const rot=uc.querySelector('.u-a-dem-rot');
+ if(rot) rot.textContent=azul?'(fora ponta)':'(única)';
+ cheiaLocal(uc); agendar();
+}
+// Tenta preencher as tarifas do grupo A pela base da ANEEL. É uma CONVENIÊNCIA:
+// o grupo A tem componentes que variam por contrato, então o valor da fatura
+// manda. Se a ANEEL não responder, a tela avisa e os campos ficam à mão.
+async function buscarTarifaA(btn){
+ const uc=btn.closest('.uc'); const obs=uc.querySelector('.u-a-obs');
+ const conc=(uc.querySelector('.u-conc')||{}).value||'';
+ if(!conc){ obs.textContent='escolha a concessionária aqui em cima primeiro'; return; }
+ const sub=uc.querySelector('.u-a-sub').value, mod=uc.querySelector('.u-a-mod').value;
+ obs.textContent='buscando na ANEEL…';
+ try{
+  const r=await fetch(`/api/aneel-tarifa-a?conc=${encodeURIComponent(conc)}&sub=${sub}&mod=${mod}`);
+  const j=await r.json();
+  if(!j.ok){ obs.textContent='não consegui buscar ('+j.erro+') — preencha pela fatura'; return; }
+  const p5=x=>String((+x||0).toFixed(5)).replace('.',',');
+  uc.querySelector('.u-a-tep').value=p5(j.te_ponta);
+  uc.querySelector('.u-a-tef').value=p5(j.te_fora);
+  uc.querySelector('.u-a-tup').value=p5(j.tusd_kwh_ponta);
+  uc.querySelector('.u-a-tuf').value=p5(j.tusd_kwh_fora);
+  uc.querySelector('.u-a-tud').value=String((+j.tusd_demanda||0).toFixed(2)).replace('.',',');
+  uc.querySelector('.u-a-tudp').value=String((+j.tusd_demanda_p||0).toFixed(2)).replace('.',',');
+  obs.textContent=`✔ ${sub} ${mod} · ${j.cache?'último registro salvo':'ANEEL'}`+
+    (j.vigencia?(' · vig. '+String(j.vigencia).slice(0,10)):'')+
+    ' — confira com a fatura antes de usar na proposta';
+  cheiaLocal(uc); agendar();
+ }catch(e){ obs.textContent='não consegui buscar ('+e+') — preencha pela fatura'; }
 }
 function lerUC(el){
  const modo=el.querySelector('.u-modo').dataset.modo||'medio';
@@ -1225,8 +1564,32 @@ function lerUC(el){
  const _cs=el.querySelector('.u-conc'), _cn=_cs?_cs.value:'';
  const _ss=el.querySelector('.u-sub'), _sn=_ss?_ss.value:'';
  const _cr=(typeof CONC!=='undefined'&&CONC[_cn])||{};
+ // grupo A (só o admin tem o seletor): a ponta vira lista própria e as
+ // tarifas de média tensão viajam junto. No grupo B nada disto é enviado.
+ const _ga=el.querySelector('.u-grupo'), _grupo=(_ga&&_ga.value==='A')?'A':'B';
+ let _extraA={};
+ if(_grupo==='A'){
+  let cponta;
+  if(modo==='meses') cponta=[...el.querySelectorAll('.u-a-pmes')].map(x=>x.value===''?0:numBR(x.value)||0);
+  else { const pm=el.querySelector('.u-a-pmedio').value; cponta=Array(12).fill(pm===''?0:numBR(pm)||0); }
+  _extraA={subgrupo_a:el.querySelector('.u-a-sub').value,
+    modalidade_a:el.querySelector('.u-a-mod').value,
+    consumos_ponta:cponta,
+    demanda_kw:n('.u-a-dem'), demanda_kw_p:n('.u-a-demp'),
+    demanda_medida_kw:n('.u-a-demm'), demanda_medida_kw_p:n('.u-a-demmp'),
+    demanda_faturada_kw:n('.u-a-demf'), demanda_faturada_kw_p:n('.u-a-demfp'),
+    outros_rs:n('.u-a-outros'),
+    abat_te_inclui_icms:el.querySelector('.u-a-conv').checked,
+    isencao_icms_anos:n('.u-a-isen'),
+    te_ponta:n('.u-a-tep'), te_fora:n('.u-a-tef'),
+    tusd_kwh_ponta:n('.u-a-tup'), tusd_kwh_fora:n('.u-a-tuf'),
+    tusd_demanda:n('.u-a-tud'), tusd_demanda_p:n('.u-a-tudp'),
+    demanda_g_kw:n('.u-a-demg'), tusd_g_rs_kw:n('.u-a-tusdg'),
+    fator_ponta_manual:n('.u-a-fator')};
+ }
  return {uc_numero:el.querySelector('.u-numero').value.trim(),
-  gd:el.querySelector('.u-gd').value,
+  gd:el.querySelector('.u-gd').value, grupo:_grupo,
+  gds_existentes:lerGDs(el), ..._extraA,
   conc:_cn, sub:_sn,                                 // p/ o import repor o estado
   tipo:el.querySelector('.u-tipo').value, ligacao:el.querySelector('.u-lig').value,
   ilum_publica:n('.u-ilum'), consumos,
@@ -1235,6 +1598,7 @@ function lerUC(el){
   pis:n('.u-pis'), pct_noturno:n('.u-not'),
   icms_te:_cr.icms_sobre_te!==false, icms_tusd:_cr.icms_sobre_tusd!==false,
   abat_tusd_inclui_icms:_cr.abat_tusd_inclui_icms===true,
+  abat_te_inclui_icms:_cr.abat_te_inclui_icms!==false,
   bandeira:el.querySelector('.u-band').value};
 }
 function coletar(){
@@ -1332,6 +1696,33 @@ function renderComposicao(s){
  set('c-wp',`R$ ${fmtBR(s.preco_wp,4).replace(/,?0+$/,'')}/Wp`);
 }
 
+// Painel do grupo A: separa DEMANDA (paga do mesmo jeito, com ou sem solar) da
+// ENERGIA (essa sim o sistema abate) e mostra quanto foi compensado em cada
+// posto — é onde se vê por que a economia do grupo A é menor que a do grupo B.
+function renderGrupoA(s){
+ const box=document.getElementById('box-ga'); if(!box) return;
+ const lista=s.grupo_a||[];
+ if(!lista.length){ box.style.display='none'; box.innerHTML=''; return; }
+ box.style.display='';
+ box.innerHTML='<div style="font-size:13px;font-weight:600;margin-bottom:6px">Média tensão (grupo A)</div>'+
+  lista.map(g=>`<table style="width:100%;font-size:12px">
+    <tr><td colspan="2" style="color:var(--mudo)">UC ${g.uc} · ${g.subgrupo} ${g.modalidade}
+      · ponta ${fmtBR(g.consumo_ponta,0)} kWh · fora ponta ${fmtBR(g.consumo_fora,0)} kWh</td></tr>
+    <tr><td>Demanda (o solar não abate)</td><td>${g.demanda}</td></tr>
+    <tr><td>Energia sem o sistema</td><td>${g.energia_sem}</td></tr>
+    <tr><td>Energia com o sistema</td><td>${g.energia_com}</td></tr>
+    <tr><td>Autoconsumo (evita a tarifa cheia)${g.autoconsumo_medido?'':'<br><small class="mudo">estimado no limite otimista — informe a geração do app</small>'}</td>
+        <td>${fmtBR(g.autoconsumo,0)} kWh</td></tr>
+    <tr><td>Injetado pelo novo sistema</td><td>${fmtBR(g.injetado,0)} kWh</td></tr>
+    ${g.injecao_existente?`<tr><td>Já injetado por usina existente</td><td>${fmtBR(g.injecao_existente,0)} kWh</td></tr>`:''}
+    <tr><td>Compensado ponta · fora ponta</td><td>${fmtBR(g.compensado_ponta,0)} · ${fmtBR(g.compensado_fora,0)} kWh</td></tr>
+    <tr><td>Outros itens fixos (reativo etc.)</td><td>${g.outros}</td></tr>
+    <tr><td>1 kWh de ponta custa</td><td>${fmtBR(g.fator_ajuste,2)} kWh fora ponta</td></tr>
+    <tr><td>TUSD-G (demanda de geração)</td><td>${fmtBR(g.demanda_g_kw,2)} kW × ${fmtBR(g.tusd_g_cheia,2)} = ${g.custo_g}</td></tr>
+    <tr><td>Fatura sem · com</td><td>${g.fatura_sem} · ${g.fatura_com}</td></tr>
+  </table>`).join('<hr style="border:0;border-top:1px solid var(--borda);margin:8px 0">');
+}
+
 let timer=null;
 async function calc(mostrarErro){
  clearTimeout(timer);
@@ -1350,14 +1741,26 @@ async function calc(mostrarErro){
       ? `ou ${s.cartao_parcelas}x de ${s.parcela_cartao} no cartão`
       : `ou ${s.parcela_fin} /mês no financiamento`);
   set('r-sem',s.fatura_sem); set('r-com',s.fatura_com); set('r-eco',s.economia_mensal);
+  // o Convênio 16/2015 tem prazo por parecer de acesso: quando ele acabar, a
+  // economia cai (o crédito deixa de devolver o ICMS da TE)
+  const av=document.getElementById('aviso-isencao');
+  if(av){ if(s.economia_pos_isencao && s.anos_isencao!=null){ av.style.display='';
+      av.textContent=`⚠ a isenção de ICMS deste parecer acaba em ${fmtBR(s.anos_isencao,0)} ano(s): `+
+        `a economia cai para ${s.economia_pos_isencao}/mês (já considerado no retorno de 25 anos)`;
+    } else av.style.display='none'; }
   set('r-kwp',`${s.kwp} kWp`);
   set('r-nec',`${s.kwp_necessario} kWp · ${s.modulos_sugeridos} mód.`);
-  set('r-ger',`${s.geracao_media} kWh/mês`); set('r-cons',`${s.consumo_medio} kWh/mês`);
+  set('r-ger',`${s.geracao_media} kWh/mês`);
+  // com usina existente, o consumo mostrado é o REAL (medido + autoconsumo)
+  set('r-cons', s.autoconsumo_existente
+      ? `${s.consumo_medio} kWh/mês (medido ${s.consumo_medido} + ${s.autoconsumo_existente} autoconsumido)`
+      : `${s.consumo_medio} kWh/mês`);
   set('r-comp',`${s.compensacao_pct}%`); set('r-area',`${s.area_m2} m²`);
   set('r-pay',s.payback); set('r-25',s.retorno_25);
   document.getElementById('mo-auto').textContent=`auto: ${s.custo_mo_auto}`;
   document.getElementById('mat-auto').textContent=`auto: ${s.custo_material_auto}`;
   renderComposicao(s);
+  renderGrupoA(s);
   atualizarEditVenda(s);
   document.getElementById('sugestao').textContent=s.modulos_sugeridos?`· sugerido: ${s.modulos_sugeridos}`:'';
   // tarifa cheia (com impostos) por UC, para conferência
@@ -1371,11 +1774,28 @@ async function calc(mostrarErro){
    err.textContent='Falha ao calcular: '+e; err.style.display='block';} }
 }
 function cheiaLocal(el){
- const n=c=>{const x=numBR(el.querySelector(c).value); return isNaN(x)?0:x;};
- const te=n('.u-te'), tusd=n('.u-tusd');
+ const n=c=>{const x=numBR((el.querySelector(c)||{}).value); return isNaN(x)?0:x;};
  const g=(1-n('.u-icms')/100)*(1-(n('.u-cofins')+n('.u-pis'))/100);
- if(!g||(!te&&!tusd)){el.querySelector('.u-cheia').textContent='';return;}
  const f=x=>'R$ '+(x/g).toFixed(4).replace('.',',');
+ // grupo A: a conferência é por posto (ponta e fora ponta) + demanda
+ if(ehGrupoA(el)){
+  el.querySelector('.u-cheia').textContent='';
+  const obs=el.querySelector('.u-a-obs');
+  const tef=n('.u-a-tef'), tuf=n('.u-a-tuf'), tep=n('.u-a-tep'), tup=n('.u-a-tup');
+  if(obs && g && (tef||tep)){
+   const bl=x=>x.toFixed(2).replace('.',',');
+   const fTE=tef?(tep/tef):1;                 // REN 1.059: relação das TEs
+   const fCH=(tef+tuf)?((tep+tup)/(tef+tuf)):1;   // se fosse pela tarifa cheia
+   const man=numBR((el.querySelector('.u-a-fator')||{}).value);
+   const usado=(!isNaN(man)&&man>0)?man:fTE;
+   obs.innerHTML=`com impostos: fora ponta ${f(tef+tuf)}/kWh · ponta ${f(tep+tup)}/kWh`+
+     ` · demanda ${f(n('.u-a-tud'))}/kW<br>1 kWh de ponta = <b>${bl(usado)} kWh</b> fora ponta`+
+     ` (pelas TEs ${bl(fTE)}; pela tarifa cheia seria ${bl(fCH)})`;
+  }
+  return;
+ }
+ const te=n('.u-te'), tusd=n('.u-tusd');
+ if(!g||(!te&&!tusd)){el.querySelector('.u-cheia').textContent='';return;}
  el.querySelector('.u-cheia').textContent=
    `com impostos (conferência): TE ${f(te)} · TUSD ${f(tusd)} · cheia ${f(te+tusd)} /kWh`;
 }
@@ -1422,7 +1842,7 @@ function wire(root){root.querySelectorAll('input,select').forEach(el=>{
  root.querySelectorAll('.uc').forEach(uc=>{
   cheiaLocal(uc); syncNoturno(uc);
   uc.querySelector('.u-tipo').addEventListener('change',()=>syncNoturno(uc));
-  uc.querySelectorAll('.u-te,.u-tusd,.u-icms,.u-cofins,.u-pis').forEach(inp=>
+  uc.querySelectorAll('.u-te,.u-tusd,.u-icms,.u-cofins,.u-pis,.u-a-tep,.u-a-tup,.u-a-tef,.u-a-tuf,.u-a-tud,.u-a-fator').forEach(inp=>
     inp.addEventListener('input',()=>cheiaLocal(uc)));});
  if(root.classList&&root.classList.contains('uc')){cheiaLocal(root); syncNoturno(root);
   root.querySelector('.u-tipo').addEventListener('change',()=>syncNoturno(root));
@@ -2135,7 +2555,9 @@ function preencherUC(el,u){
    else if(x.type==='number')                     x.value=String(v).replace(',','.');
    else x.value=String(v).replace('.',',');
    x.dispatchEvent(new Event('input',{bubbles:true})); x.dispatchEvent(new Event('blur',{bubbles:true}));};
- const sel=(c,v)=>{const x=el.querySelector(c); if(x&&v!=null){x.value=v; x.dispatchEvent(new Event('change',{bubbles:true}));}};
+ const sel=(c,v)=>{const x=el.querySelector(c); if(x&&v!=null){
+   if(!swSet(x,v)) x.value=v;          // chave deslizante ou <select> comum
+   x.dispatchEvent(new Event('change',{bubbles:true}));}};
  // concessionária e modalidade (B1/B2): repõe o valor SELECIONADO sem disparar o
  // onchange — se disparasse, aplicarConc rebuscaria a ANEEL e sobrescreveria a
  // TE/TUSD/ICMS que estamos restaurando logo abaixo. Só troca se a opção existir.
@@ -2151,6 +2573,33 @@ function preencherUC(el,u){
  else set('.u-medio',cons.length?cons[0]:'');
  set('.u-te',u.te); set('.u-tusd',u.tusd); set('.u-icms',u.icms);
  set('.u-cofins',u.cofins); set('.u-pis',u.pis); set('.u-not',u.pct_noturno);
+ // grupo A: repõe modalidade, demanda, tarifas por posto e o consumo da ponta
+ if((u.grupo||'B')==='A'){
+  sel('.u-grupo','A'); sel('.u-a-sub',u.subgrupo_a||'A4');
+  sel('.u-a-mod',u.modalidade_a||'VERDE');
+  set('.u-a-dem',u.demanda_kw); set('.u-a-demp',u.demanda_kw_p);
+  set('.u-a-demm',u.demanda_medida_kw); set('.u-a-demmp',u.demanda_medida_kw_p);
+  set('.u-a-demf',u.demanda_faturada_kw); set('.u-a-demfp',u.demanda_faturada_kw_p);
+  set('.u-a-outros',u.outros_rs);
+  const _cv=el.querySelector('.u-a-conv');
+  if(_cv) _cv.checked=(u.abat_te_inclui_icms!==false);
+  set('.u-a-isen',u.isencao_icms_anos);
+  set('.u-a-tep',u.te_ponta); set('.u-a-tef',u.te_fora);
+  set('.u-a-tup',u.tusd_kwh_ponta); set('.u-a-tuf',u.tusd_kwh_fora);
+  set('.u-a-tud',u.tusd_demanda); set('.u-a-tudp',u.tusd_demanda_p);
+  set('.u-a-demg',u.demanda_g_kw); set('.u-a-tusdg',u.tusd_g_rs_kw);
+  set('.u-a-fator',u.fator_ponta_manual);
+  const cpp=u.consumos_ponta||[];
+  if(variam){ const ip=el.querySelectorAll('.u-a-pmes'); cpp.forEach((v,i)=>{if(ip[i]) ip[i].value=v;}); }
+  else set('.u-a-pmedio',cpp.length?cpp[0]:'');
+  setGrupo(el.querySelector('.u-grupo'));
+ }
+  // usinas que a UC já tem (vale para grupo A e B)
+  const cxg=el.querySelector('.u-gds');
+  if(cxg){ cxg.innerHTML='';
+   (u.gds_existentes||[]).forEach(g=>{
+     cxg.insertAdjacentHTML('beforeend',gdHTML(g)); wire(cxg.lastElementChild); });
+   contarGDs(el); }
  syncNoturno(el); cheiaLocal(el);
 }
 

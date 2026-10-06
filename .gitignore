@@ -39,3 +39,7 @@ graphify-out/????-??-??/
 Thumbs.db
 .vscode/
 .idea/
+
+# local: mapa do código (regenerável) e dados reais de infraestrutura/clientes
+graphify-out/
+CLAUDE.local.md
