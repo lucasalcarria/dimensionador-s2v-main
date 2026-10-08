@@ -516,6 +516,8 @@ def _montar_entradas(d: dict) -> engine.Entradas:
             iso = g.get('isento_icms')
             gds.append({'nome': (g.get('nome') or '').strip(),
                         'kwp': _f(g.get('kwp')),
+                        # kW de inversor desta usina (entra na TUSD-G)
+                        'inversor_kw': _f(g.get('inversor_kw')),
                         'injetado_kwh': inj,
                         # geração REAL do mês (app de monitoramento). O medidor
                         # não vê o que foi gerado e consumido no mesmo instante.
@@ -584,6 +586,7 @@ def _montar_entradas(d: dict) -> engine.Entradas:
         estrutura=(d.get('estrutura') or 'FIBROCIMENTO').strip(),
         perfil_irradiacao=str(d.get('perfil_irradiacao') or '3.8'),
         irradiacao_customizada=irr,
+        irradiacao_local=str(d.get('irradiacao_local') or '').strip() if irr else '',
         entrada=_f(d.get('entrada')),
         desloc=_f(d.get('desloc')),
         comissao_pct=_f(d.get('comissao_pct')) / 100.0,
@@ -713,6 +716,7 @@ def _resumo_grupo_a(r: dict, m) -> list:
             compensado_fora=round(d['compensado_fora'], 0),
             autoconsumo=round(d['autoconsumo'], 0),
             autoconsumo_medido=bool(d['autoconsumo_medido']),
+            autoconsumo_regra=d.get('autoconsumo_regra', 'pior_caso'),
             injetado=round(d['injetado'], 0),
             outros=m(d['outros_rs']),
             fator_ajuste=round(d['fator_ajuste'], 3),
@@ -1138,7 +1142,7 @@ CONFIG_EDITAVEL = ('aliquota_imposto', 'mao_de_obra_minima',
                    'financiamento_padrao', 'cartao_infinitetap', 'performance_ratio',
                    'perda_irradiacao', 'marcas_modulo', 'marcas_inversor',
                    'bandeiras', 'subgrupos', 'pasta_saida', 'pasta_drive',
-                   'pacotes')
+                   'pacotes', 'foto_padrao_desc')
 
 
 # ----------------------------------------------------------------- pacotes
@@ -1512,6 +1516,98 @@ def api_importar_resumo():
         return jsonify(ok=False, erro=str(exc)), 400
 
 
+def _imagens_da_proposta(d: dict):
+    """Fotos do módulo/inversor que vão para a pág. 3.
+    Prioridade: foto colada na tela (admin) > imagem própria do pacote > padrão
+    das pré-definições. Devolve (bytes p/ o PDF, data URL módulo, data URL inv.)."""
+    pid = d.get('pacote_id')
+    img_mod = (d.get('img_modulo') or _ler_img_pacote(pid, 'modulo')
+               or _ler_img_padrao('modulo'))
+    img_inv = (d.get('img_inversor') or _ler_img_pacote(pid, 'inversor')
+               or _ler_img_padrao('inversor'))
+    imagens = {'modulo': _img_bytes(img_mod), 'inversor': _img_bytes(img_inv)}
+    return {k: v for k, v in imagens.items() if v}, img_mod, img_inv
+
+
+def _norm_marca(s) -> str:
+    import unicodedata
+    s = unicodedata.normalize('NFKD', str(s or '')).encode('ascii', 'ignore')
+    return s.decode().upper().strip()
+
+
+def _conferir_fotos(d: dict, e) -> list:
+    """Avisos quando a foto que vai para a pág. 3 é a PADRÃO e é de outro
+    equipamento. A foto traz marca e potência impressas, e o programa não lê a
+    imagem: compara com o que foi cadastrado nas pré-definições
+    (`config.foto_padrao_desc`). Foto colada na tela ou do pacote = escolhida
+    para o kit, sem aviso. Sem cadastro, nada a comparar, sem aviso."""
+    desc = engine.carregar_config().get('foto_padrao_desc') or {}
+    pid = d.get('pacote_id')
+    avisos = []
+    dm = desc.get('modulo') or {}
+    if (not d.get('img_modulo') and not _ler_img_pacote(pid, 'modulo')
+            and _ler_img_padrao('modulo') and dm.get('marca')):
+        marca_f, marca_k = _norm_marca(dm['marca']), _norm_marca(e.marca_modulo)
+        pot_f = int(float(dm.get('pot_w') or 0))
+        pot_k = int(round(float(e.pot_modulo_w or 0)))
+        outra = marca_f.split()[0] not in marca_k if marca_f else False
+        if outra or (pot_f and pot_f != pot_k):
+            avisos.append(f'A foto do MÓDULO na proposta é a padrão '
+                          f'({dm["marca"]} {pot_f or ""}W), mas o kit é '
+                          f'{e.marca_modulo} {pot_k}W.')
+    di = desc.get('inversor') or {}
+    if (not d.get('img_inversor') and not _ler_img_pacote(pid, 'inversor')
+            and _ler_img_padrao('inversor') and di.get('marca')):
+        marca_f = _norm_marca(di['marca']).split()[0]
+        marcas_k = [_norm_marca(iv['marca']) for iv in e.lista_inversores()]
+        if marcas_k and not any(marca_f in m for m in marcas_k):
+            avisos.append(f'A foto do INVERSOR na proposta é a padrão '
+                          f'({di["marca"]}), mas o kit é '
+                          f'{" + ".join(iv["marca"] for iv in e.lista_inversores())}.')
+    return avisos
+
+
+@app.post('/api/conferir-fotos')
+def api_conferir_fotos():
+    """Chamado pela tela antes de gerar: devolve os avisos de foto trocada."""
+    try:
+        d = request.get_json(force=True) or {}
+        return jsonify(ok=True, avisos=_conferir_fotos(d, _montar_entradas(d)))
+    except Exception as exc:                                   # noqa: BLE001
+        return jsonify(ok=False, erro=str(exc), avisos=[]), 400
+
+
+@app.post('/api/previa')
+def api_previa():
+    """PRÉ-VISUALIZA a proposta: mesmo cálculo e mesmo PDF da ação principal,
+    mas sem gravar pasta, resumo, conferência nem enviar ao Drive. Serve para
+    olhar a proposta enquanto se ajusta os números (e para ajustes de layout)."""
+    import tempfile
+    try:
+        cfg = engine.carregar_config()
+        d = request.get_json(force=True)
+        e = _montar_entradas(d)
+        r = engine.calcular(e, cfg)
+        imagens, _, _ = _imagens_da_proposta(d)
+        fd, caminho = tempfile.mkstemp(suffix='.pdf')
+        os.close(fd)
+        try:
+            proposta.gerar_proposta(r, caminho, imagens=imagens or None)
+            with open(caminho, 'rb') as f:
+                pdf = f.read()
+        finally:
+            try:
+                os.remove(caminho)
+            except OSError:
+                pass
+        resp = app.response_class(pdf, mimetype='application/pdf')
+        resp.headers['Content-Disposition'] = 'inline; filename="PREVIA.pdf"'
+        resp.headers['Cache-Control'] = 'no-store'
+        return resp
+    except Exception as exc:                                   # noqa: BLE001
+        return jsonify(ok=False, erro=str(exc)), 400
+
+
 @app.post('/api/proposta')
 def api_proposta():
     """Ação única: calcula, salva o projeto inteiro (resumo, conferência, dados
@@ -1532,16 +1628,7 @@ def api_proposta():
         nome_pdf = _limpar_nome(e.nome, 'PROPOSTA')
         if e.tem_micro():                    # proposta de microinversor: sufixo MICRO
             nome_pdf += ' - MICRO'
-        # foto da UC quando houver; senão cai na imagem PADRÃO das pré-definições
-        # imagem: foto colada na tela (admin) > imagem própria do pacote > padrão
-        pid = d.get('pacote_id')
-        img_mod = (d.get('img_modulo') or _ler_img_pacote(pid, 'modulo')
-                   or _ler_img_padrao('modulo'))
-        img_inv = (d.get('img_inversor') or _ler_img_pacote(pid, 'inversor')
-                   or _ler_img_padrao('inversor'))
-        imagens = {'modulo': _img_bytes(img_mod),
-                   'inversor': _img_bytes(img_inv)}
-        imagens = {k: v for k, v in imagens.items() if v}
+        imagens, img_mod, img_inv = _imagens_da_proposta(d)
         # as MESMAS fotos que foram para o PDF ficam soltas na pasta do projeto
         # (MODULO.png / INVERSOR.jpg) — o import as devolve para a tela
         arq_imgs = [it for it in (_gravar_img_projeto(pasta, 'modulo', img_mod),

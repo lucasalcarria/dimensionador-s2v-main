@@ -103,7 +103,104 @@ Só precisa de `pypdfium2`, `fontTools`, `brotli` e (para os ícones) `potracer`
 Verificado em 06/10/2026: rodar `html_para_fundo.py` sobre o HTML do design
 **altera `fundo.pdf` e `layout.json`** — a pág. 5 (layout do pagamento no cartão,
 campo `cartao_parcela_txt`, posição do `valor_venda`) foi ajustada **à mão**
-depois do último build. Um build completo apaga esses ajustes. Os cartões e as
+depois do último build. Um build completo apaga esses ajustes — e também a
+**cor dos títulos de seção** (revisão de design B1: todos VERDES, só o "KIT
+GERADOR FOTOVOLTAICO" azul — "ETAPAS DO PROJETO" era azul na arte; tudo azul foi
+testado e recusado pelo usuário). Se rebuildar, rode
+`py ferramentas/recolorir_titulos.py` (idempotente).
+Correções desenhadas em `proposta.py` por cima da arte (sobrevivem ao build):
+"05" no cabeçalho da pág. 5, "COBERTURA DO CONSUMO" no grupo A e o **painel
+de garantias** da pág. 3, redesenhado inteiro em `_garantias_painel`
+(`GAR_AJUSTE`: dx 6,1 centra na área divisória→borda; dy 11 desce o grupo sem
+bateria — "meio-termo" escolhido pelo usuário; o centro exato, 22, ficou baixo
+demais para ele). Escudo e ícone da bateria são relidos do fundo pela posição.
+**Ícones e linhas — UMA família, UM sistema (B5)** — pedido do usuário: "mesma
+família, mesmas espessuras", da capa à última página. TODOS os ícones são de
+traço, desenhados por `proposta.py` sobre o fundo (o antigo é apagado):
+`ICONES_TRACO` (posições fixas, págs. 1–5), `ICONE_CARTAO` (cartões da pág. 3,
+que se reagrupam) e `_garantias_painel` (garantias). Desenhos em
+`assets/icones_traco.json`, gerado por `ferramentas/icones_traco.py` a partir da
+**Lucide** (ISC), do **Tabler** (só o WhatsApp) e de desenhos **da marca** na
+mesma grade 24 (`MARCA`: painel, inversor, drone, torre, bateria, string box,
+degradação). O programa só lê o JSON — sem internet. Sem o JSON, cai nos
+ícones antigos. **Sistema de linhas**:
+- traço de ícone **1,5 pt** (pequenos, até 16 pt: **1,1 pt**) — `_traco_de`;
+- anel de círculo **1,98 pt** (os cinza da arte já eram; os verdes da capa e da
+  faixa da pág. 2 passaram a ser) — `TRACO_ARO`;
+- bordas de cartão e réguas **0,99 pt**; divisórias e ligações **0,74 pt** — a
+  arte já seguia, exceto as 4 linhas da tabela da pág. 3, corrigidas no fundo
+  por `ferramentas/padronizar_linhas.py` (idempotente; rodar de novo após um
+  build completo, junto com `recolorir_titulos.py`).
+**Tamanhos e espaços** — tudo medido no **retângulo de tinta** do ícone (o
+"retângulo azul" do usuário: do primeiro ao último ponto visível, com o traço;
+`limites` exatos no JSON). Nada de caixas com margens vazias.
+- **Escala por GRUPO** (`_dims(nome, lado, grupo)`): todos os ícones de um grupo
+  (pilares, faixa da capa, rodapé, diagrama, tabela, cartões, garantias,
+  etapas, projetos, retorno) têm o mesmo **TAMANHO PERCEBIDO** = ponto médio
+  (média geométrica) entre a área do retângulo de tinta e a área da
+  **silhueta** (casco convexo, `silhueta` no JSON) — uma moldura quadrada
+  ("UC", 99 % do retângulo) pesa mais que uma "pessoa" (75 %) ou o "sol" (71 %)
+  e por isso fica um pouco menor; o maior lado do grupo é o tamanho do grupo
+  (nenhum fica mais alto/largo que os outros). Sem distorcer os desenhos.
+  Tamanhos: **M 26**, **P 15**, dentro de círculo **0,60 × diâmetro** (22/14/0,52
+  ficou pequeno para o usuário).
+  (Histórico: "maior lado = tamanho" deixava estreitos × quadrados muito
+  diferentes; "área" sem teto deixou tudo pequeno. A regra atual junta os dois.)
+  Bateria e drone (desenhos da marca) foram refeitos mais perto do quadrado.
+- **Espaços na tinta**: texto a 10 pt (M) / 6 pt (P) da borda da tinta; listas
+  no mesmo eixo, com a tinta do mais largo a esse espaço do texto
+  (`_cx_coluna`). **Dentro de quadro com borda** (tabela da pág. 3, cartões do
+  retorno da pág. 5) o ícone fica CENTRADO entre a borda e o texto — mesmo
+  espaço dos dois lados. Na faixa da capa, divisória→tinta = tinta→texto =
+  10 pt (`FAIXA_ESPACO` = 2 × GAP_M).
+**Rodapé da capa** (`_rodape_capa`) também DISTRIBUÍDO: caixa P + 6 pt + texto,
+1º item na margem 37,34, último terminando em 558,84, espaços iguais.
+**Faixa da capa dinâmica** (`_faixa_capa`): cliente · UC · local · sistema em
+colunas de **largura igual** sempre que possível; espaço fixo entre
+colunas (20 pt) com a divisória (0,74) no meio; uma coluna só cresce se o conteúdo não
+cabe, e as outras repartem o resto por igual ("encher por igual"); 1ª e última
+encostam nas margens 37,45 / 558,84. Se nem o conteúdo cabe, o texto mais
+largo quebra em linhas (nunca encolhe a letra). Os valores (campos do
+layout.json) recebem o x da coluna pelo `faixa_ovr` no laço de campos.
+Cores: azul #004D94 no diagrama da pág. 2, na tabela da pág. 3 e nas etapas;
+verde #089C83 no resto. **Ícone novo = da Lucide (ou desenho da marca na grade
+24), entrada nessas tabelas, sem espessura própria.**
+Prancha de todos os ícones: `previa/prancha_icones.png`.
+**Notas de rodapé (C2/C3)** — `_reescrever_nota` em `proposta.py`:
+- pág. 3 (*): a arte diz "radiação solar de Maringá", verdade só no perfil 3.8.
+  Irradiação buscada na internet → a cidade buscada (`Entradas.irradiacao_local`,
+  vem do `/api/irradiacao` pela tela e fica no DADOS.json); outro perfil → "da
+  região do projeto". Texto em `engine._textos` (`irrad_local`).
+- pág. 5 (**): no grupo A, "iluminação pública, tipo de conexão" (conceitos do
+  grupo B) vira "demanda medida, o consumo na ponta".
+**Foto trocada (C1)** — as fotos padrão de módulo/inversor trazem marca e W
+impressos. Nas pré-definições o usuário informa de qual equipamento elas são
+(`config.foto_padrao_desc` = `{modulo:{marca,pot_w}, inversor:{marca}}`);
+`app._conferir_fotos` / `POST /api/conferir-fotos` compara com o kit e a tela
+pergunta antes de gerar (a prévia só mostra o aviso). Foto colada ou do pacote
+não gera aviso. Sem cadastro, sem aviso.
+**Proposta do grupo A (D), pág. 5** — sob o "AO MÊS" dos cartões sem/com sai
+"DEMANDA E TAXAS: R$ …" (a parte que o solar não mexe: demanda, COSIP, reativo
+e, com sistema, a TUSD-G = `piso`) e no cartão verde "NN % A MENOS NA ENERGIA".
+Números em `r['grupo_a_partes']` (engine.calcular), textos `ga_*` em `_textos`;
+teste: seção 18 do `teste_grupo_a`. Opção de duas linhas por cartão foi testada
+e não cabe (102 pt de largura). Com a 4ª linha, o miolo dos três cartões é
+redesenhado `GA_DY` = 6,25 pt mais alto (`_cartoes_grupo_a`) — só o cartão que TEM a 4ª linha (sem redução a mostrar, o de economia fica como na arte) — para ficar
+centrado na vertical — pedido do usuário.
+**Grupo A, pág. 3** — sob o "CONSUMO MÉDIO" sai a sublinha "ponta 1.039 · fora
+ponta 18.434" (`textos['consumo_postos']`; fora ponta = total exibido − ponta,
+para a soma bater), Inter 6 pt cinza; o par fica centrado na célula (centro
+309 pt no topo, linhas da tabela em 290/328).
+**Grupo A, pág. 4** — a barra de consumo do gráfico vira duas: fora ponta no
+azul da marca (embaixo) e ponta em `COR_PONTA` #7FA6C9 (o mesmo azul a 50 %),
+legenda com 3 itens. Dado: `r['consumo_ponta_mensal']`. No grupo B, idêntico.
+**Usina existente (grupos A e B), pág. 5** — com `gds_existentes`, entra a nota
+"*** A conta sem S2V já desconta a usina atual (N kWh/mês): a economia é
+adicional." (`textos['nota_usina']`). Para as três notas caberem acima do
+"ACEITE", a ** é redesenhada mais alto e as folgas ficam iguais (`_notas_p5`).
+Sem usina, as notas são as da arte (no grupo A, só o texto da ** muda).
+(B4 — textos ao lado das baterias na pág. 2: minúsculas 8,4 pt foram testadas
+e recusadas, "pequeno demais"; maiúsculas maiores não cabem. Ficam como na arte.) Os cartões e as
 garantias da pág. 3, esses sim, saem idênticos. Até alguém levar os ajustes da
 pág. 5 de volta para o HTML/conversor: **não rode o build completo**; para os
 ícones use o modo abaixo.
@@ -220,6 +317,13 @@ posição, tamanho, círculos e alinhamentos ficam idênticos por construção.
     grupo B **sobe** (a planilha negava 50 kWh de crédito todo mês) — na PLANILHA,
     de R$ 277,62 para R$ 310,53. **O grupo A não é afetado** (lá não existe
     custo de disponibilidade). **Não reverter para `faturado − disponibilidade`.**
+    **Bandeira quando a disponibilidade vence** (08/10/2026, pedido do usuário):
+    a bandeira é cobrada no faturado e devolvida no compensado; como agora se
+    compensa tudo, sobraria zero — mas no custo de disponibilidade o faturado é
+    o mínimo, então a conta COM o sistema leva a bandeira sobre os kWh da
+    disponibilidade (bifásico amarela: R$ 1,27; vermelha P2: R$ 5,29). Com o Fio
+    B vencendo, continua se anulando (como na FATURA-B). ⚠ Regra da ANEEL, ainda
+    sem fatura que a comprove. A "conta SEM" segue a planilha (sem bandeira).
 
 ## Grupo A (média tensão) — SÓ o administrador
 
@@ -243,8 +347,14 @@ O que muda na conta (`engine._fatura_grupo_a`, testado em `teste_grupo_a.py`):
    demanda de ponta + fora ponta (`tusd_demanda` / `tusd_demanda_p`).
 1b. **No grupo A NÃO existe "% noturno"** — o campo é escondido (`.so-grupo-b`).
    O rateio dia/noite já está no próprio ponta/fora ponta: o sol só gera fora
-   ponta, então `autoconsumo = min(consumo fora ponta, geração)` e o excedente
-   é **injetado**. O autoconsumo some da conta pela **tarifa CHEIA (com ICMS)**,
+   ponta. **Autoconsumo do sistema NOVO = PIOR CASO por padrão** (decisão do
+   usuário, igual à planilha paralela dele): **zero** — toda a geração nova é
+   **injetada** e volta como crédito, que vale menos que o kWh evitado (o ICMS da
+   TUSD não volta: R$ 0,0374/kWh na FATURA-A). `config.autoconsumo_grupo_a`:
+   `pior_caso` (padrão) · `medido` (fração medida na usina existente com a
+   geração do app; sem ela, pior caso) · `otimista` (tudo até o consumo fora
+   ponta — era o padrão antigo e superestimava a economia; na FATURA-A com
+   112,5 kWp novos: R$ 7.642,99 otimista × **R$ 7.159,31** pior caso). O autoconsumo some da conta pela **tarifa CHEIA (com ICMS)**,
    porque nem chega a ser medido; o injetado volta pelo abatimento (sem o ICMS
    da TE onde o convênio venceu). Sem o Convênio 16/2015, **1 kWh autoconsumido
    vale mais que 1 kWh injetado**.
@@ -289,9 +399,13 @@ O que muda na conta (`engine._fatura_grupo_a`, testado em `teste_grupo_a.py`):
    (`tusd_g_com_imposto()` faz o gross-up): `config.tusd_g_rs_kw = 7,88` sem
    impostos ≈ **R$ 10,58/kW com impostos**, que é a referência do usuário.
    Na prática contrata-se como TUSD-G só o que **falta** para cobrir a potência
-   dos inversores: `demanda_g = max(kW de inversores − demanda de consumo
-   contratada, 0)`, que é o cálculo automático quando o campo fica vazio (o
-   usuário pode digitar outro). É um custo que **só existe COM o sistema** —
+   dos inversores: `demanda_g = max(kW de inversores do projeto NOVO + kW de
+   inversores das USINAS EXISTENTES − demanda de consumo contratada, 0)`, que é
+   o cálculo automático quando o campo fica vazio (o usuário pode digitar
+   outro). Cada usina em `gds_existentes` tem `inversor_kw` (campo "Inversor
+   (kW)" na aba Usinas); vazio = usa o kWp (dá um pouco MAIS de TUSD-G, lado
+   seguro). Exemplo: `exemplos/projeto_novo_grupo_a.json` — 75 kW novos + 135 kW
+   existentes − 175 contratados = **35 kW** (seção 18 do `teste_grupo_a`). É um custo que **só existe COM o sistema** —
    entra no `total` e no `piso`, nunca na `fatura_sem`, e por isso derruba a
    economia e o payback. Na FATURA-A dá zero: 135 kW de inversor < 175 kW de
    demanda contratada, nada a contratar (por isso a fatura validada não muda).
@@ -844,6 +958,19 @@ lá — ao mexer nele, prefira acrescentar chaves a reescrever o arquivo.
   (No Windows: `py`, e `PYTHONIOENCODING=utf-8` para o console não engasgar.)
 - **PDF** → gere e confira por pixels/OCR (`pdftoppm -r 150` + PIL/pytesseract).
   Não confie em "parece certo": meça.
+  **Ajuste de layout = antes × depois:** `py ferramentas/previa.py --base`
+  congela a proposta atual (3 casos fictícios: B completo, B sem bateria/string
+  box, A ampliação) em `previa/base/`; depois de mexer, `py ferramentas/previa.py`
+  aponta cada região que mudou (em pt) e salva o lado a lado em
+  `previa/comparar/`. Mudança fora do lugar pretendido = efeito colateral.
+  `py ferramentas/previa.py --caixas` desenha um quadrado AZUL em volta da
+  parte PREENCHIDA de cada ícone — MEDIDA na imagem a 300 dpi, sem o anel dos
+  círculos — e lista largura × altura e o desvio do centro (`previa/caixas/`).
+  É a prova de que tamanhos e centros seguem a regra (`proposta._REGISTRO_ICONES`
+  anota cada ícone desenhado só nesse modo).
+  O usuário quer padronizar a proposta **UMA mudança aprovada por vez** — nunca
+  em bloco. Na tela, o botão **👁 Pré-visualizar** (`/api/previa`) gera o mesmo
+  PDF sem salvar pasta nem enviar ao Drive.
 - **UI** → o JS é validado com `node --check` (remova as tags Jinja antes).
   ⚠ **Não há Node nesta máquina.** Use o motor JS que vem dentro do VS Code:
   ```bash

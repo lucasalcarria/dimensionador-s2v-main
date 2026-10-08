@@ -176,9 +176,15 @@ preço unitário for menor que o da TE consumida, o prazo acabou (`false`).
   de correção = TE ponta ÷ TE fora ponta). Mande `fator_ponta_manual: 1.63` se o
   cliente for COPEL. **Nunca calcule esse fator pela tarifa cheia** — daria ~4,4 e
   inflaria a economia.
+- **O programa considera sempre o PIOR CASO de autoconsumo no grupo A**: toda a
+  geração do sistema novo é tratada como injetada (nada consumido na hora). É
+  o critério da S2V — não "melhore" a economia por conta própria.
 - **TUSD-G (demanda de geração)** é opcional, vale para GD1 e GD2, e contrata-se
-  só o que a potência dos inversores passa da demanda de consumo já contratada.
-  Deixe `demanda_g_kw: 0` que o programa calcula.
+  só o que a potência dos inversores — **do projeto novo MAIS os das usinas que
+  a UC já tem** — passa da demanda de consumo já contratada. Deixe
+  `demanda_g_kw: 0` que o programa calcula, e informe o `inversor_kw` de cada
+  usina existente em `gds_existentes` (sem ele o programa usa o kWp). Molde:
+  `exemplos/projeto_novo_grupo_a.json`.
 
 ### Grupo B: a regra do maior valor
 

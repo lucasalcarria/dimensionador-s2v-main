@@ -127,15 +127,25 @@ secao('3. Autoconsumo × injeção (sem %noturno) e fator da ponta)')
 ok('fator de correção = TE ponta / TE fora ponta', u.fator_ajuste_ponta(), 3.0)
 ok('fator informado à mão prevalece',
    uc_a4(fator_ponta_manual=1.63).fator_ajuste_ponta(), 1.63)
-# sistema pequeno diante do consumo: tudo é usado na hora, nada é injetado
-peq = calcular(entradas(uc_a4(), 27), cfg, ano)       # ~16,7 kWp
+# PADRÃO = PIOR CASO (decisão do usuário): nada de autoconsumo, toda a
+# geração do sistema novo é injetada e volta como crédito
+pc = calcular(entradas(uc_a4(), 27), cfg, ano)['detalhes_uc'][0]
+ok('pior caso (padrão): autoconsumo zero', pc['autoconsumo'], 0.0)
+ok('pior caso: toda a geração é injetada', pc['injetado'],
+   int(pc['geracao_rateada']), 0)
+ok('pior caso: o resultado diz a regra', pc['autoconsumo_regra'], 'pior_caso')
+# as outras regras continuam disponíveis (config.autoconsumo_grupo_a)
+cfg_ot = dict(cfg, autoconsumo_grupo_a='otimista')
+cfg_med = dict(cfg, autoconsumo_grupo_a='medido')
+# OTIMISTA — sistema pequeno diante do consumo: tudo usado na hora
+peq = calcular(entradas(uc_a4(), 27), cfg_ot, ano)    # ~16,7 kWp
 dp = peq['detalhes_uc'][0]
 ok('geração pequena vira toda autoconsumo',
    dp['autoconsumo'], dp['geracao_rateada'], 1.0)
 ok('nada injetado', dp['injetado'], 0.0)
 ok('e nada compensado na ponta', dp['compensado_ponta'], 0.0)
 # sistema grande: cobre todo o fora ponta e o excedente vira crédito p/ a ponta
-gr = calcular(entradas(uc_a4(), 400), cfg, ano)
+gr = calcular(entradas(uc_a4(), 400), cfg_ot, ano)
 dg = gr['detalhes_uc'][0]
 ok('autoconsumo limitado ao consumo fora ponta', dg['autoconsumo'], 20000.0, 1.0)
 ok('fora ponta zerado: não sobra nada para compensar lá',
@@ -422,24 +432,27 @@ ok('dimensionamento não muda (o autoconsumo se cancela)',
    r_real['consumo_anual_equiv'], _calc(b2)['consumo_anual_equiv'], 0.1)
 
 secao('15. Autoconsumo: fração MEDIDA na usina atual, não hipótese')
-# Sem usina com geração informada, o motor assume absorção total até o consumo
-# fora ponta — o limite OTIMISTA. O resultado avisa que foi hipótese.
-sem_med = calcular(entradas(uc_a4(), 300), cfg, ano)['detalhes_uc'][0]
-ok('sem medição, o autoconsumo é hipótese', sem_med['autoconsumo_medido'], False)
-ok('e assume absorção até o consumo fora ponta',
-   sem_med['autoconsumo'], min(20000.0, sem_med['geracao_rateada']), 1.0)
+# Regra "medido": sem usina com geração informada, cai no PIOR CASO (nada de
+# autoconsumo); a regra "otimista" assume absorção total até o fora ponta.
+sem_med = calcular(entradas(uc_a4(), 300), cfg_med, ano)['detalhes_uc'][0]
+ok('sem medição, o autoconsumo não é medido', sem_med['autoconsumo_medido'], False)
+ok('e cai no pior caso (zero)', sem_med['autoconsumo'], 0.0)
+ot = calcular(entradas(uc_a4(), 300), cfg_ot, ano)['detalhes_uc'][0]
+ok('otimista: absorção até o consumo fora ponta',
+   ot['autoconsumo'], min(20000.0, ot['geracao_rateada']), 1.0)
 
 # Com a usina atual medida (gerou 1.000, injetou 400 -> 60 % fica na casa), o
 # motor usa ESSA fração para o sistema novo em vez de arbitrar.
 med = uc_a4(gds_existentes=[{'nome': 'atual', 'injetado_kwh': 400.0,
                              'geracao_kwh': 1000.0}])
 ok('fração de autoconsumo medida', med.fracao_autoconsumo(), 0.6, 1e-9)
-d_med = calcular(entradas(med, 300), cfg, ano)['detalhes_uc'][0]
+d_med = calcular(entradas(med, 300), cfg_med, ano)['detalhes_uc'][0]
 ok('agora o autoconsumo é medido', d_med['autoconsumo_medido'], True)
 ok('autoconsumo = geração × fração medida',
    d_med['autoconsumo'], min(20000.0, d_med['geracao_rateada'] * 0.6), 1.0)
 ok('e sobra MAIS para injetar que na hipótese otimista',
-   d_med['injetado'] > sem_med['injetado'], True)
+   d_med['injetado'] > ot['injetado'], True)
+ok('e MENOS que no pior caso', d_med['injetado'] < sem_med['injetado'], True)
 
 secao('16. Rateio entre usinas é PROPORCIONAL ao que cada uma injetou')
 # Duas usinas iguais, uma no prazo da isenção e outra fora: o crédito devolvido
@@ -496,6 +509,40 @@ with _app.app.test_request_context('/api/calcular'):
         _app._senha_acesso, _app._aplicar_pacote = _orig, _pac
 ok('consultor: a UC volta a ser grupo B', e_cons.ucs[0].grupo, 'B')
 ok('consultor: a demanda é descartada', e_cons.ucs[0].demanda_kw, 0.0)
+
+secao('18. Cartões da pág. 5: "demanda e taxas" + energia fecham o total')
+import json as _json
+import os
+_d18 = _json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                    'exemplos', 'fatura_real_grupo_a.json'),
+                       encoding='utf-8'))
+_d18.update(qtd_modulos_kit=200, valor_kit=190000, inversores=[
+    dict(marca='CHINT', pot_kw=125, tensao=380, qtd=1)])
+with _app.app.test_request_context('/'):
+    _r18 = calcular(_app._montar_entradas(_d18), carregar_config())
+_ga = _r18['grupo_a_partes']
+ok('sem: demanda e taxas + energia = conta', _ga['fixo_sem'] + _ga['energia_sem'],
+   _r18['fatura_sem'], 1e-6)
+ok('com: demanda e taxas + energia = conta', _ga['fixo_com'] + _ga['energia_com'],
+   _r18['fatura_com'], 1e-6)
+ok('demanda e taxas da FATURA-A (167,47 kW × 25,33 + COSIP + reativo)',
+   _ga['fixo_sem'], 5696.79 + 132.37 + 424.24, 0.02)
+# 125 kW novos + 135 kW da usina existente passam dos 175 kW contratados:
+# a parte fixa COM o sistema = a de hoje + a TUSD-G (que só existe com ele)
+ok('parte fixa com o sistema = a de hoje + TUSD-G', _ga['fixo_com'],
+   _ga['fixo_sem'] + _r18['detalhes_uc'][0]['custo_g'], 1e-6)
+ok('texto do cartão verde', _r18['textos']['ga_reducao'].endswith('% A MENOS NA ENERGIA'), True)
+# TUSD-G automática soma os inversores das usinas que a UC JÁ TEM
+_u18 = dict(_d18['ucs'][0])
+_u18['gds_existentes'] = [dict(g, inversor_kw=135) for g in _u18['gds_existentes']]
+_d18b = dict(_d18, ucs=[_u18], qtd_modulos_kit=180, pot_modulo_w=625,
+             inversores=[dict(marca='CHINT', pot_kw=75, tensao=380, qtd=1)])
+with _app.app.test_request_context('/'):
+    _r18b = calcular(_app._montar_entradas(_d18b), carregar_config())
+ok('TUSD-G = 75 (novo) + 135 (existente) − 175 contratados = 35 kW',
+   _r18b['detalhes_uc'][0]['demanda_g_kw'], 35.0, 1e-9)
+ok('nota *** da usina existente (5.490 kWh/mês injetados)',
+   '(5.490 kWh/mês)' in _r18['textos'].get('nota_usina', ''), True)
 
 print()
 if falhas:

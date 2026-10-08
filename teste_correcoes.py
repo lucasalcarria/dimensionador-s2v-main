@@ -96,6 +96,23 @@ dp = calcular(e_pouco, cfg_real, ano=2026)['detalhes_uc'][0]
 sobra_p = dp['faturado'] * (dp['tarifa'] - dp['abat_te'] - dp['abat_tusd'])
 ok('consumo baixo: ganha o custo de disponibilidade', dp['taxa_min'], dp['piso'], 1e-9)
 ok('...e a sobra do Fio B fica abaixo do piso', sobra_p < dp['piso'], True)
+# com disponibilidade + bandeira NÃO verde: sobra a bandeira sobre os kWh da
+# disponibilidade (o faturado é o mínimo) — 50 kWh no bifásico
+import dataclasses as _dc
+ok('disponibilidade com bandeira VERDE: sem bandeira', dp['extra_bandeira'], 0.0)
+e_band = _dc.replace(e_pouco, ucs=[_dc.replace(uc_pouco, bandeira='AMARELA')]
+                     + [UC() for _ in range(8)])
+db = calcular(e_band, cfg_real, ano=2026)['detalhes_uc'][0]
+_bg = cfg['bandeiras']['AMARELA'] / ((1 - 0.19) * (1 - (0.058 + 0.0126)))
+ok('disponibilidade + AMARELA: bandeira sobre os 50 kWh',
+   db['extra_bandeira'], 50 * _bg, 1e-9)
+ok('...e entra na conta com o sistema', db['total'],
+   db['piso'] + 50 * _bg + db['ilum_publica'], 1e-9)
+# quando vence o Fio B e tudo é compensado, a bandeira continua se anulando
+e_fb = caso_planilha()
+e_fb.ucs[0] = _dc.replace(e_fb.ucs[0], bandeira='AMARELA')
+ok('Fio B vencendo + AMARELA: cobrada e devolvida se anulam',
+   calcular(e_fb, cfg_real, ano=2026)['detalhes_uc'][0]['extra_bandeira'], 0.0)
 # assimetria proposital da COPEL: TE abatida COM ICMS, TUSD abatida SEM ICMS
 u = caso_planilha().ucs[0]
 fio_b = cfg['fio_b_rs_mwh'] / 1000.0 * 0.60          # 2026 = 60 %

@@ -35,7 +35,7 @@ desenhar. Hoje são **34 posições**.
 
 | O que aparece | Chave | De onde vem |
 |---|---|---|
-| Planilha Zamferrari | `nome_proper` | nome digitado, em Caixa Alta Inicial |
+| Cliente Planilha | `nome_proper` | nome digitado, em Caixa Alta Inicial |
 | 12345, 23456, 34567 | `uc_numero` | os nº de UC de **todas** as faturas cadastradas, juntos |
 | Rua Manoel Saes, 213 | `endereco` | logradouro **+ número** (campos separados na tela) |
 | Cidade Exemplo - PR | `cidade` | cidade digitada (ou vinda do CEP) |

@@ -510,6 +510,8 @@ body:not(.consultor) .so-consultor{display:none!important;}
     <div class="erro" id="erro"></div>
     <div style="display:flex;gap:8px;margin-top:14px">
       <button class="bt-verde" style="flex:1" onclick="gerar()" id="bt-pdf">Gerar proposta e salvar</button>
+      <button class="bt-claro" onclick="previa()" id="bt-previa"
+        title="mostra o PDF como vai ficar, sem salvar nada nem enviar ao Drive">👁 Pré-visualizar</button>
     </div>
     <button class="bt-claro" style="width:100%;margin-top:8px" onclick="novaProposta()" id="bt-novo" title="limpa todos os campos para começar uma nova proposta do zero">🆕 Nova proposta (limpar tudo)</button>
     <button class="bt-claro" style="width:100%;margin-top:8px" onclick="conferir()" id="bt-conf">🧮 Conferir contas do retorno financeiro</button>
@@ -624,7 +626,7 @@ const PACOTES={{ pacotes_pub | tojson }};         // pacotes públicos (sem cust
 const CONEXOES=['HÍBRIDO','ON-GRID','MICRO'];
 const ESTRUTURAS=['FIBROCIMENTO','CERÂMICO','METÁLICO','MINI TRILHO','LAJE','SOLO'];
 const PCT = x => Math.round(x*10000)/100;      // fração -> %
-let irrCustom=null;
+let irrCustom=null, irrLocal='';   // irrLocal: cidade da irradiação (nota da pág. 3)
 let CONC={};       // concessionárias (tarifas locais + alíquotas)
 let SUBGRUPOS=[];  // modalidades (B1, B2, B3)
 
@@ -1437,12 +1439,15 @@ function swSet(el,v){
 function gdHTML(g){
  g=g||{};
  const iso=(g.isento_icms==null)?true:!!g.isento_icms;
- return `<div class="gd-linha" style="display:grid;grid-template-columns:1fr 70px 110px 110px 170px 58px;gap:8px;align-items:end;margin-bottom:8px">
+ return `<div class="gd-linha" style="display:grid;grid-template-columns:1fr 70px 80px 110px 110px 170px 58px;gap:8px;align-items:end;margin-bottom:8px">
    <div><label>Identificação</label>
      <input class="gd-nome" placeholder="ex.: usina 2022" value="${(g.nome||'').replace(/"/g,'&quot;')}"></div>
    <div><label>kWp</label>
      <input class="gd-kwp" type="number" step="0.01" value="${g.kwp||''}"
-       title="potência instalada desta usina (opcional, só informativo)"></div>
+       title="potência instalada desta usina (opcional)"></div>
+   <div><label>Inversor (kW)</label>
+     <input class="gd-inv" type="number" step="0.01" value="${g.inversor_kw||''}"
+       title="potência de inversor desta usina. No grupo A entra no cálculo da TUSD-G: inversores do projeto novo + os das usinas existentes − demanda contratada. Vazio = usa o kWp (dá um pouco a mais de TUSD-G, lado seguro)."></div>
    <div><label>Injeta na rede (kWh/mês)</label>
      <input class="gd-inj" type="number" step="1" value="${g.injetado_kwh||''}"
        title="a energia que esta usina INJETA na rede por mês — está na fatura, na linha ENERGIA INJETADA (ou no registrador GERAC do medidor)"></div>
@@ -1481,6 +1486,7 @@ function lerGDs(uc){
  return [...uc.querySelectorAll('.gd-linha')].map(l=>({
    nome:l.querySelector('.gd-nome').value.trim(),
    kwp:numBR(l.querySelector('.gd-kwp').value)||0,
+   inversor_kw:numBR((l.querySelector('.gd-inv')||{}).value)||0,
    injetado_kwh:numBR(l.querySelector('.gd-inj').value)||0,
    geracao_kwh:numBR(l.querySelector('.gd-ger').value)||0,
    isento_icms:l.querySelector('.gd-iso').checked
@@ -1613,6 +1619,7 @@ function coletar(){
   ucs:[...document.getElementById('ucs').children].map(lerUC),
   perfil_irradiacao:v('perfil')==='__custom__'?'3.8':v('perfil'),
   irradiacao_customizada:v('perfil')==='__custom__'?irrCustom:null,
+  irradiacao_local:v('perfil')==='__custom__'?irrLocal:'',
   marca_modulo:selVal('marca_modulo'),pot_modulo_w:num('pot_modulo_w'),qtd_modulos_kit:num('qtd_modulos'),
   inversores:invs,
   marca_inversor:iv0.marca,pot_inversor_kw:iv0.pot_kw,tensao_inversor:iv0.tensao,
@@ -1711,7 +1718,7 @@ function renderGrupoA(s){
     <tr><td>Demanda (o solar não abate)</td><td>${g.demanda}</td></tr>
     <tr><td>Energia sem o sistema</td><td>${g.energia_sem}</td></tr>
     <tr><td>Energia com o sistema</td><td>${g.energia_com}</td></tr>
-    <tr><td>Autoconsumo (evita a tarifa cheia)${g.autoconsumo_medido?'':'<br><small class="mudo">estimado no limite otimista — informe a geração do app</small>'}</td>
+    <tr><td>Autoconsumo (evita a tarifa cheia)${({pior_caso:'<br><small class="mudo">pior caso: toda a geração nova é injetada</small>',otimista:'<br><small class="mudo">limite otimista (tudo consumido na hora)</small>'})[g.autoconsumo_regra]||''}</td>
         <td>${fmtBR(g.autoconsumo,0)} kWh</td></tr>
     <tr><td>Injetado pelo novo sistema</td><td>${fmtBR(g.injetado,0)} kWh</td></tr>
     ${g.injecao_existente?`<tr><td>Já injetado por usina existente</td><td>${fmtBR(g.injecao_existente,0)} kWh</td></tr>`:''}
@@ -1850,10 +1857,45 @@ function wire(root){root.querySelectorAll('input,select').forEach(el=>{
     inp.addEventListener('input',()=>cheiaLocal(root)));}}
 
 let _pdfUrl=null;                 // guarda o último PDF gerado (link opcional de download)
-async function gerar(){
- const bt=document.getElementById('bt-pdf'); bt.disabled=true; bt.textContent='Gerando e salvando…';
+// PRÉ-VISUALIZAÇÃO: mesmo PDF, sem salvar pasta nem enviar ao Drive
+let _previaUrl=null;
+async function previa(){
+ const bt=document.getElementById('bt-previa'); const rot=bt.textContent;
+ bt.disabled=true; bt.textContent='Gerando…';
+ const err=document.getElementById('erro');
  try{
   const body=coletar(); body.img_modulo=fotoModulo; body.img_inversor=fotoInversor;
+  const avisos=await conferirFotos(body);   // só informa; a prévia não salva nada
+  const r=await fetch('/api/previa',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body)});
+  if(!r.ok){const j=await r.json(); throw j.erro||'erro';}
+  const blob=await r.blob();
+  if(_previaUrl) URL.revokeObjectURL(_previaUrl);
+  _previaUrl=URL.createObjectURL(blob);
+  window.open(_previaUrl,'_blank');
+  if(avisos.length){ err.textContent='⚠ '+avisos.join('  ⚠ '); err.style.display='block'; }
+  else err.style.display='none';
+ }catch(e){ err.textContent='Falha na pré-visualização: '+e; err.style.display='block'; }
+ finally{ bt.disabled=false; bt.textContent=rot; }
+}
+// foto padrão de OUTRO equipamento? (marca/W impressos na imagem) — ver
+// app._conferir_fotos. Devolve a lista de avisos (vazia = tudo certo).
+async function conferirFotos(body){
+ try{
+  const j=await (await fetch('/api/conferir-fotos',{method:'POST',
+    headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
+  return j.avisos||[];
+ }catch(e){ return []; }
+}
+async function gerar(){
+ const bt=document.getElementById('bt-pdf');
+ const body=coletar(); body.img_modulo=fotoModulo; body.img_inversor=fotoInversor;
+ const avisos=await conferirFotos(body);
+ if(avisos.length && !confirm('⚠ '+avisos.join('\n⚠ ')
+     +'\n\nCole a foto certa na tela (ou troque a padrão nas pré-definições).'
+     +'\n\nGerar e salvar mesmo assim?')) return;
+ bt.disabled=true; bt.textContent='Gerando e salvando…';
+ try{
   const r=await fetch('/api/proposta',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify(body)});
   if(!r.ok){const j=await r.json(); throw j.erro||'erro';}
@@ -1900,7 +1942,7 @@ async function buscarIrradiacao(){
   const r=await fetch('/api/irradiacao',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify(body)});
   const j=await r.json(); if(!j.ok) throw j.erro;
-  irrCustom=j.mensal;
+  irrCustom=j.mensal; irrLocal=j.cidade||'';
   document.getElementById('perfil').value='__custom__';
   const info=document.getElementById('irr-info');
   const perdaPct=Math.round((j.perda||0)*100);
@@ -2072,6 +2114,7 @@ function _setupComboConsultor(){
 const _esc=s=>String(s==null?'':s).replace(/"/g,'&quot;');
 function configHTML(c){
  const g=c.garantias_fixas||{}, fin=c.financiamento_padrao||{}, cart=c.cartao_infinitetap||{};
+ const fpd=c.foto_padrao_desc||{};   // de qual equipamento são as fotos padrão
  const linhasMat=(c.material_extra_faixas||[]).map((f,i)=>
    `<div class="inv-linha" style="grid-template-columns:1fr 1fr 1fr auto">
      <input class="mat-min" type="number" step="0.1" value="${_esc(f[0])}">
@@ -2165,6 +2208,11 @@ function configHTML(c){
       <button type="button" class="foto-rm" id="cfoto-inv-rm" style="display:none" onclick="removerImgPadrao(event,'inv')">remover</button>
       <input type="file" id="cfoto-inv-file" accept="image/*" style="display:none">
     </div>
+  </div>
+  <div class="grid g3" style="margin-top:6px" title="A foto traz marca e potência impressas. Informe de qual equipamento ela é: ao gerar uma proposta de outro equipamento com a foto padrão, a tela avisa.">
+   <div><label>Marca do módulo da foto</label><input id="cf-fp-mod-marca" value="${_esc(fpd.modulo&&fpd.modulo.marca||'')}"></div>
+   <div><label>Potência do módulo da foto (W)</label><input id="cf-fp-mod-w" type="number" value="${_esc(fpd.modulo&&fpd.modulo.pot_w||'')}"></div>
+   <div><label>Marca do inversor da foto</label><input id="cf-fp-inv-marca" value="${_esc(fpd.inversor&&fpd.inversor.marca||'')}"></div>
   </div>
   ${H('Onde salvar os projetos (pasta local)')}
   <div><label>Pasta base <small class="auto">(vazio = pasta "clientes" local; ex. Drive p/ Desktop: G:\\Meu Drive\\ORÇAMENTOS)</small></label>
@@ -2444,6 +2492,10 @@ function salvarConfig(){
  const rem=G('cf-remover-senha')&&G('cf-remover-senha').checked;
  const nova=G('cf-senha')?G('cf-senha').value:'';
  if(rem) c.senha_acesso=''; else if(nova) c.senha_acesso=nova;
+ // de qual equipamento são as fotos padrão (para o aviso de foto trocada)
+ c.foto_padrao_desc={modulo:{marca:(G('cf-fp-mod-marca').value||'').trim(),
+   pot_w:numBR(G('cf-fp-mod-w').value)||null},
+   inversor:{marca:(G('cf-fp-inv-marca').value||'').trim()}};
  fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(c)})
   .then(r=>r.json()).then(async j=>{
     if(!j.ok) throw j.erro;
@@ -2528,7 +2580,7 @@ function aplicar(d){
  const invs=(d.inversores&&d.inversores.length)?d.inversores
    :[{marca:d.marca_inversor,pot_kw:d.pot_inversor_kw,tensao:d.tensao_inversor,qtd:1}];
  invs.forEach(iv=>addInv(iv.marca,iv.pot_kw,iv.tensao,iv.qtd,iv.micro)); atualizar380();
- if(d.irradiacao_customizada){ irrCustom=d.irradiacao_customizada;
+ if(d.irradiacao_customizada){ irrCustom=d.irradiacao_customizada; irrLocal=d.irradiacao_local||'';
    document.getElementById('perfil').value='__custom__'; setIrrModo('internet'); }
  else { const p=document.getElementById('perfil');
    if(d.perfil_irradiacao&&[...p.options].some(o=>o.value===d.perfil_irradiacao)) p.value=d.perfil_irradiacao;

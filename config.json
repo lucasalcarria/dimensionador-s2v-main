@@ -1,4 +1,6 @@
 {
+  "autoconsumo_grupo_a": "pior_caso",
+  "_autoconsumo_grupo_a": "Grupo A: quanto da geracao do sistema NOVO a UC consome na hora. pior_caso = nada (tudo injetado; padrao, decisao do usuario); medido = fracao medida na usina existente com a geracao do app informada (sem ela, pior caso); otimista = tudo ate o consumo fora ponta.",
   "_comentario": "Parâmetros de negócio do dimensionador S2V. Edite à vontade — o programa lê este arquivo a cada cálculo. As referências indicam a célula de origem na planilha.",
   "performance_ratio": 0.75,
   "_performance_ratio": "Fator de desempenho do sistema usado na geração (DADOS!D22 usa 0,75).",
@@ -533,5 +535,14 @@
       "bat_marca": "",
       "bat_kwh": null
     }
-  ]
+  ],
+  "foto_padrao_desc": {
+    "modulo": {
+      "marca": "",
+      "pot_w": null
+    },
+    "inversor": {
+      "marca": ""
+    }
+  }
 }

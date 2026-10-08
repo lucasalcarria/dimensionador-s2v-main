@@ -1,5 +1,5 @@
 {
-  "_comentario": "REPRODUZ A FATURA REAL — Cliente A, COPEL, ref. 09/2026, TOTAL R$ 17.648,07. UC 000000000000001, Cidade Exemplo-PR, A4 Industrial Verde, trifasico 800A, ja minigerador (135 kW, GD1). Enviar em POST /api/calcular: a resposta deve trazer fatura_sem = R$ 17.648,01 (os 6 centavos sao o arredondamento de cada linha pela COPEL). ATENCAO: grupo A exige sessao de ADMINISTRADOR — num payload de consultor o servidor forca grupo B e descarta a demanda.",
+  "_comentario": "PROJETO NOVO sobre a fatura real do grupo A (Cliente A, COPEL, ref. 09/2026, conta hoje R$ 17.648,07). Sistema NOVO de 180 modulos de 625 W (112,5 kWp) + inversor de 75 kW, para abater o consumo FORA PONTA, SOMADO a usina de 135 kW que a UC ja tem (gds_existentes). Resultado esperado em POST /api/calcular ou ao importar: fatura_sem R$ 17.648,01 -> fatura_com R$ 10.488,70 (economia R$ 7.159,31/mes) no PIOR CASO (toda a geracao nova injetada, sem autoconsumo — padrao do programa), com 35 kW de TUSD-G. Preencha valor_kit com o preco real do kit antes de gerar a proposta. Grupo A exige sessao de ADMINISTRADOR.",
   "nome": "CLIENTE A",
   "endereco": "Rodovia Exemplo",
   "numero": "0",
@@ -61,9 +61,9 @@
       "tusd_demanda": 25.33,
       "tusd_demanda_p": 0,
       "_fator": "NAO preencher fator_ponta_manual: deixando de fora, o programa calcula pela razao entre as TEs SEM impostos desta fatura (0,4755 / 0,29575 = 1,608), que e a regra da REN 1.059/2023. Preencher a mao anula esse calculo e congela um numero que muda a cada revisao tarifaria. So use o campo se a sua distribuidora aplicar outra regra, comprovada em fatura.",
-      "_tusd_g": "Sem projeto novo (qtd_modulos_kit 0) nao ha TUSD-G: ela so existe COM o sistema. Com um projeto novo, o programa calcula: inversores do novo + os da usina existente (inversor_kw) - demanda contratada. Ver exemplos/projeto_novo_grupo_a.json.",
+      "_tusd_g": "TUSD-G calculada pelo programa (demanda_g_kw = 0): inversores do projeto novo (75 kW) + os da usina existente (inversor_kw = 135) - demanda contratada (175 kW) = 35 kW. Tarifa SEM impostos: 7,66 R$/kW (REH 3.592/2026), ~R$ 10,29/kW com impostos.",
       "demanda_g_kw": 0,
-      "tusd_g_rs_kw": 7.88,
+      "tusd_g_rs_kw": 7.66,
       "icms": 19,
       "cofins": 6.63,
       "pis": 1.44,
@@ -71,15 +71,15 @@
       "ilum_publica": 132.37,
       "_outros": "ENERGIA REAT EXCED TE F PONTA 362,34 + DEMANDA REATIVA EXCED USD 61,90 = 424,24. O sistema nao muda isso, mas sem esses itens a fatura nao fecha.",
       "outros_rs": 424.24,
-      "_convenio": "abat_te_inclui_icms = false: esta usina passou dos ~4 anos e perdeu o prazo do Convenio ICMS 16/2015. Da para ver na fatura — a linha ENERGIA INJETADA FP TE tem ICMS 0,00 e vale 0,321710 (= TE / 0,9193), enquanto a TE consumida sai por 0,397175.",
+      "_convenio": "abat_te_inclui_icms = true: vale para o projeto NOVO, que tem parecer de acesso novo e por isso a isencao do Convenio ICMS 16/2015 (a TE abatida volta com ICMS: R$ 0,397176/kWh FP). isencao_icms_anos = 4: na projecao de 25 anos o credito do projeto novo cai de patamar quando o prazo acabar. A usina EXISTENTE ja perdeu o prazo: isento_icms = false nela.",
       "icms_te": true,
       "icms_tusd": true,
       "abat_tusd_inclui_icms": false,
-      "abat_te_inclui_icms": false,
-      "isencao_icms_anos": "",
+      "abat_te_inclui_icms": true,
+      "isencao_icms_anos": 4,
       "gds_existentes": [
         {
-          "_comentario": "A usina de 135 kW que ela JA TEM, injetando 5.490 kWh/mes (linha ENERGIA INJETADA). isento_icms false: o prazo desta usina venceu. geracao_kwh so o app de monitoramento informa.",
+          "_comentario": "A usina de 135 kW que a UC JA TEM, injetando 5.490 kWh/mes (linha ENERGIA INJETADA). inversor_kw entra na TUSD-G. isento_icms false: o prazo do Convenio desta usina venceu. geracao_kwh so o app de monitoramento informa (0 = o programa supoe autoconsumo maximo do sistema novo, o limite otimista).",
           "nome": "usina atual",
           "kwp": 135,
           "injetado_kwh": 5490,
@@ -90,9 +90,9 @@
       ]
     }
   ],
-  "qtd_modulos_kit": 0,
+  "qtd_modulos_kit": 180,
   "marca_modulo": "ASTRONERGY N-TYPE",
-  "pot_modulo_w": 620,
+  "pot_modulo_w": 625,
   "inversores": [
     {
       "marca": "CHINT",
