@@ -492,6 +492,22 @@ def _cfg_num(chave: str, padrao: float) -> float:
         return padrao
 
 
+def _pr_do_payload(d: dict) -> float | None:
+    """PR do projeto — SÓ o admin define (pedido do usuário). Consultor, vazio
+    ou fora de 0,40–1,00 → None (= o PR das pré-definições)."""
+    if not _pode_admin():
+        return None
+    v = d.get('performance_ratio')
+    if v in (None, ''):
+        return None
+    v = _f(v)
+    if v > 1.0:                     # digitado em % (75 → 0,75)
+        v /= 100.0
+    if not 0.40 <= v <= 1.0:
+        raise ValueError(f'Performance ratio fora da faixa (0,40 a 1,00): {v}')
+    return v
+
+
 def _montar_entradas(d: dict) -> engine.Entradas:
     d = _aplicar_pacote(d)          # consultor: injeta equipamento+custos do pacote
     # padrão de segurança para TE/TUSD quando o campo vem vazio: o ÚLTIMO valor
@@ -618,6 +634,7 @@ def _montar_entradas(d: dict) -> engine.Entradas:
         perfil_irradiacao=str(d.get('perfil_irradiacao') or '3.8'),
         irradiacao_customizada=irr,
         irradiacao_local=str(d.get('irradiacao_local') or '').strip() if irr else '',
+        performance_ratio=_pr_do_payload(d),
         entrada=_f(d.get('entrada')),
         desloc=_f(d.get('desloc')),
         comissao_pct=_f(d.get('comissao_pct')) / 100.0,
@@ -991,7 +1008,7 @@ def api_sugestao():
             irr = (cfg['perfis_irradiacao'].get(perfil)
                    or cfg['perfis_irradiacao'].get('3.8'))
         kwh_kwp_ano = sum(irr[m] / 1000.0 * engine.DIAS_MES[m] for m in range(12))
-        pr = cfg['performance_ratio']
+        pr = _pr_do_payload(d) or cfg['performance_ratio']
         kwp = round(consumo_anual / (pr * kwh_kwp_ano), 2) if kwh_kwp_ano else 0.0
         return jsonify(ok=True, kwp_necessario=kwp,
                        consumo_medio=round(consumo_anual / 12.0, 1),
@@ -1171,7 +1188,7 @@ CONFIG_EDITAVEL = ('aliquota_imposto', 'mao_de_obra_minima',
                    'material_extra_faixas', 'trafos', 'garantias_fixas',
                    'faixas_margem', 'fio_b_rs_mwh', 'validade_dias',
                    'financiamento_padrao', 'cartao_infinitetap', 'performance_ratio',
-                   'perda_irradiacao', 'marcas_modulo', 'marcas_inversor',
+                   'marcas_modulo', 'marcas_inversor',
                    'bandeiras', 'subgrupos', 'pasta_saida', 'pasta_drive',
                    'pacotes', 'foto_padrao_desc', 'wallbox')
 
@@ -1738,14 +1755,8 @@ def api_irradiacao():
         cidade = (d.get('cidade') or '').strip()
         if not cidade:
             raise ValueError('Informe a cidade.')
-        # perda: a enviada pela tela ou a padrão do config (25 %)
-        cfg = engine.carregar_config()
-        perda = d.get('perda')
-        if perda in (None, ''):
-            perda = cfg.get('perda_irradiacao', 0.25)
-        else:
-            perda = _f(perda) / 100.0
-        return jsonify(ok=True, **online.buscar_irradiacao(cidade, perda))
+        # irradiação BRUTA: as perdas entram só pelo performance_ratio
+        return jsonify(ok=True, **online.buscar_irradiacao(cidade))
     except Exception as exc:                                   # noqa: BLE001
         return jsonify(ok=False, erro=f'Não foi possível buscar agora: {exc}'), 400
 

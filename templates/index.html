@@ -245,7 +245,7 @@ body:not(.consultor) .so-consultor{display:none!important;}
     <div class="linha" style="gap:10px;margin-top:10px">
       <div style="flex:1"><label>Logradouro</label><input id="endereco" placeholder="Rua / Avenida"></div>
       <div style="width:90px"><label>Nº</label><input id="numero" placeholder="nº"></div>
-      <div style="flex:1"><label>Cidade - UF</label><input id="cidade" placeholder="Cidade - UF"></div>
+      <div style="flex:1"><label>Cidade - UF</label><input id="cidade" placeholder="Cidade - UF" onchange="if(!v('cidade-irr'))buscarIrradiacao()"></div>
     </div>
     <div class="linha" style="gap:10px;margin-top:10px">
       <div style="flex:1"><label>Consultor / responsável</label>
@@ -268,25 +268,17 @@ body:not(.consultor) .so-consultor{display:none!important;}
   </section>
 
   <section class="so-admin">
-    <h2 style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">Irradiação &amp; geração
-      <span class="toggle" id="irr-modo" data-modo="perfil" style="font-size:12px">
-        <button type="button" class="on" onclick="setIrrModo('perfil')">Pré-definida</button>
-        <button type="button" onclick="setIrrModo('internet')">Buscar na internet</button></span>
-    </h2>
-    <div class="grid g3">
-      <div id="irr-box-perfil"><label>Perfil de irradiação</label>
-        <select id="perfil">
-          {% for p in perfis %}<option value="{{p}}" {{'selected' if p=='3.8'}}>{{p}}</option>{% endfor %}
-          <option value="__custom__">— pesquisada na internet —</option>
-        </select></div>
-      <div class="linha" id="irr-box-net" style="grid-column:span 2;display:none">
-        <div style="flex:1"><label>Buscar irradiação da cidade (internet)</label>
-          <input id="cidade-irr" placeholder="usa a cidade do cliente se vazio"></div>
-        <div style="width:90px"><label>Perda (%)</label><input id="perda-irr" type="number" step="1"></div>
-        <button class="bt-claro" onclick="buscarIrradiacao()" id="bt-irr">buscar</button>
-      </div>
+    <h2>Irradiação &amp; geração</h2>
+    <div class="linha" style="gap:10px;align-items:flex-end">
+      <div style="flex:1"><label>Cidade da irradiação</label>
+        <input id="cidade-irr" placeholder="= cidade do cliente" onchange="buscarIrradiacao()"
+          title="Vazio = a cidade do cliente. Irradiação global horizontal do INPE (Atlas Brasileiro de Energia Solar 2017, a base do CRESESB), por município, sem internet. Distrito: usa a sede mais próxima."></div>
+      <button class="bt-claro" onclick="buscarIrradiacao()" id="bt-irr">buscar</button>
+      <div style="width:130px"><label>Performance ratio</label>
+        <input id="pr-proj" type="number" step="0.01" min="0.4" max="1" oninput="mostrarIrr();agendar()"
+          title="Única perda do sistema: perda = 1 − PR (0,75 = 25 %). O padrão vem das pré-definições."></div>
     </div>
-    <div class="ok-irr" id="irr-info"></div>
+    <div id="irr-info" style="margin-top:8px;font-size:12px"></div>
   </section>
 
   <section>
@@ -625,7 +617,8 @@ const T={{ cfg.tarifas_padrao | tojson }};
 // o usuário edita as pré-definições, sem precisar recarregar a página
 let MARCAS_INV={{ cfg.marcas_inversor | tojson }};
 let MARCAS_MOD={{ cfg.marcas_modulo | tojson }};
-let PERDA_PADRAO={{ cfg.perda_irradiacao | default(0.25) }};
+let PR_PADRAO={{ cfg.performance_ratio | default(0.75) }};   // perda = 1 − PR
+const PERFIS_IRR={{ cfg.perfis_irradiacao | tojson }};      // só p/ projeto antigo e o padrão
 const PAPEL={{ papel | tojson }};                 // 'admin' ou 'consultor'
 const PACOTES={{ pacotes_pub | tojson }};         // pacotes públicos (sem custos)
 // mesmas opções dos dropdowns do fluxo normal (para o editor de pacotes)
@@ -633,6 +626,8 @@ const CONEXOES=['HÍBRIDO','ON-GRID','MICRO'];
 const ESTRUTURAS=['FIBROCIMENTO','CERÂMICO','METÁLICO','MINI TRILHO','LAJE','SOLO'];
 const PCT = x => Math.round(x*10000)/100;      // fração -> %
 let irrCustom=null, irrLocal='';   // irrLocal: cidade da irradiação (nota da pág. 3)
+let irrMeta=null, irrAviso='';     // fonte/obs da última busca; aviso do import
+let perfilLegado=null;             // projeto antigo importado com perfil da lista
 let CONC={};       // concessionárias (tarifas locais + alíquotas)
 let SUBGRUPOS=[];  // modalidades (B1, B2, B3)
 
@@ -1238,8 +1233,8 @@ async function atualizarSugestao(){
  if(PAPEL!=='consultor') return;
  try{
   const body={ucs:[...document.getElementById('ucs').children].map(lerUC),
-    perfil_irradiacao:v('perfil')==='__custom__'?'3.8':v('perfil'),
-    irradiacao_customizada:v('perfil')==='__custom__'?irrCustom:null};
+    perfil_irradiacao:perfilLegado||'3.8',
+    irradiacao_customizada:irrCustom};
   const j=await (await fetch('/api/sugestao',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
   if(!j.ok) return;
   _sugestao={kwp:j.kwp_necessario||0, consumo:j.consumo_medio||0};
@@ -1367,14 +1362,6 @@ function temInv380(){return lerInversores().some(iv=>iv.tensao===380);}
 function atualizar380(){
  const box=document.getElementById('box-380v');
  if(box) box.style.display=temInv380()?'':'none';
-}
-function setIrrModo(modo){
- const tg=document.getElementById('irr-modo'); tg.dataset.modo=modo;
- [...tg.children].forEach((b,k)=>b.classList.toggle('on',(k===0)===(modo==='perfil')));
- document.getElementById('irr-box-perfil').style.display=modo==='perfil'?'':'none';
- document.getElementById('irr-box-net').style.display=modo==='internet'?'':'none';
- const p=document.getElementById('perfil');
- if(modo==='perfil'&&p.value==='__custom__'){p.value='3.8';irrCustom=null;agendar();}
 }
 function rmUC(i){const box=document.getElementById('ucs');box.children[i].remove();
  [...box.children].forEach((el,k)=>{el.dataset.i=k;el.querySelector('.uc-rot').textContent=`UC ${k+1}`;});
@@ -1623,9 +1610,11 @@ function coletar(){
  return {nome:v('nome'),cep:v('cep'),endereco:v('endereco'),numero:v('numero'),cidade:v('cidade'),consultor:v('consultor'),
   pacote_id:(document.getElementById('pacote_sel')||{}).value,
   ucs:[...document.getElementById('ucs').children].map(lerUC),
-  perfil_irradiacao:v('perfil')==='__custom__'?'3.8':v('perfil'),
-  irradiacao_customizada:v('perfil')==='__custom__'?irrCustom:null,
-  irradiacao_local:v('perfil')==='__custom__'?irrLocal:'',
+  perfil_irradiacao:perfilLegado||'3.8',
+  irradiacao_customizada:irrCustom,
+  irradiacao_local:irrCustom?irrLocal:'',
+  irradiacao_bruta:irrCustom?true:undefined,
+  performance_ratio:PAPEL==='consultor'?null:(v('pr-proj')||null),
   marca_modulo:selVal('marca_modulo'),pot_modulo_w:num('pot_modulo_w'),qtd_modulos_kit:num('qtd_modulos'),
   inversores:invs,
   marca_inversor:iv0.marca,pot_inversor_kw:iv0.pot_kw,tensao_inversor:iv0.tensao,
@@ -1939,24 +1928,41 @@ function novaProposta(){
  location.reload();
 }
 
+// Irradiação da CIDADE (INPE por município; vazio = cidade do cliente).
+// Erro não vai para a caixa vermelha: fica no quadro, que segue mostrando
+// o que está valendo.
 async function buscarIrradiacao(){
+ const cidade=v('cidade-irr')||v('cidade');
+ if(!cidade){ mostrarIrr(); return; }
  const bt=document.getElementById('bt-irr'); bt.disabled=true;
  try{
-  const cidade=v('cidade-irr')||v('cidade');
-  const pe=document.getElementById('perda-irr').value;
-  const body={cidade}; if(pe!=='') body.perda=numBR(pe);
   const r=await fetch('/api/irradiacao',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(body)});
+    body:JSON.stringify({cidade})});
   const j=await r.json(); if(!j.ok) throw j.erro;
-  irrCustom=j.mensal; irrLocal=j.cidade||'';
-  document.getElementById('perfil').value='__custom__';
-  const info=document.getElementById('irr-info');
-  const perdaPct=Math.round((j.perda||0)*100);
-  info.innerHTML=`✔ ${j.cidade}/${j.uf}: global <b>${j.ghi_dia_kwh} kWh/m²/dia</b> − ${perdaPct}% perda = <b>${j.media_dia_kwh}</b> (NASA POWER) aplicada como perfil.`;
-  info.style.display='block'; agendar();
- }catch(e){const err=document.getElementById('erro');
-   err.textContent='Irradiação: '+e; err.style.display='block';}
+  irrCustom=j.mensal; irrLocal=j.cidade||''; perfilLegado=null; irrAviso='';
+  irrMeta={cidade:j.cidade,uf:j.uf,fonte:j.fonte||'NASA POWER',obs:j.obs||''};
+  mostrarIrr(); agendar();
+ }catch(e){ mostrarIrr('⚠ Irradiação de "'+cidade+'": '+e); }
  bt.disabled=false;
+}
+function prProjeto(){ const p=numBR(v('pr-proj')); return (p>1?p/100:p)||PR_PADRAO; }
+// Quadro: de onde veio a irradiação e o PERFIL EQUIVALENTE (global × PR),
+// que é o que de fato entra na geração.
+function mostrarIrr(erro){
+ const info=document.getElementById('irr-info'); if(!info) return;
+ const pr=prProjeto(), f2=x=>x.toFixed(2).replace('.',',');
+ const irr=irrCustom||PERFIS_IRR[perfilLegado||'3.8']||[];
+ const eq=irr.map(x=>Number(x)/1000*pr), med=eq.reduce((a,b)=>a+b,0)/(eq.length||1);
+ let cab;
+ if(irrCustom){ const m=irrMeta||{cidade:irrLocal,uf:'',fonte:'salva no projeto',obs:''};
+   cab=`✔ <b>${_esc(m.cidade)}${m.uf?'/'+_esc(m.uf):''}</b> — ${_esc(m.fonte)}${m.obs?' · '+_esc(m.obs):''}`; }
+ else if(perfilLegado) cab=`⚠ Projeto importado com o perfil antigo <b>${_esc(perfilLegado)}</b> — busque a cidade para trocar.`;
+ else cab=`⚠ Nenhuma cidade buscada — usando o perfil padrão <b>3.8</b> (Maringá).`;
+ const glob=irr.reduce((a,b)=>a+Number(b),0)/(irr.length||1)/1000;
+ info.innerHTML=(erro?`<div style="color:#c0392b;margin-bottom:4px">${_esc(erro)}</div>`:'')
+  +`<div style="color:${irrCustom?'var(--verde)':'#b26a00'}">${cab}</div>`
+  +`<div style="margin-top:4px">Global horizontal ${f2(glob)} × PR ${f2(pr)} = <b>perfil equivalente ${f2(med)} kWh/m²/dia</b></div>`
+  +(irrAviso?`<div style="color:#b26a00;margin-top:4px">${irrAviso}</div>`:'');
 }
 async function buscarCep(){
  try{
@@ -1964,6 +1970,7 @@ async function buscarCep(){
   const j=await r.json(); if(!j.ok) throw j.erro;
   if(j.logradouro) document.getElementById('endereco').value=j.logradouro;
   document.getElementById('cidade').value=`${j.cidade} - ${j.uf}`;
+  if(!v('cidade-irr')) buscarIrradiacao();
   agendar();
  }catch(e){const err=document.getElementById('erro');
    err.textContent='CEP: '+e; err.style.display='block';}
@@ -2155,10 +2162,9 @@ function configHTML(c){
   ${H('Fio B e irradiação')}
   <div class="grid g3">
    <div><label>Valor do Fio B (R$/MWh)</label><input id="cf-fiob" type="number" step="0.01" value="${_esc(c.fio_b_rs_mwh)}"></div>
-   <div><label>Perda da irradiação da internet (%)</label><input id="cf-perda" type="number" step="1" value="${_esc(Math.round((c.perda_irradiacao||0)*10000)/100)}"></div>
-   <div><label>Performance ratio (fração)</label><input id="cf-pr" type="number" step="0.01" value="${_esc(c.performance_ratio)}"></div>
+   <div><label>Performance ratio padrão (fração)</label><input id="cf-pr" type="number" step="0.01" value="${_esc(c.performance_ratio)}"></div>
   </div>
-  <p style="margin:2px 0 0;color:var(--mudo);font-size:12px">A NASA dá a irradiação global (horizontal). Essa perda a traz para a mesma base dos perfis pré-definidos (25 % faz Maringá 5,12 → ~3,8).</p>
+  <p style="margin:2px 0 0;color:var(--mudo);font-size:12px">O PR é a única perda do sistema (perda = 1 − PR; 0,75 = 25 %). Este é o padrão dos projetos novos; cada projeto pode ter o seu (campo ao lado da cidade, só admin). Vale para os perfis e para a irradiação da internet, que vem bruta (global horizontal do INPE/CRESESB, por município; NASA só fora da tabela).</p>
   ${H('Garantias fixas (anos — vazio = regra automática da planilha)')}
   <p style="margin:-2px 0 8px;color:var(--mudo);font-size:12px">Os nomes são os mesmos rótulos da página 3 da proposta.</p>
   <div class="grid" style="grid-template-columns:repeat(5,1fr);gap:10px">
@@ -2485,7 +2491,6 @@ function salvarConfig(){
    pasta_saida:G('cf-pasta').value.trim(),
    pasta_drive:G('cf-pasta-drive').value.trim(),
    fio_b_rs_mwh:_n(G('cf-fiob')),
-   perda_irradiacao:(_n(G('cf-perda'))||0)/100,
    performance_ratio:_n(G('cf-pr')),
    impostos_copel:{pis:_n(G('cf-pis')),cofins:_n(G('cf-cofins'))},
  };
@@ -2512,7 +2517,7 @@ function salvarConfig(){
     // atualiza as listas de marcas na memória e reconstrói os menus ao vivo
     if(Array.isArray(c.marcas_inversor)) MARCAS_INV=c.marcas_inversor;
     if(Array.isArray(c.marcas_modulo)) MARCAS_MOD=c.marcas_modulo;
-    if(c.perda_irradiacao!=null) PERDA_PADRAO=c.perda_irradiacao;
+    if(c.performance_ratio!=null) PR_PADRAO=c.performance_ratio;
     rebuildMarcas(); carregarConsultores();
     // aplica os impostos novos a todas as UCs já abertas na tela
     const ic=c.impostos_copel;
@@ -2586,11 +2591,19 @@ function aplicar(d){
  const invs=(d.inversores&&d.inversores.length)?d.inversores
    :[{marca:d.marca_inversor,pot_kw:d.pot_inversor_kw,tensao:d.tensao_inversor,qtd:1}];
  invs.forEach(iv=>addInv(iv.marca,iv.pot_kw,iv.tensao,iv.qtd,iv.micro)); atualizar380();
- if(d.irradiacao_customizada){ irrCustom=d.irradiacao_customizada; irrLocal=d.irradiacao_local||'';
-   document.getElementById('perfil').value='__custom__'; setIrrModo('internet'); }
- else { const p=document.getElementById('perfil');
-   if(d.perfil_irradiacao&&[...p.options].some(o=>o.value===d.perfil_irradiacao)) p.value=d.perfil_irradiacao;
-   setIrrModo('perfil'); }
+ // irradiação: a salva no projeto vale (não rebusca sozinho — os números do
+ // projeto não mudam ao importar). Sem ela, o perfil antigo da lista.
+ irrMeta=null; irrAviso='';
+ if(d.irradiacao_customizada){ irrCustom=d.irradiacao_customizada; irrLocal=d.irradiacao_local||''; perfilLegado=null;
+   // projeto salvo antes de out/2026: a busca descontava 25 % de "perda" e o PR
+   // descontava de novo. Volta à global bruta (÷ 0,75) e avisa.
+   if(!d.irradiacao_bruta){ irrCustom=irrCustom.map(x=>Math.round(Number(x)/0.75*10)/10);
+     irrAviso=`Projeto antigo: a irradiação tinha sido salva com 25 % de perda, que o PR descontava outra vez. Corrigida para a global bruta — se quiser conferir, busque a cidade de novo.`; } }
+ else { irrCustom=null; irrLocal='';
+   perfilLegado=(d.perfil_irradiacao&&PERFIS_IRR[d.perfil_irradiacao])?String(d.perfil_irradiacao):'3.8'; }
+ // projeto salvo antes do PR por projeto (16/10/2026) foi feito com 0,75
+ document.getElementById('pr-proj').value=(d.performance_ratio!=null&&d.performance_ratio!=='')?d.performance_ratio:0.75;
+ mostrarIrr();
  _chk('tem_stringbox',d.tem_stringbox); _set('sb_qtd',d.sb_qtd); _set('sb_marca',d.sb_marca); _set('sb_es',d.sb_es);
  _chk('tem_bateria',d.tem_bateria); _set('bat_qtd',d.bat_qtd); _set('bat_marca',d.bat_marca); _set('bat_kwh',d.bat_kwh);
  // reconstrói as unidades consumidoras
@@ -2758,6 +2771,7 @@ try{ const _c=sessionStorage.getItem('s2v_consultor'); sessionStorage.removeItem
  const _ce=document.getElementById('consultor');
  if(_c && _ce && PAPEL!=='consultor' && !_ce.value) _ce.value=_c; }catch(e){}
 addUC(); addInv(); wire(document);
+document.getElementById('pr-proj').value=PR_PADRAO; mostrarIrr();
 // consultor: monta os filtros + a tabela de kits e, se houver um único, seleciona
 if(PAPEL==='consultor'){
  document.getElementById('pacote-picker').style.display='';  // seletor sempre visível p/ ele
@@ -2774,7 +2788,6 @@ if(PAPEL==='consultor'){
  // admin: contador de solicitações no sino, atualizado periodicamente
  _carregarSolic(); setInterval(_carregarSolic,45000);
 }
-document.getElementById('perda-irr').value=Math.round(PERDA_PADRAO*100);
 
 // PWA: registra o service worker (só funciona em localhost ou https).
 if('serviceWorker' in navigator){

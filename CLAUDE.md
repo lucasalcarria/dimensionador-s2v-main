@@ -1060,13 +1060,58 @@ Deixe os campos de **garantia vazios** para usar as regras automáticas da
 planilha — preencher fixa o valor. O `/api/config` grava com **indent=2** (mesmo
 formato do arquivo do usuário) para não gerar ruído de diff.
 
-## Irradiação da internet (perda editável)
+## Irradiação e performance ratio — UMA perda só (16/10/2026)
 
-`online.buscar_irradiacao(cidade, perda)` busca a global horizontal (NASA POWER)
-e aplica a **perda** (`config.perda_irradiacao`, padrão 0,25 = 25 %), trazendo o
-valor para a mesma convenção dos perfis pré-definidos (Maringá GHI 5,02 × 0,75 ≈
-3,8). A perda é editável nas pré-definições e por busca (campo "Perda %" ao lado
-de "buscar"). Retorna também `ghi_dia_kwh` (bruto) e `perda`.
+**Perda = 1 − PR.** O `config.performance_ratio` (0,75, DADOS!D22, editável nas
+pré-definições) é a ÚNICA perda do sistema: entra na geração
+(`kWp × PR × irradiação × dias`) e no kWp necessário. Os perfis guardam a
+irradiação **bruta** (o "3.8" guarda ~5,04 kWh/m²/dia; o nome já é × 0,75).
+`online.buscar_irradiacao(cidade)` devolve a global **horizontal bruta**, na
+mesma convenção, nesta ordem: (1) **INPE — Atlas Brasileiro de Energia Solar
+2017**, sede municipal, em `assets/irradiacao_inpe.json` (5.569 cidades, SEM
+internet; gerado por `ferramentas/irradiacao_inpe.py` a partir do CSV
+"sedes-munic" do LABREN) — é a base do SunData/CRESESB e bate com ele
+(Maringá 4,89; jan 5,888; jun 3,333); aceita "Cidade - UF", "Cidade/UF",
+sem acento; nome repetido sem UF pede a UF; (2) nome fora da tabela
+(distrito) → localiza pela internet e usa a sede do INPE mais próxima, até
+30 km (`obs` diz qual); (3) só então NASA POWER (`ALLSKY_SFC_SW_DWN`, grade
+~50 km, Maringá 5,02 = 2,7 % mais otimista). Resposta traz `fonte` e `obs`. Até out/2026 a busca descontava
+também uma `perda_irradiacao` de 25 % — somada ao PR, contava as perdas em
+dobro (Maringá: 1.030 em vez de ~1.375 kWh/kWp/ano). Removida da tela, do
+`config.json` e do `/api/irradiacao`. (O `config.json` do bucket ainda pode ter a
+chave; é ignorada.)
+Projeto salvo agora leva `irradiacao_bruta: true`. Ao **importar** um projeto
+antigo com irradiação da internet sem essa marca, a tela divide os valores por
+0,75 e avisa (a perda antiga era 25 % por padrão).
+**Plano HORIZONTAL de propósito** (decisão do usuário, 16/10/2026: "o mais
+confiável e conservador, sem fugir do que já é feito"): telhado real raramente
+está no ângulo/orientação ideais, e é a convenção dos perfis. Inclinar na
+latitude em Maringá ganha só +4,7 % no ano (CRESESB 4,89 → 5,12: sol quase a
+pino no verão, muita difusa) e achata a curva mensal. O LABREN também publica
+`TILTED_LATITUDE` por município, se um dia quiser oferecer a opção.
+Resultado em Maringá, kWh/kWp/ano com PR 0,75: perfil "3.8" 1.378 · INPE 1.337.
+
+**Tela sem lista de perfis (16/10/2026).** A seção "Irradiação & geração"
+(só admin) tem: cidade da irradiação (vazio = cidade do cliente; busca sozinha
+ao digitar a cidade ou pelo CEP), botão buscar, campo **Performance ratio** do
+projeto e o quadro `mostrarIrr()` com fonte, global × PR = **perfil
+equivalente** (só a média). O PR é **por projeto e SÓ do admin**
+(`Entradas.performance_ratio`, `app._pr_do_payload`: consultor/vazio → None =
+o PR das pré-definições, que vira o "padrão"; aceita 0,40–1,00 ou em %; vai no
+DADOS.json). Os perfis continuam no `config.json` e no motor (teste_planilha,
+Helena, projetos antigos): sem cidade buscada vale o "3.8" com aviso no quadro;
+projeto importado mantém a irradiação/perfil salvos (não rebusca sozinho).
+
+**PR padrão = 0,77** (decisão do usuário, 16/10/2026): com a irradiação
+HORIZONTAL do INPE, é o PR que reproduz o perfil "3.8" (3,78 efetivos) em
+Maringá — 4,89 × 0,77 = 3,77; 1.373 × 1.378 kWh/kWp/ano. Conferido contra o
+CRESESB nos 104 municípios a até 100 km de Maringá (diferença máx. 0,005
+kWh/m²/dia num mês). Opções recusadas: inclinado+0,75 (+1,6 %, telhado ideal)
+e horizontal+0,80 (+3,5 %). Os testes FIXAM `performance_ratio = 0,75` (o da
+planilha, DADOS!D22), como já fixavam o Fio B. Projeto importado sem PR salvo
+abre com 0,75 (foi feito assim). ⚠ Sem cidade buscada, o perfil "3.8" de
+reserva com 0,77 fica ~2,7 % acima do de antes; o JSON da Helena com
+`perfil_irradiacao` também (sem `performance_ratio` no JSON = o padrão 0,77).
 
 ## GD1 × GD2 por UC
 

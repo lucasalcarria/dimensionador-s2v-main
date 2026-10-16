@@ -67,6 +67,9 @@ cfg['formato_ptbr'] = False        # a planilha foi salva no formato en-US
 # Aqui ele fica FIXO no valor da época da planilha: senão, atualizar o config
 # (coisa que o usuário deve fazer) quebraria esta validação sem nenhum motivo.
 cfg['fio_b_rs_mwh'] = 159.14
+# O PR também é do usuário (padrão 0,77 desde 16/10/2026, para o INPE horizontal
+# reproduzir o perfil 3.8). A planilha usa 0,75 (DADOS!D22): fica FIXO aqui.
+cfg['performance_ratio'] = 0.75
 
 secao('1. Caso salvo na planilha (modo compatível)')
 e = caso_planilha()

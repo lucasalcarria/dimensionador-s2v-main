@@ -59,6 +59,7 @@ def caso_planilha():
 
 cfg = carregar_config()
 cfg['fio_b_rs_mwh'] = 159.14        # fixo: o config é editado pelo usuário
+cfg['performance_ratio'] = 0.75     # idem — o da planilha (DADOS!D22)
 cfg_real = dict(cfg); cfg_real['compat_planilha'] = False
 cfg_plan = dict(cfg); cfg_plan['compat_planilha'] = True
 

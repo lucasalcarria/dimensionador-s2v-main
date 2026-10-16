@@ -99,6 +99,7 @@ def engine_fatura(u: UC, ger_uc: float, cfg: dict, ano: int = 2026):
 
 
 cfg = carregar_config()
+cfg['performance_ratio'] = 0.75     # fixo: o config é editado pelo usuário
 ano = 2026
 fator = fator_fio_b(cfg, ano)
 
@@ -519,7 +520,8 @@ _d18 = _json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
 _d18.update(qtd_modulos_kit=200, valor_kit=190000, inversores=[
     dict(marca='CHINT', pot_kw=125, tensao=380, qtd=1)])
 with _app.app.test_request_context('/'):
-    _r18 = calcular(_app._montar_entradas(_d18), carregar_config())
+    _r18 = calcular(_app._montar_entradas(_d18),
+                   dict(carregar_config(), performance_ratio=0.75))
 _ga = _r18['grupo_a_partes']
 ok('sem: demanda e taxas + energia = conta', _ga['fixo_sem'] + _ga['energia_sem'],
    _r18['fatura_sem'], 1e-6)
@@ -538,7 +540,8 @@ _u18['gds_existentes'] = [dict(g, inversor_kw=135) for g in _u18['gds_existentes
 _d18b = dict(_d18, ucs=[_u18], qtd_modulos_kit=180, pot_modulo_w=625,
              inversores=[dict(marca='CHINT', pot_kw=75, tensao=380, qtd=1)])
 with _app.app.test_request_context('/'):
-    _r18b = calcular(_app._montar_entradas(_d18b), carregar_config())
+    _r18b = calcular(_app._montar_entradas(_d18b),
+                    dict(carregar_config(), performance_ratio=0.75))
 ok('TUSD-G = 75 (novo) + 135 (existente) − 175 contratados = 35 kW',
    _r18b['detalhes_uc'][0]['demanda_g_kw'], 35.0, 1e-9)
 ok('nota *** da usina existente (5.490 kWh/mês injetados)',

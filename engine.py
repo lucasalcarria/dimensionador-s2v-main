@@ -446,6 +446,9 @@ class Entradas:
     perfil_irradiacao: str = '3.8'    # DD!B8 (seletor da linha de irradiação)
     irradiacao_customizada: list | None = None  # 12 valores Wh/m²/dia (internet)
     irradiacao_local: str = ''        # cidade da irradiação buscada (nota da pág. 3)
+    # PR do projeto (só o admin define; None = config.performance_ratio).
+    # É a ÚNICA perda: perda = 1 − PR.
+    performance_ratio: float | None = None
     # custos ------------------------------------------------------------
     entrada: float = 0.0              # PR!R21 (custo 'ENTRADA')
     custo_380v: float = 0.0           # custo extra p/ inversor(es) 380 V (manual)
@@ -875,7 +878,7 @@ def calcular(e: Entradas, config: dict, ano: int | None = None) -> Resultado:
     kwh_kwp_mes = [irr[m] / 1000.0 * DIAS_MES[m] for m in range(12)]  # DD!C9:N9
     r['kwh_kwp_ano'] = sum(kwh_kwp_mes)                      # DD!O9
 
-    pr_perf = config['performance_ratio']                    # 0.75 na planilha
+    pr_perf = e.performance_ratio or config['performance_ratio']  # 0.75 na planilha
     # Consumo EQUIVALENTE: no grupo A, 1 kWh de ponta só é zerado com
     # `fator_ajuste` kWh gerados fora ponta (REN 1.059/2023) — então o sistema
     # precisa ser maior. No grupo B isto é exatamente o consumo anual.

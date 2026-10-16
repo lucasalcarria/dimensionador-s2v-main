@@ -203,33 +203,151 @@ def buscar_tarifa_aneel_a(sigla: str, subgrupo: str = 'A4',
     return out
 
 
-def geocodificar(cidade: str) -> dict:
-    """Nome da cidade -> {nome, uf, lat, lon}. Prioriza resultados no Brasil."""
+_UF_NOME = {'AC': 'ACRE', 'AL': 'ALAGOAS', 'AP': 'AMAPA', 'AM': 'AMAZONAS',
+            'BA': 'BAHIA', 'CE': 'CEARA', 'DF': 'DISTRITO FEDERAL',
+            'ES': 'ESPIRITO SANTO', 'GO': 'GOIAS', 'MA': 'MARANHAO',
+            'MT': 'MATO GROSSO', 'MS': 'MATO GROSSO DO SUL',
+            'MG': 'MINAS GERAIS', 'PA': 'PARA', 'PB': 'PARAIBA',
+            'PR': 'PARANA', 'PE': 'PERNAMBUCO', 'PI': 'PIAUI',
+            'RJ': 'RIO DE JANEIRO', 'RN': 'RIO GRANDE DO NORTE',
+            'RS': 'RIO GRANDE DO SUL', 'RO': 'RONDONIA', 'RR': 'RORAIMA',
+            'SC': 'SANTA CATARINA', 'SP': 'SAO PAULO', 'SE': 'SERGIPE',
+            'TO': 'TOCANTINS'}
+
+
+def geocodificar(cidade: str, uf: str = '') -> dict:
+    """Nome da cidade -> {nome, uf, lat, lon}. Prioriza resultados no Brasil
+    e, com `uf` (sigla), os do estado."""
     q = urllib.parse.quote(cidade.strip())
     data = _get_json('https://geocoding-api.open-meteo.com/v1/search'
-                     f'?name={q}&count=5&language=pt&format=json')
+                     f'?name={q}&count=10&language=pt&format=json')
     resultados = data.get('results') or []
     if not resultados:
         raise LookupError(f'Cidade não encontrada: {cidade!r}')
     br = [r for r in resultados if r.get('country_code') == 'BR']
+    if uf and br:
+        est = _UF_NOME.get(uf.upper(), '')
+        br = [r for r in br
+              if _sem_acento(r.get('admin1', '')) == est] or br
     r = (br or resultados)[0]
     return dict(nome=r['name'], uf=r.get('admin1', ''),
                 lat=r['latitude'], lon=r['longitude'])
 
 
-def buscar_irradiacao(cidade: str, perda: float = 0.0) -> dict:
-    """Irradiação média mensal (Wh/m²/dia) para a cidade, via NASA POWER.
+_INPE = None                       # tabela do Atlas, carregada uma vez
+_INPE_RAIO_KM = 30.0               # sede mais próxima aceita (distritos)
 
-    Busca a irradiação global (ALLSKY_SFC_SW_DWN) e aplica um fator de perda,
-    para ficar na MESMA convenção dos perfis pré-definidos da planilha — que
-    já vêm com perda embutida (ex.: Maringá 5,12 → 3,8, ~25 %). `perda` é a
-    fração descontada (0,25 = 25 %).
+
+def _sem_acento(s: str) -> str:
+    import unicodedata
+    s = unicodedata.normalize('NFKD', str(s or ''))
+    s = ''.join(c for c in s if not unicodedata.combining(c))
+    return ' '.join(s.upper().replace("'", ' ').replace('-', ' ').split())
+
+
+def _tabela_inpe() -> list:
+    global _INPE
+    if _INPE is None:
+        arq = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           'assets', 'irradiacao_inpe.json')
+        try:
+            with open(arq, encoding='utf-8') as f:
+                _INPE = json.load(f)['municipios']
+        except (OSError, ValueError, KeyError):
+            _INPE = []
+    return _INPE
+
+
+def _separar_uf(cidade: str) -> tuple:
+    """'Maringá - PR' / 'Maringá/PR' / 'Maringá, PR' -> ('Maringá', 'PR')."""
+    s = str(cidade or '').strip()
+    for sep in (' - ', '/', ',', '-'):
+        if sep in s:
+            nome, uf = s.rsplit(sep, 1)
+            if len(uf.strip()) == 2 and uf.strip().isalpha():
+                return nome.strip(), uf.strip().upper()
+    return s, ''
+
+
+def _resposta_inpe(m: list, obs: str = '') -> dict:
+    nome, uf, lat, lon, mensal = m
+    media = round(sum(mensal) / 12.0 / 1000.0, 2)
+    return dict(cidade=nome, uf=uf, lat=lat, lon=lon,
+                mensal=[float(v) for v in mensal],
+                media_dia_kwh=media, ghi_dia_kwh=media,
+                fonte='INPE — Atlas Brasileiro de Energia Solar 2017 (CRESESB)',
+                obs=obs)
+
+
+def _irradiacao_inpe(cidade: str) -> dict | None:
+    """Procura a cidade na tabela do INPE (sem internet). None = não achou
+    pelo nome. Nome repetido em vários estados sem UF -> pede a UF."""
+    tab = _tabela_inpe()
+    if not tab:
+        return None
+    nome, uf = _separar_uf(cidade)
+    alvo = _sem_acento(nome)
+    achados = [m for m in tab if _sem_acento(m[0]) == alvo
+               and (not uf or m[1] == uf)]
+    if len(achados) == 1:
+        return _resposta_inpe(achados[0])
+    if len(achados) > 1:
+        ufs = ', '.join(sorted(m[1] for m in achados))
+        raise LookupError(f'Há {len(achados)} cidades "{nome}" ({ufs}) — '
+                          f'informe a UF, ex.: "{nome} - {achados[0][1]}".')
+    return None
+
+
+def _inpe_mais_proxima(lat: float, lon: float) -> tuple:
+    """Sede municipal mais próxima do ponto -> (município, distância km)."""
+    import math
+    melhor, dmin = None, float('inf')
+    for m in _tabela_inpe():
+        dy = (m[2] - lat) * 111.2
+        dx = (m[3] - lon) * 111.2 * math.cos(math.radians(lat))
+        d = math.hypot(dx, dy)
+        if d < dmin:
+            melhor, dmin = m, d
+    return melhor, dmin
+
+
+def buscar_irradiacao(cidade: str) -> dict:
+    """Irradiação global HORIZONTAL média mensal (Wh/m²/dia) da cidade.
+
+    Ordem (a mais confiável primeiro):
+      1. **INPE** — Atlas Brasileiro de Energia Solar 2017, sede municipal
+         (`assets/irradiacao_inpe.json`, gerado por ferramentas/
+         irradiacao_inpe.py). É a base do SunData/CRESESB e funciona SEM
+         internet. Maringá: 4,89 kWh/m²/dia, igual ao CRESESB.
+      2. Nome não achado (distrito, grafia) → localiza pela internet e usa a
+         sede do INPE mais próxima, até `_INPE_RAIO_KM`.
+      3. Só então a **NASA POWER** (ALLSKY_SFC_SW_DWN), grade de ~50 km —
+         em Maringá dá 5,02, 2,7 % acima do INPE (menos conservadora).
+
+    Plano HORIZONTAL de propósito: é o lado conservador (telhado real raramente
+    está no ângulo e na orientação ideais) e é a convenção dos perfis da
+    planilha. A irradiação vem BRUTA: as perdas entram UMA vez só, pelo
+    `performance_ratio` na geração (perda = 1 − PR). Até out/2026 aqui se
+    descontava também uma "perda" de 25 %, que somada ao PR contava as perdas
+    em dobro.
 
     Retorna {cidade, uf, lat, lon, mensal:[12], media_dia_kwh, ghi_dia_kwh,
-    perda}. `mensal`/`media_dia_kwh` já saem COM a perda aplicada, prontos para
-    usar como 'irradiação customizada'; `ghi_dia_kwh` é a global bruta.
+    fonte, obs} (`media_dia_kwh` = `ghi_dia_kwh`, por compatibilidade).
     """
-    loc = geocodificar(cidade)
+    r = _irradiacao_inpe(cidade)
+    if r:
+        return r
+    nome, uf = _separar_uf(cidade)
+    loc = geocodificar(nome, uf)
+    if _tabela_inpe():
+        m, d = _inpe_mais_proxima(loc['lat'], loc['lon'])
+        if m and d <= _INPE_RAIO_KM:
+            return _resposta_inpe(
+                m, f'"{cidade}" não está na tabela; usada a sede mais '
+                   f'próxima, {m[0]}/{m[1]} ({d:.0f} km)')
+    url = ('https://power.larc.nasa.gov/api/temporal/climatology/point'
+           '?parameters=ALLSKY_SFC_SW_DWN&community=RE'
+           f"&longitude={loc['lon']}&latitude={loc['lat']}&format=JSON")
     url = ('https://power.larc.nasa.gov/api/temporal/climatology/point'
            '?parameters=ALLSKY_SFC_SW_DWN&community=RE'
            f"&longitude={loc['lon']}&latitude={loc['lat']}&format=JSON")
@@ -237,15 +355,13 @@ def buscar_irradiacao(cidade: str, perda: float = 0.0) -> dict:
     par = data['properties']['parameter']['ALLSKY_SFC_SW_DWN']
     ordem = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
              'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
-    fator = max(0.0, 1.0 - float(perda or 0.0))
     ghi_kwh = [float(par[m]) for m in ordem]             # kWh/m²/dia (bruto)
-    mensal_kwh = [v * fator for v in ghi_kwh]            # com perda
-    mensal = [round(v * 1000.0, 1) for v in mensal_kwh]  # Wh/m²/dia
+    mensal = [round(v * 1000.0, 1) for v in ghi_kwh]     # Wh/m²/dia
+    media = round(sum(ghi_kwh) / 12.0, 2)
     return dict(cidade=loc['nome'], uf=loc['uf'], lat=loc['lat'],
                 lon=loc['lon'], mensal=mensal,
-                media_dia_kwh=round(sum(mensal_kwh) / 12.0, 2),
-                ghi_dia_kwh=round(sum(ghi_kwh) / 12.0, 2),
-                perda=round(float(perda or 0.0), 4))
+                media_dia_kwh=media, ghi_dia_kwh=media,
+                fonte='NASA POWER', obs='fora da tabela do INPE')
 
 
 def buscar_cep(cep: str) -> dict:

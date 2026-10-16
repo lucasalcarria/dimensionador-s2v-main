@@ -2,10 +2,8 @@
   "autoconsumo_grupo_a": "pior_caso",
   "_autoconsumo_grupo_a": "Grupo A: quanto da geracao do sistema NOVO a UC consome na hora. pior_caso = nada (tudo injetado; padrao, decisao do usuario); medido = fracao medida na usina existente com a geracao do app informada (sem ela, pior caso); otimista = tudo ate o consumo fora ponta.",
   "_comentario": "Parâmetros de negócio do dimensionador S2V. Edite à vontade — o programa lê este arquivo a cada cálculo. As referências indicam a célula de origem na planilha.",
-  "performance_ratio": 0.75,
-  "_performance_ratio": "Fator de desempenho do sistema usado na geração (DADOS!D22 usa 0,75).",
-  "perda_irradiacao": 0.25,
-  "_perda_irradiacao": "Perda aplicada à irradiação buscada na internet (NASA POWER dá a global horizontal). 0.25 = 25 %, faz Maringá 5,12 → ~3,8, na mesma convenção dos perfis pré-definidos.",
+  "performance_ratio": 0.77,
+  "_performance_ratio": "Fator de desempenho do sistema usado na geração (DADOS!D22 usa 0,75; 0,77 desde 16/10/2026 para a irradiação HORIZONTAL do INPE reproduzir o perfil 3.8 em Maringá: 4,89 × 0,77 = 3,77). É a ÚNICA perda: perda = 1 − PR. Vale para os perfis e para a irradiação da internet (que vem bruta: global horizontal do INPE/CRESESB por município, assets/irradiacao_inpe.json; NASA só como último recurso).",
   "perfis_irradiacao": {
     "23° NORTE": [
       6070,
