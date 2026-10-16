@@ -68,10 +68,21 @@ de cada linha pela COPEL.
 | `conferencia_retorno.py` | relatório passo a passo do retorno financeiro |
 | `resumo_texto.py` | resumo salvo na pasta do cliente |
 | `teste_planilha.py` | suíte de validação contra a planilha |
+| `teste_correcoes.py` | suíte das correções pós-planilha (grupo B) |
 | `teste_grupo_a.py` | suíte do grupo A (média tensão) |
 | `config.json` | parâmetros de negócio (editável pelo usuário) |
 | `ferramentas/html_para_fundo.py` | build: converte o HTML do design em `fundo.pdf` + `layout.json` + cartões |
 | `MAPA-PROPOSTA.md` | de onde sai cada número impresso na proposta |
+| `ferramentas/icones_traco.py` | build: SVG (Lucide/Tabler/marca) → `assets/icones_traco.json` |
+| `ferramentas/previa.py` | antes × depois da proposta e conferência das caixas dos ícones |
+| `ferramentas/recolorir_titulos.py`, `padronizar_linhas.py` | cirurgias idempotentes no `fundo.pdf` |
+| `ferramentas/conferir_aneel.py` | confere tarifas, Fio B e TUSD-G contra a ANEEL (manual, online) |
+| `exemplos/` | JSONs anonimizados que reproduzem faturas reais + `BRIEFING-HELENA.md` |
+| `wallbox.py` | motor do orçamento de **carregador veicular** (dimensionamento + preço) |
+| `proposta_wallbox.py` | PDF de 2 págs. do carregador, sobre `assets/wallbox/fundo.pdf` |
+| `templates/wallbox.html` | tela da aba "🔌 Carregador" (`/wallbox`) |
+| `teste_wallbox.py` | suíte do carregador (técnica, preço, trava do consultor, PDF) |
+| `ferramentas/wallbox_fundo.py` | build: apaga os campos `[...]` do PDF do design → `fundo.pdf` |
 
 `assets/`: `fundo.pdf` (arte + textos fixos), `layout.json` (posição de cada
 campo), `cards/` (tiles 600dpi dos cartões da pág. 3 + `layout_cards.json`),
@@ -108,6 +119,74 @@ depois do último build. Um build completo apaga esses ajustes — e também a
 GERADOR FOTOVOLTAICO" azul — "ETAPAS DO PROJETO" era azul na arte; tudo azul foi
 testado e recusado pelo usuário). Se rebuildar, rode
 `py ferramentas/recolorir_titulos.py` (idempotente).
+Depois de um build completo rode também `py ferramentas/padronizar_linhas.py`.
+Tudo o mais da revisão de design é desenhado por `proposta.py` POR CIMA da
+arte e sobrevive ao build — ver "Revisão de design da proposta". Os cartões e as
+garantias da pág. 3, esses sim, saem idênticos. Até alguém levar os ajustes da
+pág. 5 de volta para o HTML/conversor: **não rode o build completo**; para os
+ícones use o modo abaixo.
+
+### Ícones em vetor (`ferramentas/vetor_icones.py`) — hoje só reserva
+⚠ Desde a revisão de design, TODOS os ícones são redesenhados em traço por
+`proposta.py` (`assets/icones_traco.json`). Os ícones vetorizados descritos
+aqui continuam no `fundo.pdf`/`layout_cards.json`, mas ficam APAGADOS por baixo
+e só aparecem se o JSON dos ícones de traço faltar. O texto abaixo é histórico.
+
+Os ícones vieram do design como **PNG de 36 a 106 px** mostrados a ~38 pt —
+serrilhados. Reamostrar (o que `_suavizar` fazia) não cria nitidez; por isso
+modelos anteriores não resolveram. Agora cada ícone é **traçado em curvas**
+(potrace) e desenhado em vetor **dentro da mesma caixa** da imagem original:
+posição, tamanho, círculos e alinhamentos ficam idênticos por construção.
+- **Quem é ícone:** tem transparência **e** uma cor só (`eh_icone`). O logo S2V
+  (degradê), as fotos e os logos dos bancos (sem transparência) ficam raster.
+- **Traçado:** margem transparente (ícone que encosta na borda não vira
+  "corcova") → reamostra a ~1600 px → desfoque de **¼ da espessura do traço**
+  (máx. 1 px original — 1 px fixo fechava as junções dos ícones de linha de
+  2 px e o painel solar virava manchas) → corte que **preserva a área** (a
+  área do vetor = tinta total da imagem; corte fixo em 50 % engrossava traço
+  fino). Conferido: o painel de 48 px sai com linhas de 2,26/1,97 px contra
+  2,21/2,03 px de tinta no original.
+- **Fundo (`vetorizar_fundo`)**: cirurgia no `fundo.pdf` PRONTO — cada
+  XObject de imagem-ícone vira um Form XObject vetorial com caixa 0..1, sob o
+  MESMO nome; o `Do` e a matriz que posicionam ficam intactos. 15 ícones.
+- **Cartões e garantias**: `desenhar_svg(..., icones=[])` não estampa o ícone
+  no PNG e o devolve traçado, com a caixa; vai para `layout_cards.json`
+  (`cards.<nome>.icones`, `garantias.icones`) e a proposta desenha por cima do
+  cartão em `proposta._desenhar_icones` (ReportLab puro, sem potrace). Os ícones
+  de bateria/homologação/performance já vinham como desenho vetorial no HTML.
+- **Rodar só isto:**
+  `py ferramentas/html_para_fundo.py ~/Downloads/proposta_s2v.html --so-icones`
+  (idempotente: o que já é vetor fica como está). O build completo também
+  vetoriza no final.
+- **Prova feita:** proposta inteira antes × depois renderizada a 200 dpi — 23
+  regiões alteradas, **todas** sobre ícones; págs. 4 e 5 com zero pixel
+  alterado; ícones raster na proposta: 15 → 0. Reagrupamento dos cartões (sem
+  bateria/string box) conferido: o ícone acompanha o cartão.
+- Ainda raster, por decisão: molduras e rótulos fixos dos cartões e das
+  garantias (PNG a 600 dpi, nítidos) e o logo S2V do cabeçalho (degradê).
+
+## Revisão de design da proposta (out/2026) — o que mudou e as regras
+
+Feita com o usuário **uma mudança por vez**, cada uma com antes × depois
+(`ferramentas/previa.py`) e aprovação. Ele gosta da proposta como é: nada de
+redesenho em bloco. Ideias que ele VIU e RECUSOU (não repropor): todos os títulos
+em azul; textos da pág. 2 em minúsculas; ícones dimensionados só pela área
+(ficaram pequenos); caixa de ícone quadrada com margens vazias.
+
+Resumo do que ficou:
+- **Defeitos corrigidos**: eixo do gráfico em MWh a partir de 1.000 kWh (o
+  rótulo era cortado); separador de milhar ("19.473 kWh/mês"); "05" no cabeçalho
+  da pág. 5; "—" quando não há nº de UC; "COBERTURA DO CONSUMO" no grupo A.
+- **Padronização**: títulos de seção verdes (só "KIT GERADOR FOTOVOLTAICO"
+  azul); capa com cidade logo abaixo do endereço; painel de garantias
+  centralizado; ícones, linhas, tamanhos e espaços num sistema único (abaixo).
+- **Conteúdo**: nota de irradiação pela cidade; nota do grupo A; aviso de foto
+  padrão de outro equipamento; nota da usina existente.
+- **Grupo A**: cartões da pág. 5 com "demanda e taxas" e "% a menos na
+  energia"; ponta/fora ponta na pág. 3 e no gráfico.
+
+Detalhe de cada item (nomes de função, medidas e o porquê):
+
 Correções desenhadas em `proposta.py` por cima da arte (sobrevivem ao build):
 "05" no cabeçalho da pág. 5, "COBERTURA DO CONSUMO" no grupo A e o **painel
 de garantias** da pág. 3, redesenhado inteiro em `_garantias_painel`
@@ -124,7 +203,7 @@ que se reagrupam) e `_garantias_painel` (garantias). Desenhos em
 mesma grade 24 (`MARCA`: painel, inversor, drone, torre, bateria, string box,
 degradação). O programa só lê o JSON — sem internet. Sem o JSON, cai nos
 ícones antigos. **Sistema de linhas**:
-- traço de ícone **1,5 pt** (pequenos, até 16 pt: **1,1 pt**) — `_traco_de`;
+- traço de ícone **1,5 pt** (pequenos, até 15 pt: **1,1 pt**) — `_traco_de`;
 - anel de círculo **1,98 pt** (os cinza da arte já eram; os verdes da capa e da
   faixa da pág. 2 passaram a ser) — `TRACO_ARO`;
 - bordas de cartão e réguas **0,99 pt**; divisórias e ligações **0,74 pt** — a
@@ -200,44 +279,98 @@ adicional." (`textos['nota_usina']`). Para as três notas caberem acima do
 "ACEITE", a ** é redesenhada mais alto e as folgas ficam iguais (`_notas_p5`).
 Sem usina, as notas são as da arte (no grupo A, só o texto da ** muda).
 (B4 — textos ao lado das baterias na pág. 2: minúsculas 8,4 pt foram testadas
-e recusadas, "pequeno demais"; maiúsculas maiores não cabem. Ficam como na arte.) Os cartões e as
-garantias da pág. 3, esses sim, saem idênticos. Até alguém levar os ajustes da
-pág. 5 de volta para o HTML/conversor: **não rode o build completo**; para os
-ícones use o modo abaixo.
+e recusadas, "pequeno demais"; maiúsculas maiores não cabem. Ficam como na arte.)
 
-### Ícones em vetor (`ferramentas/vetor_icones.py`)
-Os ícones vieram do design como **PNG de 36 a 106 px** mostrados a ~38 pt —
-serrilhados. Reamostrar (o que `_suavizar` fazia) não cria nitidez; por isso
-modelos anteriores não resolveram. Agora cada ícone é **traçado em curvas**
-(potrace) e desenhado em vetor **dentro da mesma caixa** da imagem original:
-posição, tamanho, círculos e alinhamentos ficam idênticos por construção.
-- **Quem é ícone:** tem transparência **e** uma cor só (`eh_icone`). O logo S2V
-  (degradê), as fotos e os logos dos bancos (sem transparência) ficam raster.
-- **Traçado:** margem transparente (ícone que encosta na borda não vira
-  "corcova") → reamostra a ~1600 px → desfoque de **¼ da espessura do traço**
-  (máx. 1 px original — 1 px fixo fechava as junções dos ícones de linha de
-  2 px e o painel solar virava manchas) → corte que **preserva a área** (a
-  área do vetor = tinta total da imagem; corte fixo em 50 % engrossava traço
-  fino). Conferido: o painel de 48 px sai com linhas de 2,26/1,97 px contra
-  2,21/2,03 px de tinta no original.
-- **Fundo (`vetorizar_fundo`)**: cirurgia no `fundo.pdf` PRONTO — cada
-  XObject de imagem-ícone vira um Form XObject vetorial com caixa 0..1, sob o
-  MESMO nome; o `Do` e a matriz que posicionam ficam intactos. 15 ícones.
-- **Cartões e garantias**: `desenhar_svg(..., icones=[])` não estampa o ícone
-  no PNG e o devolve traçado, com a caixa; vai para `layout_cards.json`
-  (`cards.<nome>.icones`, `garantias.icones`) e a proposta desenha por cima do
-  cartão em `proposta._desenhar_icones` (ReportLab puro, sem potrace). Os ícones
-  de bateria/homologação/performance já vinham como desenho vetorial no HTML.
-- **Rodar só isto:**
-  `py ferramentas/html_para_fundo.py ~/Downloads/proposta_s2v.html --so-icones`
-  (idempotente: o que já é vetor fica como está). O build completo também
-  vetoriza no final.
-- **Prova feita:** proposta inteira antes × depois renderizada a 200 dpi — 23
-  regiões alteradas, **todas** sobre ícones; págs. 4 e 5 com zero pixel
-  alterado; ícones raster na proposta: 15 → 0. Reagrupamento dos cartões (sem
-  bateria/string box) conferido: o ícone acompanha o cartão.
-- Ainda raster, por decisão: molduras e rótulos fixos dos cartões e das
-  garantias (PNG a 600 dpi, nítidos) e o logo S2V do cabeçalho (degradê).
+## Carregador veicular (wallbox) — aba própria
+
+Orçamento do **SERVIÇO de instalação** de wallbox: o carregador é **do cliente**
+(a proposta diz "FORNECIDO PELO CLIENTE"); a S2V vende mão de obra + materiais +
+ART. A planilha `S2V_precificacao_wallbox_baterias.xlsx` do usuário é de
+**revenda** de equipamento (taxas da Nuvemshop) — **não** é a base desta aba.
+Motor separado (`wallbox.py`): nada passa pelo `engine.py`, o `teste_planilha`
+não é afetado.
+
+- **Tela**: `/wallbox`, mesma aparência; o cabeçalho das duas telas tem o seletor
+  "☀ Solar | 🔌 Carregador" (`.abas-topo`). Rotas: `POST /api/wallbox/calcular`,
+  `/api/wallbox/previa`, `/api/wallbox/proposta`.
+- **Técnica** (`dimensionar`): corrente de placa (vazia = P ÷ V ou P ÷ √3·V) →
+  disjuntor = 1º padrão ≥ `fator_disjuntor` (1,25, recarga é carga contínua) × I
+  → menor seção com **Iz × `fator_correcao_iz` ≥ disjuntor E queda ≤
+  `queda_max_pct`** (Iz da NBR 5410 Tab. 36, método B1, por nº de condutores
+  carregados; ρ = 0,0225 a 70 °C) → PE pela Tab. 58. Alimentações: 220 F+N,
+  220 F+F, 380 3F+N, 220 3F (define condutores, polos de disjuntor/DR e nº de
+  DPS). Um wallbox de 7,4 kW é de **32 A de placa** — por isso a tela já vem com
+  32 A (7,4 kW ÷ 220 V daria 33,6 A e empurraria para disjuntor de 50 A).
+  "Dimensionamento manual" (seção/disjuntor digitados) só gera aviso, não trava.
+- **Distância vazia = "A VERIFICAR NA VISITA"** (padrão da tela, pedido do
+  usuário): é o que sai na proposta, e cabo, Material CA e mão de obra são
+  ESTIMADOS com `distancia_padrao_m` (15 m, ⚙ Preços), com aviso na tela e no
+  RESUMO. Digitar os metros depois troca tudo pelo valor real. A pasta do
+  projeto fica sem o "…M" no nome.
+- **Preço = a lógica do solar com kit = 0**: imposto, comissão e seguro são % do
+  próprio preço → `preço = custos diretos ÷ (1 − margem − imposto − comissão −
+  seguro)` (é o ponto fixo do laço `preco_convergido`; o teste prova). Imposto
+  sobre a venda INTEIRA (não há kit em faturamento direto). Valor fixado à mão →
+  a margem vira consequência. Cartão igual ao solar (venda ÷ (1 − taxa)).
+- **Proteção = SEMPRE uma CLAMPER Mobi** (pedido do usuário). Ela já traz DPS,
+  disjuntor e IDR — por isso não há mais quadro/disjuntor/DR/DPS avulsos nem a
+  chave "DR tipo B". Catálogo em `config.wallbox.mobi` (24 modelos, do guia
+  CLAMPER "Proteção para veículos elétricos e carregadores", 2024): **Box** 8 kW
+  220 V bifásico (32 A), 15 kW 220 V tri (40 A), 26 kW 380 V tri (40 A); **Plug**
+  220 V bifásico com tomadas — residencial 5 kW (20 A), industrial 8 kW (32 A),
+  as duas 8+5 kW; cada um em cinza/preto, com ou sem medidor. A tela escolhe
+  linha, cor, medidor e tomadas; `escolher_mobi` filtra pela alimentação e pega
+  o menor que atende a corrente do carregador (avisa se não atende). **Preços em
+  branco**: o usuário cadastra o custo de cada modelo no ⚙ Preços (ou digita no
+  orçamento). **Mobi sem preço não gera PDF** (prévia nem proposta) — o valor
+  sairia errado para menos.
+- **Foto da Mobi na proposta** (como módulo/inversor no solar) — **pág. 1**,
+  na faixa do antigo painel "PROTEÇÃO E ATERRAMENTO" (38–557,28 × 79,89–293,89
+  pt). O painel da arte foi APAGADO do fundo (`ferramentas/wallbox_fundo.py`,
+  `_PAINEL`, o build avisa se não achar) e é redesenhado por
+  `proposta_wallbox._faixa_protecao`: **metade esquerda = foto da Mobi grande**
+  (inteira, sem cortar) + legenda verde "PROTEÇÃO CLAMPER MOBI BOX/PLUG";
+  **metade direita = painel SIMPLIFICADO** (mesmo estilo: fundo #F3F7F8, ícone de
+  terra, título verde, bolinhas ✓) com 6 itens curtos `ITENS_PROTECAO` (negrito +
+  1 linha). Sem foto, o painel ocupa a largura toda em 2 colunas. Pedido do
+  usuário: a 1ª versão (foto sob o logo da pág. 2, 114 × 72 pt) ficou pequena
+  demais. Ordem da foto: colada no orçamento (`img_mobi`) → PADRÃO da linha (Box
+  ou Plug, `padrao_mobi_box.txt`/`padrao_mobi_plug.txt` no data dir, gitignored,
+  editadas no ⚙ Preços via `/api/wallbox/fotos-padrao`, POST só admin) → sem
+  foto. Vai solta na pasta como `MOBI.<ext>` (nunca no DADOS.json) e volta no
+  Importar. `_IMG_BASE`/`_IMG_PADRAO` em app.py generalizam os ajudantes de foto
+  do solar sem mudar módulo/inversor.
+- **Custos resumidos** (como no solar): Mobi · **Material CA** (um campo só, tudo
+  o que não é a Mobi; vazio = estimativa por cabos com folga + eletroduto +
+  aterramento + miscelânea) · mão de obra (vazio = base + por metro) · ART ·
+  deslocamento. Preços e regras em `config.json → wallbox`, editáveis no
+  **⚙ Preços** da aba (grava via `POST /api/config {wallbox}`). ⚠ Os valores da
+  estimativa do Material CA e da mão de obra são EXEMPLOS (out/2026).
+- **SÓ ADMIN** (pedido do usuário, 16/10/2026): `_rota_admin` barra `/wallbox`
+  (consultor volta para `/`) e todo `/api/wallbox/*` (403); no solar a aba
+  `.abas-topo` tem `so-admin`, então o consultor nem vê o seletor. A blindagem
+  antiga (`_WB_CUSTOS` descartado do payload de consultor) continua no código,
+  como segunda trava, caso a aba um dia seja liberada.
+- **Nuvem**: `wallbox.parametros(cfg)` completa o bloco com o `config.json` que
+  vem no programa — o do bucket não tem `wallbox` e a aba funciona assim mesmo.
+  Quando o admin salva o ⚙ Preços na nuvem, o bloco passa a existir no bucket.
+- **PDF**: arte do design em `assets/wallbox/modelo.pdf`; `fundo.pdf` é ele sem os
+  14 campos `[...]` e sem o painel de proteção da pág. 1 (`ferramentas/wallbox_fundo.py`, que lista posição/fonte de
+  cada um). `proposta_wallbox.CAMPOS` escreve cada valor no lugar e na fonte do
+  colchete (Outfit/Work Sans em `assets/fonts`, OFL); texto longo quebra em
+  linhas ou reduz a letra até 70 %. Design novo → rodar o build e reler as
+  posições, não chutar.
+- **Salvamento**: SEMPRE `<base>/INSTALAÇÕES WALLBOX/<CLIENTE>/WALLBOX 7,4KW 220V F+F 18M/`
+  (`app.PASTA_WALLBOX`, no lugar do consultor — pedido do usuário; é o nome da pasta que JÁ existe no Drive dele, no plural — o singular criava uma pasta nova), com
+  `RESUMO.txt`, `DADOS.json` (`tipo: wallbox`) e `<CLIENTE> - WALLBOX.pdf`. `/api/resumos-salvos` separa por tipo pelo nome da pasta
+  (`?tipo=wallbox`): o Importar de uma aba não lista projetos da outra.
+  A pasta é **EXCLUSIVA do carregador**: o solar não a lista em
+  `/api/drive/consultores` e `/api/proposta` recusa salvar nela
+  (`_eh_pasta_wallbox`: sem acento/caixa, aceita o singular). Na tela do
+  carregador o campo vira "Pasta dos orçamentos", só leitura. Com Mobi sem preço
+  a tela mostra o aviso no painel e trava Gerar/Prévia (era o motivo de "nada
+  aparece no Drive").
+- Verificar: `py teste_wallbox.py` (deve passar 100 %).
 
 ## Decisões que NÃO devem ser revertidas
 
@@ -396,8 +529,9 @@ O que muda na conta (`engine._fatura_grupo_a`, testado em `teste_grupo_a.py`):
 5b. **TUSD-G — demanda de GERAÇÃO** (`UC.demanda_g_kw`, `UC.tusd_g_rs_kw`).
    Opcional e disponível para **GD1 e GD2**. É bem mais barata que a demanda de
    consumo. **A tarifa entra SEM impostos**, como todas as outras
-   (`tusd_g_com_imposto()` faz o gross-up): `config.tusd_g_rs_kw = 7,88` sem
-   impostos ≈ **R$ 10,58/kW com impostos**, que é a referência do usuário.
+   (`tusd_g_com_imposto()` faz o gross-up): `config.tusd_g_rs_kw = 7,66` sem
+   impostos (oficial, REH 3.592/2026) ≈ **R$ 10,29/kW com impostos** (o usuário
+   estimava ~10,58).
    Na prática contrata-se como TUSD-G só o que **falta** para cobrir a potência
    dos inversores: `demanda_g = max(kW de inversores do projeto NOVO + kW de
    inversores das USINAS EXISTENTES − demanda de consumo contratada, 0)`, que é
@@ -431,14 +565,12 @@ O que muda na conta (`engine._fatura_grupo_a`, testado em `teste_grupo_a.py`):
 tributos, demanda, crédito injetado, bandeira cobrada/devolvida e o total.
 ⚠ **O que a FATURA-A NÃO conseguiu validar**, porque ela é GD1 e a injeção coube
 inteira no fora ponta:
-- o **Fio B do grupo A em GD2** (item 5) — o padrão `fio_b_a=None` segue sendo
-  hipótese conservadora; a FATURA-A é isenta;
 - a **compensação da ponta com crédito fora ponta** (item 4): o fator de ajuste
   fica 1,608 (TE P/TE FP), mas nenhum crédito chegou a migrar de posto. Em A4
   **Verde** isso é sensível: a TUSD da ponta é 10× a de fora ponta, então
   converter crédito pela relação das **TEs** (como diz a REN) é generoso — se a
   COPEL fizer diferente, é aqui que se mexe;
-- **"demanda de geração"** (GD2 permite contratar): não modelado.
+- a **TUSD-G** (item 5b) está modelada e testada, mas nenhuma fatura a mostrou.
 
 10. **O Convênio ICMS 16/2015 tem prazo — e onde ele venceu a conta muda muito.**
     `UC.abat_te_inclui_icms` (padrão **True**, que é o caso PLANILHA/validado): com
@@ -585,10 +717,10 @@ Rode `py ferramentas/conferir_aneel.py` para repetir a conferência.
 
 ### Já corrigido nesta auditoria
 - **Autoconsumo do grupo A** era `min(consumo fora ponta, geração)` — absorção
-  total, o limite otimista. Agora usa a **fração MEDIDA** na usina que a UC já
-  tem (`fracao_autoconsumo()` = autoconsumo ÷ geração real do app). Sem medição
-  mantém a hipótese, mas `r['autoconsumo_medido']` avisa, e a tela escreve
-  "estimado no limite otimista" no painel.
+  total, o limite otimista. Passou pela fração MEDIDA e, em 08/10/2026, o
+  usuário fixou o **PIOR CASO como padrão** (autoconsumo zero, tudo injetado —
+  ver item 1b do Grupo A). `medido` e `otimista` seguem disponíveis em
+  `config.autoconsumo_grupo_a`; a tela escreve qual regra valeu.
 - **Rateio entre usinas** era "as antigas primeiro" (escolha arbitrária). Agora é
   **proporcional** ao kWh que cada uma injetou — a energia entra num pote só e
   nada diz de qual usina veio o kWh que abateu a conta. Travado em teste: a
@@ -799,9 +931,17 @@ Como foi feito (Cloud Shell, na conta do usuário):
    --role=roles/run.invoker` (esperar 1–2 min a política propagar).
 
 **Reimplantar depois de mudar o código**: `git push`, e no Cloud Shell
-`cd dimensionador-s2v-main && git pull && gcloud run deploy dimensionador
---source . --region southamerica-east1 …` repetindo os MESMOS `--set-env-vars`.
-**Mantenha o `S2V_SECRET` igual** entre deploys — se mudar, todos os logins caem.
+`cd ~/dimensionador-s2v-main && git pull && gcloud config set project
+<PROJETO-ID> && gcloud run deploy dimensionador --source . --region
+southamerica-east1 --quiet`. **NÃO repita `--set-env-vars`**: num serviço que já
+existe o Cloud Run herda as variáveis (`S2V_SECRET`, `S2V_SENHA`) e o volume da
+revisão anterior; `--set-env-vars` SUBSTITUI todas (para trocar só a senha use
+`--update-env-vars S2V_SENHA=…`). Se o `S2V_SECRET` mudar, todos os logins caem.
+Conferir depois: `gcloud run services describe dimensionador --region
+southamerica-east1 --format="value(spec.template.spec.containers[0].env[].name,
+spec.template.spec.volumes[].name, status.url)"` → `S2V_SECRET;S2V_SENHA`,
+`dados` e a URL. Erro "You do not currently have an active account selected" =
+rodar `gcloud auth login` (ou clicar em Autorizar ao abrir o Cloud Shell).
 Notas: reconectar o Drive tem de ser no PC (OAuth Desktop só aceita localhost) —
 o refresh token existente vale na nuvem.
 
@@ -935,12 +1075,112 @@ de "buscar"). Retorna também `ghi_dia_kwh` (bruto) e `perda`.
 integral (`fio_b_uc = 0` na fatura daquela UC). Cada UC escolhe na tela; a de
 validação usa o default GD2, então `teste_planilha` segue idêntico.
 
-## Próximo passo combinado
+## Próximo passo: integração com a HELENA (bot da S2V)
 
-Anexar **faturas de energia** (PDF da 2ª via ou foto) para extrair os dados da UC
-automaticamente (consumo, tarifas, nº da UC, ligação). Ainda não implementado —
-hoje os dados da fatura são digitados, inclusive os do **grupo A** (ver a seção
-"Grupo A"). Também pendente: **validar o grupo A com uma fatura real**.
+**Estado em 09/10/2026.** Tudo abaixo já está no GitHub (commit `985aa86`, branch
+`main`). O deploy no Cloud Run dessa versão **ainda não foi confirmado**: o
+usuário rodou o comando único no Cloud Shell e parou em "You do not currently
+have an active account selected" — falta `gcloud auth login` e rodar de novo
+(comando em "Cloud Run"; sem `--set-env-vars`, o serviço herda senha e chave).
+
+### Quem é a Helena e a divisão de trabalho
+Assistente da S2V (o usuário a montou no Claude Desktop) que conversa com o
+cliente e **lê a fatura**. Regra de ouro, já no `exemplos/BRIEFING-HELENA.md`:
+**a Helena monta o JSON; o Dimensionador faz TODAS as contas.** Ela nunca
+calcula economia, payback, kWp ou valor de conta por conta própria (num teste
+ela errou a lógica de usina existente e dimensionou uma ampliação desnecessária
+— está na seção 7 do briefing).
+
+### O contrato que já existe (rotas reais do `app.py`)
+Todas as rotas `/api/*` exigem **sessão** (cookie) quando há senha; sem sessão
+devolvem `401 {"ok": false, "erro": "sessão expirada — faça login"}`.
+- **Login**: `POST /login` com formulário `usuario` + `senha`. `usuario` vazio =
+  **administrador**; preenchido = consultor (nome + senha cadastrados nas
+  pré-definições). O cookie de sessão vale nas chamadas seguintes.
+- **Grupo A exige ADMIN**: com sessão de consultor o servidor força `grupo='B'`
+  e descarta a demanda **sem avisar**. Consultor também não manda preço: escolhe
+  um `pacote_id` e o servidor injeta equipamento e custos (`_aplicar_pacote`).
+- `POST /api/sugestao` → `{kwp_necessario, consumo_medio, consumo_anual}` — só
+  consumo + irradiação, não precisa de kit. Bom para a primeira resposta.
+- `POST /api/calcular` → `{ok, resumo}`. No `resumo`: `kwp`, `kwp_necessario`,
+  `modulos_sugeridos`, `geracao_media`, `consumo_medio`, `compensacao_pct`,
+  `preco_venda` / `preco_venda_num`, `fatura_sem`, `fatura_com`,
+  `economia_mensal`, `payback`, `retorno_25`, `parcela_fin`, `parcela_cartao`,
+  `composicao` (custos — **não mostrar ao cliente**), `tem_grupo_a`, `grupo_a`
+  (lista por UC: demanda, energia sem/com, autoconsumo, injetado, TUSD-G,
+  `autoconsumo_regra`…) e `textos` (as strings que vão para a proposta).
+- `POST /api/conferencia` → `{texto}`: o passo a passo do retorno (auditoria).
+- `POST /api/conferir-fotos` → `{avisos: [...]}`: foto padrão de outro equipamento.
+- `POST /api/previa` → **PDF** da proposta, sem salvar nada nem enviar ao Drive.
+- `POST /api/proposta` → **PDF** + grava a pasta do projeto (RESUMO, CONFERENCIA,
+  DADOS.json, fotos) e envia ao Drive se configurado. É a ação "de verdade".
+- Apoio: `GET /api/concessionarias`, `GET /api/aneel-tarifa`,
+  `GET /api/aneel-tarifa-a` (admin), `POST /api/irradiacao`, `GET /api/cep/<cep>`,
+  `GET /api/pacotes`.
+O mesmo JSON serve para `calcular`, `previa` e `proposta` (e é o `DADOS.json`
+que a tela importa).
+
+### O formato do JSON (armadilhas — detalhe no briefing)
+- **Percentuais em %**, não em fração: `icms: 19`, `pct_noturno: 65`,
+  `margem_desejada: 16`.
+- `consumos` = **12 posições** (jan–dez). No grupo A, `consumos` é o **fora
+  ponta** e `consumos_ponta` a ponta; não existe `pct_noturno`.
+- Tarifas **sem tributos** (coluna "Tarifa unit." da fatura). O **Fio B não vai
+  no JSON** — vem das pré-definições, por concessionária.
+- Cliente que já gera: `gds_existentes: [{nome, kwp, inversor_kw, injetado_kwh,
+  geracao_kwh, isento_icms}]` e, no grupo B, `pct_noturno: 100`. `injetado_kwh`
+  vem da fatura; `geracao_kwh` só do app de monitoramento (0 se não souber);
+  `inversor_kw` entra na TUSD-G do grupo A.
+- Projeto novo tem parecer novo: `abat_te_inclui_icms: true` e
+  `isencao_icms_anos` (~4). Usina antiga com mais de ~4 anos: `isento_icms: false`.
+- `irradiacao_customizada` (12 valores) + `irradiacao_local` (cidade) quando a
+  irradiação vier da internet; senão `perfil_irradiacao` ("3.8" = Maringá).
+- **Teste de sanidade antes de orçar**: mandar com `qtd_modulos_kit: 0` — o
+  `fatura_sem` tem de bater com o total da fatura do cliente. Não bateu = erro
+  de leitura; não prosseguir.
+Moldes prontos e conferidos (anonimizados): `exemplos/fatura_real_grupo_b.json`
+(R$ 117,53), `exemplos/fatura_real_grupo_a.json` (R$ 17.648,01) e
+`exemplos/projeto_novo_grupo_a.json` (projeto novo de 112,5 kWp sobre a usina
+existente: conta R$ 17.648,01 → R$ 10.488,70, 35 kW de TUSD-G, pior caso).
+
+### Critérios da S2V que a Helena tem de respeitar
+- **Pior caso sempre** no autoconsumo do grupo A (o programa já faz).
+- Nunca prometer "zerar a conta" em média tensão: a demanda não é abatida.
+- Não estimar potência de usina existente pelo injetado, nem dimensionar
+  ampliação por "carga ÷ produtividade" — mandar o consumo com a carga nova +
+  `gds_existentes` e usar o kWp que o programa devolver.
+- Na dúvida, perguntar (geração real, idade da usina/parecer, módulos já
+  instalados, padrão de entrada) em vez de estimar.
+
+### O que FALTA decidir/construir para ligar a Helena (ainda não começou)
+1. **Como ela chama o programa**: hoje só existe a API HTTP com cookie de
+   sessão. Opções: (a) um servidor MCP fino que faz login e expõe `sugestao` /
+   `calcular` / `previa` / `proposta` como ferramentas; (b) um token fixo por
+   cabeçalho (ex.: `Authorization: Bearer`, guardado em `acesso.json`/variável de
+   ambiente) para não depender de cookie. Nenhum dos dois existe.
+2. **Com que papel ela entra**: consultor (só pacotes, sem grupo A, sem ver
+   custos) ou admin (tudo). Para grupo A hoje só serve admin — talvez um papel
+   próprio "helena" (grupo A sim, custos não).
+3. **Local ou nuvem**: `localhost:8177` (PC ligado) ou a URL do Cloud Run.
+4. **O que volta para o cliente**: só números, ou o PDF (`/api/previa` não
+   salva; `/api/proposta` salva e manda ao Drive — a Helena não deveria salvar
+   orçamentos em nome de consultor sem critério).
+5. **Leitura da fatura**: a Helena lê e monta o JSON (briefing, seções 3 e 4);
+   o "anexar fatura" dentro do próprio programa continua não implementado.
+
+### Decisões de cálculo em aberto (aguardando o usuário)
+Surgiram ao auditar um orçamento do grupo B em 08/10/2026 e mexem em valores do
+`teste_planilha` — **não fazer sem confirmação**:
+- **A "conta sem S2V" não inclui a bandeira** (fórmula da planilha:
+  tarifa × kWh + iluminação). Erro para o lado conservador (~R$ 16/mês numa
+  amarela com 640 kWh).
+- **A "conta sem" usa o MAIOR entre consumo e geração** (`maior`, DD!G48). Em
+  sistema sobredimensionado (176 % no caso auditado) a conta sem vira a de quem
+  consumiria toda a geração: R$ 709 contra ~R$ 424 da conta de hoje, e a economia
+  anunciada R$ 554 contra ~R$ 315 com o consumo atual. É réplica fiel da
+  planilha — e o caso de validação (141 %) depende disso.
+- Falta uma **fatura com custo de disponibilidade + bandeira** não verde para
+  travar a regra nova da bandeira (decisão 11).
 
 ## Dados do usuário (nunca versionar / nunca sobrescrever)
 
@@ -955,6 +1195,7 @@ lá — ao mexer nele, prefira acrescentar chaves a reescrever o arquivo.
   Lei 14.300, Convênio ICMS 16/2015 e alavanca `icms_te`) **e**
   `python3 teste_grupo_a.py` (média tensão: demanda não abatida, ordem da
   compensação, fator de ajuste da ponta, trava do consultor). Todos DEVEM passar.
+  Carregador veicular → `python3 teste_wallbox.py`.
   (No Windows: `py`, e `PYTHONIOENCODING=utf-8` para o console não engasgar.)
 - **PDF** → gere e confira por pixels/OCR (`pdftoppm -r 150` + PIL/pytesseract).
   Não confie em "parece certo": meça.
@@ -991,6 +1232,8 @@ aplicável (ex.: `# PR!N31`). Sem dependências novas sem necessidade real
 
 ## Pendências combinadas
 
+- **Integração com a Helena** — ver "Próximo passo".
+- **Anexar fatura dentro do programa** (PDF/foto → dados da UC): não implementado.
 - **PWA**: adicionar `manifest.json` + service worker para virar ícone na tela
   do celular (o acesso via rede local e o QR code já funcionam).
 - Se `config.json` der conflito no Git, separar as tarifas do usuário num

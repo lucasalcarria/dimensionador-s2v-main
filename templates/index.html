@@ -26,6 +26,11 @@ header .chip{display:flex;align-items:center}
 header img{height:40px;display:block}
 header h1{margin:0;font-size:17px;letter-spacing:.6px;color:#fff}
 header small{color:var(--mudo);font-size:12px}
+/* abas do topo: Solar | Carregador veicular (/wallbox) */
+.abas-topo{display:flex;gap:4px;background:var(--card2);border:1px solid var(--borda);border-radius:9px;padding:3px}
+.abas-topo a{color:var(--mudo);text-decoration:none;font-size:12.5px;font-weight:600;padding:6px 12px;border-radius:7px;white-space:nowrap}
+.abas-topo a:hover{color:var(--texto)}
+.abas-topo a.on{background:var(--azul-forte);color:#fff}
 main{display:grid;grid-template-columns:minmax(0,1fr) 390px;gap:18px;max-width:1300px;margin:18px auto;padding:0 16px}
 @media(max-width:1020px){main{grid-template-columns:1fr}}
 section{background:var(--card);border:1px solid var(--borda);border-radius:12px;padding:16px 18px;margin-bottom:16px}
@@ -226,6 +231,7 @@ body:not(.consultor) .so-consultor{display:none!important;}
   <button class="bt-claro bt-mini so-admin" onclick="abrirPacotes()" title="criar, editar e precificar os kits geradores">📦 Pacotes</button>
   <button class="bt-claro bt-mini so-admin" onclick="abrirConfig()" title="editar os parâmetros herdados da planilha">⚙ Pré-definições</button>
   {% if papel == 'consultor' %}<div class="chip-consultor">Consultor: <b>{{ consultor_nome }}</b> · <a href="/logout">sair</a></div>{% endif %}
+  <nav class="abas-topo so-admin"><a class="on" href="/">☀ Solar</a><a href="/wallbox">🔌 Carregador</a></nav>
 </header>
 <main>
 <div>

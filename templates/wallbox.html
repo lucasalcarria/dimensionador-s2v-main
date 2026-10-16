@@ -1,0 +1,668 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Carregador veicular · S2V</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0e141b">
+<link rel="icon" href="/icons/icon-192.png?v=2">
+<link rel="apple-touch-icon" href="/icons/icon-192.png?v=2">
+<style>
+/* mesmo visual da tela solar (index.html) — só o que esta página usa */
+:root{
+ --azul:#2f8bdb; --azul-forte:#004D94; --verde:#12c39a; --verde-forte:#089C83;
+ --bg:#0e141b; --card:#151d27; --card2:#1b2531; --borda:#27333f;
+ --texto:#dbe4ee; --mudo:#8b99a8;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Segoe UI',system-ui,Arial,sans-serif;background:var(--bg);color:var(--texto)}
+header{background:linear-gradient(90deg,#0b1220,#101b28);border-bottom:1px solid var(--borda);
+ padding:10px 22px;display:flex;align-items:center;gap:16px}
+header img{height:40px;display:block}
+header h1{margin:0;font-size:17px;letter-spacing:.6px;color:#fff}
+header small{color:var(--mudo);font-size:12px}
+.abas-topo{display:flex;gap:4px;background:var(--card2);border:1px solid var(--borda);border-radius:9px;padding:3px}
+.abas-topo a{color:var(--mudo);text-decoration:none;font-size:12.5px;font-weight:600;padding:6px 12px;border-radius:7px;white-space:nowrap}
+.abas-topo a:hover{color:var(--texto)}
+.abas-topo a.on{background:var(--azul-forte);color:#fff}
+main{display:grid;grid-template-columns:minmax(0,1fr) 390px;gap:18px;max-width:1300px;margin:18px auto;padding:0 16px}
+@media(max-width:1020px){main{grid-template-columns:1fr}}
+section{background:var(--card);border:1px solid var(--borda);border-radius:12px;padding:16px 18px;margin-bottom:16px}
+section h2{margin:0 0 12px;font-size:12.5px;color:var(--verde);text-transform:uppercase;letter-spacing:1px}
+label{display:block;font-size:12px;color:var(--mudo);margin-bottom:3px}
+input,select{width:100%;min-width:0;padding:7px 9px;border:1px solid var(--borda);border-radius:7px;font-size:14px;
+ background:var(--card2);color:var(--texto)}
+input::placeholder{color:#5a6875}
+input:focus,select:focus{outline:2px solid #1e4d78;border-color:var(--azul)}
+.grid{display:grid;gap:10px}
+.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:1fr 1fr 1fr}.g4{grid-template-columns:repeat(4,1fr)}
+.linha{display:flex;gap:10px;align-items:end}
+.mt{margin-top:10px}
+.sub-rot{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--mudo);font-weight:600;
+ margin:16px 0 6px;border-bottom:1px solid var(--borda);padding-bottom:4px}
+button{cursor:pointer;border:0;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:600}
+.bt-verde{background:var(--verde-forte);color:#fff}.bt-verde:hover{background:#0bb193}
+.bt-claro{background:#223141;color:var(--azul)}
+.bt-mini{padding:5px 10px;font-size:12px}
+button:disabled{opacity:.5;cursor:wait}
+#bt-pdf:disabled,#bt-previa:disabled{cursor:not-allowed}
+.sw-wrap{display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--texto);user-select:none;margin:0}
+.sw-in{position:absolute;opacity:0;width:0;height:0;margin:0}
+.sw{position:relative;width:38px;height:22px;flex:0 0 38px;border-radius:11px;background:var(--borda);transition:background .18s}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .18s}
+.sw-in:checked+.sw{background:var(--verde-forte)}
+.sw-in:checked+.sw::after{transform:translateX(16px)}
+.sw-in:focus-visible+.sw{outline:2px solid var(--azul);outline-offset:2px}
+.tec{margin-top:12px;background:var(--card2);border:1px solid var(--borda);border-radius:10px;padding:10px 12px;
+ display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center}
+.tec .v{font-weight:700;color:var(--verde);font-size:15px}
+.tec .l{font-size:10.5px;color:var(--mudo)}
+.aviso{font-size:12px;color:#e8c56a;background:#2a2410;border:1px solid #4d431e;border-radius:7px;padding:7px 9px;margin-top:8px;display:none}
+.erro{color:#ff8d80;font-size:13px;margin-top:8px;display:none}
+.ok{font-size:12px;color:var(--verde);margin-top:8px;display:none}
+/* botões de duas opções (linha e cor da Mobi), mesmo estilo da tela solar */
+.toggle{display:inline-flex;border:1px solid var(--borda);border-radius:8px;overflow:hidden;background:var(--card2)}
+.toggle button{background:transparent;color:var(--mudo);border:0;padding:8px 12px;font-size:12.5px;cursor:pointer;font-weight:600;border-radius:0}
+.toggle button.on{background:var(--azul-forte);color:#fff}
+.mobi-esc{margin-top:12px;background:var(--card2);border:1px solid var(--borda);border-radius:10px;padding:10px 12px;font-size:13.5px}
+.mobi-esc b{color:var(--verde)}
+.mobi-esc small{color:var(--mudo)}
+.foto-cx{position:relative;border:1.5px dashed var(--borda);border-radius:10px;background:var(--card2);
+ padding:10px;min-height:118px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+ gap:6px;cursor:pointer;text-align:center;transition:border-color .15s}
+.foto-cx:hover,.foto-cx.drag{border-color:var(--verde)}
+.foto-cx.tem{border-style:solid;border-color:var(--verde-forte)}
+.foto-titulo{font-size:11px;color:var(--verde);text-transform:uppercase;letter-spacing:.5px;font-weight:700}
+.foto-prev{max-width:100%;max-height:132px;border-radius:6px;object-fit:contain}
+.foto-dica{font-size:11.5px;color:var(--mudo);line-height:1.35}
+.foto-rm{position:absolute;top:6px;right:6px;padding:2px 8px;font-size:11px;background:#3a2020;color:#ff9d90}
+.fotos-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
+.tb-mobi{width:100%;border-collapse:collapse;font-size:12.5px}
+.tb-mobi td{padding:3px 4px;border-bottom:1px dashed #232e3a}
+.tb-mobi input{padding:4px 6px;font-size:12.5px}
+.tb-mobi .pr{width:110px}
+.res{position:sticky;top:14px}
+.res table{width:100%;border-collapse:collapse;font-size:13.5px}
+.res td{padding:5px 2px;border-bottom:1px dashed #232e3a}
+.res td:last-child{text-align:right;font-weight:600}
+.res .tb-comp th{color:var(--mudo);font-size:11px;font-weight:600;text-align:left;padding:0 2px 4px;border-bottom:1px solid var(--borda)}
+.res .tb-comp th:nth-child(2),.res .tb-comp th:last-child{text-align:right}
+.res .tb-comp td:nth-child(2){text-align:right;color:var(--mudo);font-weight:400;width:78px;white-space:nowrap}
+.res .tb-comp tr.tot td{font-weight:700;border-bottom:1px solid var(--borda)}
+.res .tb-comp tr.tot td:nth-child(2){color:var(--texto);font-weight:700}
+.res .tb-comp tr.venda td{color:var(--verde)}
+.res .tb-comp tr.zero td{opacity:.45}
+.destaque{background:linear-gradient(135deg,#0d2b46,#0e3a33);border:1px solid #1e4d5e;border-radius:10px;padding:12px;margin:10px 0;text-align:center}
+.destaque .v{font-size:26px;font-weight:800;color:#fff}
+.destaque .l{font-size:11px;color:#9db4c8;text-transform:uppercase;letter-spacing:.6px}
+.edit-venda{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:8px}
+.edit-venda input{max-width:150px;height:34px;background:#0b2033;border-color:#2f6079;color:#fff;font-weight:700}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;align-items:flex-start;justify-content:center;padding:30px 16px;overflow:auto}
+.modal.on{display:flex}
+.modal-cx{background:var(--card);border:1px solid var(--borda);border-radius:12px;max-width:640px;width:100%;padding:16px 18px}
+.modal-cab{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;color:var(--verde)}
+.modal-x{cursor:pointer;color:var(--mudo);font-size:18px}
+.item-imp{padding:9px 10px;border:1px solid var(--borda);border-radius:8px;margin-bottom:6px;cursor:pointer;font-size:13px}
+.item-imp:hover{border-color:var(--verde)}
+.item-imp small{color:var(--mudo)}
+.chip-consultor{color:var(--mudo);font-size:13px}
+.chip-consultor b{color:var(--texto)}.chip-consultor a{color:var(--azul)}
+.consultor .so-admin{display:none!important}
+@media (max-width:760px){
+ main{grid-template-columns:1fr!important;padding:10px}
+ .grid.g4,.grid.g3{grid-template-columns:1fr 1fr}
+ .grid.g2{grid-template-columns:1fr}
+ header{flex-wrap:wrap;gap:8px;padding:10px 12px}
+ header img{height:34px}
+ .linha{flex-wrap:wrap}
+ section{padding:12px}
+ .res{position:static}
+ .tec{grid-template-columns:1fr 1fr}
+ input,select{font-size:16px}
+ html,body{overflow-x:clip}
+}
+</style>
+</head>
+<body class="{{ 'consultor' if papel == 'consultor' else '' }}">
+<header>
+  <div><img src="/logo.png" alt="S2V Engenharia"></div>
+  <div style="flex:1"><h1>DIMENSIONADOR S2V</h1><small>proposta comercial · instalação de carregador veicular</small></div>
+  <button class="bt-claro bt-mini so-admin" onclick="abrirPrecos()" title="preços unitários, mão de obra, margem e regras de dimensionamento">⚙ Preços</button>
+  {% if papel == 'consultor' %}<div class="chip-consultor">Consultor: <b>{{ consultor_nome }}</b> · <a href="/logout">sair</a></div>{% endif %}
+  <nav class="abas-topo"><a href="/">☀ Solar</a><a class="on" href="/wallbox">🔌 Carregador</a></nav>
+</header>
+<main>
+<div>
+  <section>
+    <h2>Cliente</h2>
+    <div class="linha">
+      <div style="flex:1"><label>Nome do cliente</label><input id="nome" placeholder="NOME COMPLETO" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"></div>
+      <div style="width:150px"><label>CEP</label><input id="cep" inputmode="numeric" placeholder="00.000-000"></div>
+      <button class="bt-claro bt-mini" onclick="buscarCep()" title="Preenche endereço e cidade pela internet">buscar</button>
+    </div>
+    <div class="linha mt">
+      <div style="flex:1"><label>Logradouro</label><input id="endereco"></div>
+      <div style="width:90px"><label>Nº</label><input id="numero"></div>
+      <div style="flex:1"><label>Cidade - UF</label><input id="cidade"></div>
+    </div>
+    <div class="mt"><label>Pasta dos orçamentos</label>
+      <input id="consultor" value="{{ pasta_wallbox }}" readonly
+        title="Todo orçamento de carregador vai para esta pasta (no computador e no Drive). Ela é exclusiva desta aba: o solar não a usa."></div>
+  </section>
+
+  <section>
+    <h2>Carregador e circuito</h2>
+    <div class="grid g4">
+      <div style="grid-column:span 2"><label>Modelo do carregador (do cliente)</label><input id="modelo" placeholder="a definir" title="Sai na capa da proposta. Vazio = A DEFINIR."></div>
+      <div><label>Potência (kW)</label><input id="pot_kw" inputmode="decimal" value="7,4"></div>
+      <div><label>Corrente de placa (A)</label><input id="corrente_a" inputmode="decimal" value="32" placeholder="pela potência"
+        title="A corrente nominal do carregador (placa/manual). Vazia = potência ÷ tensão. Um wallbox de 7,4 kW é de 32 A."></div>
+    </div>
+    <div class="grid g4 mt">
+      <div style="grid-column:span 2"><label>Alimentação</label>
+        <select id="alimentacao">
+          <option value="220_FF">220 V · bifásico (F+F)</option>
+          <option value="220_FN">220 V · monofásico (F+N)</option>
+          <option value="380_3FN">380 V · trifásico (3F+N)</option>
+          <option value="220_3F">220 V · trifásico (3F)</option>
+        </select></div>
+      <div><label>Distância do quadro (m)</label><input id="distancia_m" inputmode="decimal" placeholder="a verificar"
+        title="Comprimento do circuito, do quadro geral até o carregador. Vazio: a proposta diz A VERIFICAR NA VISITA e os custos são estimados com a distância padrão (⚙ Preços)."></div>
+    </div>
+    <details class="mt"><summary style="cursor:pointer;font-size:12px;color:var(--azul);font-weight:600">dimensionamento manual</summary>
+      <div class="grid g4 mt">
+        <div><label>Seção do cabo (mm²)</label><input id="secao_manual" inputmode="decimal" placeholder="automática"></div>
+        <div><label>Disjuntor (A)</label><input id="disjuntor_manual" inputmode="decimal" placeholder="automático"></div>
+      </div>
+    </details>
+    <div class="tec">
+      <div><div class="v" id="t-ib">—</div><div class="l">corrente nominal</div></div>
+      <div><div class="v" id="t-dj">—</div><div class="l">disjuntor</div></div>
+      <div><div class="v" id="t-cabo">—</div><div class="l">cabo (fase · PE)</div></div>
+      <div><div class="v" id="t-queda">—</div><div class="l">queda de tensão</div></div>
+    </div>
+    <div class="aviso" id="t-avisos"></div>
+  </section>
+
+  <section>
+    <h2>Proteção CLAMPER Mobi</h2>
+    <div class="grid g4">
+      <div style="grid-column:span 2"><label>Linha</label>
+        <div class="toggle" id="tg-linha">
+          <button type="button" data-v="BOX" class="on" title="quadro de proteção para carregador de parede">Mobi Box</button>
+          <button type="button" data-v="PLUG" title="quadro de proteção com tomadas (residencial e/ou industrial)">Mobi Plug · tomadas</button>
+        </div></div>
+      <div><label>Cor</label>
+        <div class="toggle" id="tg-cor">
+          <button type="button" data-v="CINZA" class="on">Cinza</button>
+          <button type="button" data-v="PRETO">Preto</button>
+        </div></div>
+      <div style="display:flex;align-items:end;padding-bottom:6px">
+        <label class="sw-wrap" title="Versão com medidor de consumo de energia">
+          <input type="checkbox" class="sw-in" id="mobi_medidor"><span class="sw"></span><span>Medidor</span></label></div>
+    </div>
+    <div class="grid g4 mt" id="box-tomadas" style="display:none">
+      <div style="grid-column:span 2"><label>Tomadas</label>
+        <select id="mobi_tomadas">
+          <option value="RESIDENCIAL">Residencial (5 kW · 20 A)</option>
+          <option value="INDUSTRIAL">Industrial (8 kW · 32 A)</option>
+          <option value="RESIDENCIAL + INDUSTRIAL">Residencial + industrial (8+5 kW)</option>
+        </select></div>
+    </div>
+    <div class="mobi-esc" id="mobi-esc">—</div>
+    <div class="grid g2 mt">
+      <div><label>Foto da Mobi na proposta</label><div id="fcx-mobi"></div></div>
+    </div>
+    <div class="grid g4 mt so-admin">
+      <div style="grid-column:span 2"><label>Preço da Mobi (R$)</label>
+        <input id="mobi_preco_manual" class="rs" inputmode="decimal" placeholder="do catálogo"
+          title="Custo de compra deste modelo. Vazio = o preço cadastrado em ⚙ Preços."></div>
+    </div>
+  </section>
+
+  <section class="so-admin">
+    <h2>Custos</h2>
+    <div class="grid g4">
+      <div><label>Material CA</label><input id="material_ca_manual" class="rs" inputmode="decimal" placeholder="automático"
+        title="Tudo o que não é a Mobi: cabos, eletroduto, aterramento, conexões. Vazio = estimativa pela distância e pela seção do cabo (preços em ⚙ Preços)."></div>
+      <div><label>Mão de obra</label><input id="mo_manual" class="rs" inputmode="decimal" placeholder="automática"
+        title="Vazio = base + valor por metro de circuito (⚙ Preços)."></div>
+      <div><label>Deslocamento</label><input id="desloc" class="rs" inputmode="decimal" placeholder="R$ 0,00"></div>
+    </div>
+  </section>
+
+  <section class="so-admin">
+    <h2>Margem e pagamento</h2>
+    <div class="grid g4">
+      <div><label>Margem (%)</label><input id="margem_pct" inputmode="decimal" value="{{ '%g'|format((cw.margem_padrao or 0)*100) }}"></div>
+      <div><label>Imposto (%)</label><input id="aliquota_pct" inputmode="decimal" value="{{ '%g'|format((cw.aliquota_imposto or 0)*100) }}"></div>
+      <div><label>Comissão (%)</label><input id="comissao_pct" inputmode="decimal" value="{{ '%g'|format((cw.comissao_pct or 0)*100) }}"></div>
+      <div><label>Seguro (%)</label><input id="seguro_pct" inputmode="decimal" value="{{ '%g'|format((cw.seguro_pct or 0)*100) }}"></div>
+    </div>
+    <div class="grid g4 mt">
+      <div><label>Taxa do cartão (%)</label><input id="cartao_taxa_pct" inputmode="decimal" value="{{ (cw.cartao or {}).get('taxa_pct', 12.4) }}"
+        title="Taxa embutida no parcelado: o cliente paga venda ÷ (1 − taxa), a S2V recebe a venda cheia."></div>
+      <div><label>Parcelas no cartão</label><input id="cartao_parcelas" type="number" value="{{ (cw.cartao or {}).get('parcelas', 12) }}"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Proposta</h2>
+    <div class="grid g2">
+      <div><label>Garantia da instalação</label><input id="garantia" value="{{ cw.garantia or '' }}"></div>
+      <div><label>Prazo de execução</label><input id="prazo_execucao" value="{{ cw.prazo_execucao or '' }}"></div>
+    </div>
+  </section>
+</div>
+
+<div class="res">
+  <section>
+    <h2>Resultado</h2>
+    <div class="destaque"><div class="l">Valor da instalação
+        <button type="button" class="bt-mini bt-claro so-admin" style="margin-left:6px;padding:1px 8px;font-size:10px" onclick="toggleVenda()" title="fixar o valor final">✏️ editar</button></div>
+      <div class="v" id="r-venda">—</div>
+      <div class="edit-venda so-admin" id="edit-venda" style="display:none">
+        <input id="preco_venda_manual" class="rs" inputmode="decimal" placeholder="R$ 0,00">
+        <button type="button" class="bt-mini bt-claro" onclick="limparVenda()" title="voltar ao cálculo">✕ auto</button>
+      </div>
+      <div class="l" id="r-parcela" style="margin-top:4px"></div></div>
+    <details open class="so-admin"><summary style="cursor:pointer;font-size:12px;color:var(--azul);font-weight:600">Composição do preço</summary>
+      <table style="margin-top:6px" class="tb-comp">
+        <thead><tr><th>item</th><th>% da venda</th><th>R$</th></tr></thead>
+        <tbody id="comp-linhas"></tbody>
+        <tfoot>
+          <tr class="tot"><td>Custo total</td><td id="c-tot-p">—</td><td id="c-tot">—</td></tr>
+          <tr class="tot"><td>Lucro</td><td id="c-lucro-p">—</td><td id="c-lucro">—</td></tr>
+          <tr class="tot venda"><td>Valor de venda</td><td>100%</td><td id="c-venda">—</td></tr>
+        </tfoot>
+      </table>
+    </details>
+    <div class="aviso" id="aviso-preco"></div>
+    <div class="erro" id="erro"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="bt-verde" style="flex:1" onclick="gerar()" id="bt-pdf">Gerar proposta e salvar</button>
+      <button class="bt-claro" onclick="previa()" id="bt-previa" title="mostra o PDF sem salvar nada nem enviar ao Drive">👁 Pré-visualizar</button>
+    </div>
+    <button class="bt-claro" style="width:100%;margin-top:8px" onclick="novaProposta()">🆕 Nova proposta (limpar tudo)</button>
+    <button class="bt-claro so-admin" style="width:100%;margin-top:8px" onclick="abrirImportar()">📂 Importar orçamento salvo</button>
+    <div class="ok" id="salvo-ok"></div>
+  </section>
+</div>
+</main>
+
+<div id="modal-importar" class="modal" onclick="if(event.target===this)fechar('modal-importar')">
+  <div class="modal-cx" style="max-width:520px">
+    <div class="modal-cab"><b>Importar orçamento de carregador</b><span class="modal-x" onclick="fechar('modal-importar')">✕</span></div>
+    <div id="lista-imp" style="max-height:60vh;overflow:auto"></div>
+  </div>
+</div>
+
+<div id="modal-precos" class="modal" onclick="if(event.target===this)fechar('modal-precos')">
+  <div class="modal-cx">
+    <div class="modal-cab"><b>Preços e regras do carregador veicular</b><span class="modal-x" onclick="fechar('modal-precos')">✕</span></div>
+    <p style="margin:0 0 10px;color:var(--mudo);font-size:13px">Preços de <b>custo</b> (sem margem). Valem para todos os orçamentos novos.</p>
+    <div id="precos-corpo" style="max-height:64vh;overflow:auto"></div>
+    <div class="erro" id="precos-erro"></div>
+    <div style="text-align:right;margin-top:12px">
+      <button class="bt-claro bt-mini" onclick="fechar('modal-precos')">cancelar</button>
+      <button class="bt-verde bt-mini" onclick="salvarPrecos()" id="bt-precos">salvar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const PAPEL={{ papel | tojson }};
+const v=id=>document.getElementById(id).value;
+const _esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+// número no formato BR ("1.234,56", "R$ 80,00", "7,4", "0.5") → Number
+function numBR(txt){
+ if(txt==null) return NaN;
+ if(typeof txt==='number') return txt;
+ let s=String(txt).replace(/[^\d.,-]/g,'');
+ if(s==='') return NaN;
+ if(s.includes(',')) s=s.replace(/\./g,'').replace(',','.');
+ else if((s.match(/\./g)||[]).length>1) s=s.replace(/\./g,'');
+ const n=parseFloat(s); return isNaN(n)?NaN:n;
+}
+const fmt=(n,d=2)=>Number(n).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d});
+const fmtN=n=>Number(n).toLocaleString('pt-BR',{maximumFractionDigits:2});
+function maskRS(el){
+ const dig=el.value.replace(/\D/g,'');
+ el.value=dig?'R$ '+fmt(parseInt(dig,10)/100):'';
+}
+const numOuVazio=id=>{const n=numBR(v(id)); return isNaN(n)?'':n;};
+
+// ---- botões de duas opções da Mobi (linha e cor) ----
+function tgVal(id){ return document.querySelector('#'+id+' button.on').dataset.v; }
+function tgSet(id,val){
+ document.querySelectorAll('#'+id+' button').forEach(b=>b.classList.toggle('on',b.dataset.v===val));
+ if(id==='tg-linha') document.getElementById('box-tomadas').style.display=val==='PLUG'?'grid':'none';
+}
+['tg-linha','tg-cor'].forEach(id=>document.querySelectorAll('#'+id+' button').forEach(b=>
+ b.addEventListener('click',()=>{ tgSet(id,b.dataset.v); agendar(); })));
+
+function coletar(){
+ const d={};
+ ['nome','endereco','numero','cidade','consultor','modelo','alimentacao','garantia','prazo_execucao','cep','mobi_tomadas']
+   .forEach(k=>d[k]=v(k));
+ ['pot_kw','corrente_a','distancia_m','secao_manual','disjuntor_manual','desloc',
+  'mobi_preco_manual','material_ca_manual','mo_manual',
+  'margem_pct','aliquota_pct','comissao_pct','seguro_pct','cartao_taxa_pct','cartao_parcelas',
+  'preco_venda_manual'].forEach(k=>d[k]=numOuVazio(k));
+ d.mobi_linha=tgVal('tg-linha'); d.mobi_cor=tgVal('tg-cor');
+ d.mobi_medidor=document.getElementById('mobi_medidor').checked;
+ return d;
+}
+
+let _t=null, _seq=0;
+function agendar(){ clearTimeout(_t); _t=setTimeout(calcular,250); }
+async function calcular(){
+ const meu=++_seq;
+ const err=document.getElementById('erro');
+ try{
+  const r=await fetch('/api/wallbox/calcular',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(coletar())});
+  const j=await r.json();
+  if(meu!==_seq) return;                      // chegou resposta mais nova
+  if(!j.ok) throw j.erro||'erro';
+  err.style.display='none';
+  mostrar(j.resumo);
+ }catch(e){ if(meu===_seq){ err.textContent=String(e); err.style.display='block'; } }
+}
+
+function mostrar(s){
+ const t=s.tecnico;
+ document.getElementById('t-ib').textContent=fmtN(t.ib)+' A';
+ document.getElementById('t-dj').textContent=fmtN(t.disjuntor)+' A · '+t.polos_dj+'P';
+ document.getElementById('t-cabo').textContent=fmtN(t.secao)+' · '+fmtN(t.secao_pe)+' mm²';
+ document.getElementById('t-queda').textContent=fmt(t.queda_pct)+' %';
+ const av=document.getElementById('t-avisos');
+ av.innerHTML=(s.avisos||[]).map(a=>'⚠ '+_esc(a)).join('<br>');
+ av.style.display=(s.avisos||[]).length?'block':'none';
+ dicaMobi(s);
+ document.getElementById('mobi-esc').innerHTML=s.mobi_modelo
+   ?`Modelo: <b>${_esc(s.mobi_modelo)}</b>`:'<small>nenhum modelo do catálogo serve — veja o aviso acima</small>';
+ document.getElementById('r-venda').textContent=s.preco_venda;
+ document.getElementById('r-parcela').textContent=
+   s.cartao_parcelas>1?`ou ${s.cartao_parcelas}x de ${s.parcela_cartao} no cartão`:'';
+ // Mobi sem preço: a proposta não sai (o valor estaria errado para menos) —
+ // aviso no painel e botões travados, para não parecer falha do Drive
+ const semPreco=!s.mobi_modelo||s.mobi_sem_preco;
+ const ap=document.getElementById('aviso-preco');
+ ap.innerHTML=!s.mobi_modelo?'⚠ Nenhum modelo Mobi serve para estas opções — a proposta não pode ser gerada.'
+   :(PAPEL==='consultor'?`⚠ A <b>${_esc(s.mobi_modelo)}</b> ainda não tem preço cadastrado. Peça ao administrador.`
+   :`⚠ A <b>${_esc(s.mobi_modelo)}</b> está <b>sem preço</b>. Cadastre em <b>⚙ Preços</b> ou digite no campo "Preço da Mobi" — sem isso a proposta não é gerada nem salva.`);
+ ap.style.display=semPreco?'block':'none';
+ ['bt-pdf','bt-previa'].forEach(id=>document.getElementById(id).disabled=semPreco);
+ if(!s.composicao) return;                    // consultor: só valor e técnica
+ const ph=(id,val,vazio)=>{document.getElementById(id).placeholder=val>0?'R$ '+fmt(val):vazio;};
+ ph('mobi_preco_manual',s.custo_mobi_auto,'sem preço cadastrado');
+ ph('material_ca_manual',s.custo_material_auto,'automático');
+ ph('mo_manual',s.custo_mo_auto,'automática');
+ document.getElementById('comp-linhas').innerHTML=s.composicao.map(c=>
+   `<tr class="${c.pct===0?'zero':''}"><td>${_esc(c.rotulo)}${c.obs?` <small style="color:var(--mudo);font-weight:400">(${_esc(c.obs)})</small>`:''}</td><td>${fmt(c.pct,1)}%</td><td>${c.rs}</td></tr>`).join('');
+ document.getElementById('c-tot').textContent=s.custo_total;
+ document.getElementById('c-tot-p').textContent=fmt(s.custo_total_pct,1)+'%';
+ document.getElementById('c-lucro').textContent=s.lucro_rs;
+ document.getElementById('c-lucro-p').textContent=fmt(s.lucro_pct,1)+'%';
+ document.getElementById('c-venda').textContent=s.preco_venda;
+}
+
+function toggleVenda(){
+ const b=document.getElementById('edit-venda');
+ b.style.display=b.style.display==='none'?'flex':'none';
+}
+function limparVenda(){ document.getElementById('preco_venda_manual').value=''; agendar(); }
+
+async function buscarCep(){
+ const err=document.getElementById('erro');
+ try{
+  const r=await fetch('/api/cep/'+encodeURIComponent(v('cep').replace(/\D/g,'')));
+  const j=await r.json(); if(!j.ok) throw j.erro;
+  if(j.logradouro) document.getElementById('endereco').value=j.logradouro;
+  document.getElementById('cidade').value=`${j.cidade} - ${j.uf}`;
+ }catch(e){ err.textContent='CEP: '+e; err.style.display='block'; }
+}
+
+let _pdfUrl=null;
+async function pedirPdf(url){
+ const body=coletar(); if(FOTOS.mobi) body.img_mobi=FOTOS.mobi;
+ const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify(body)});
+ if(!r.ok){ const j=await r.json(); throw j.erro||'erro'; }
+ return r;
+}
+async function previa(){
+ const bt=document.getElementById('bt-previa'), rot=bt.textContent;
+ const err=document.getElementById('erro');
+ bt.disabled=true; bt.textContent='Gerando…';
+ try{
+  const blob=await (await pedirPdf('/api/wallbox/previa')).blob();
+  if(_pdfUrl) URL.revokeObjectURL(_pdfUrl);
+  _pdfUrl=URL.createObjectURL(blob); window.open(_pdfUrl,'_blank');
+  err.style.display='none';
+ }catch(e){ err.textContent='Falha na pré-visualização: '+e; err.style.display='block'; }
+ finally{ bt.disabled=false; bt.textContent=rot; }
+}
+async function gerar(){
+ const bt=document.getElementById('bt-pdf');
+ const err=document.getElementById('erro'), ok=document.getElementById('salvo-ok');
+ if(!v('nome').trim()){ err.textContent='Informe o nome do cliente.'; err.style.display='block'; return; }
+ bt.disabled=true; bt.textContent='Gerando e salvando…';
+ try{
+  const r=await pedirPdf('/api/wallbox/proposta');
+  const blob=await r.blob();
+  const cd=r.headers.get('Content-Disposition')||'';
+  const m=cd.match(/filename\*?=(?:UTF-8''|\")?([^\";]+)/i);
+  const nome=m?decodeURIComponent(m[1]):'PROPOSTA.pdf';
+  if(_pdfUrl) URL.revokeObjectURL(_pdfUrl);
+  _pdfUrl=URL.createObjectURL(blob); window.open(_pdfUrl,'_blank');
+  const extra=r.headers.get('X-Drive-Enviado')?' e enviado ao <b>Google Drive</b> ✔':'';
+  ok.innerHTML=`✔ proposta gerada e orçamento salvo${extra} &middot; <a href="${_pdfUrl}" download="${_esc(nome)}" style="color:var(--azul);font-weight:600">⬇ baixar PDF</a>`;
+  ok.style.display='block';
+  const aviso=r.headers.get('X-Drive-Aviso');
+  if(aviso){ err.innerHTML='⚠ A proposta foi gerada, mas <b>o envio ao Google Drive falhou</b>: '+_esc(aviso); err.style.display='block'; }
+  else err.style.display='none';
+ }catch(e){ err.textContent='Falha ao gerar: '+e; err.style.display='block'; }
+ bt.disabled=false; bt.textContent='Gerar proposta e salvar';
+}
+function novaProposta(){
+ if(!confirm('Limpar TODOS os campos e começar um orçamento novo?')) return;
+ location.reload();
+}
+function fechar(id){ document.getElementById(id).classList.remove('on'); }
+
+// ---- importar orçamento salvo (só admin) ----
+async function abrirImportar(){
+ const box=document.getElementById('lista-imp');
+ box.textContent='carregando…'; document.getElementById('modal-importar').classList.add('on');
+ try{
+  const j=await (await fetch('/api/resumos-salvos?tipo=wallbox')).json();
+  if(!j.ok) throw j.erro;
+  box.innerHTML=j.itens.length?j.itens.map(x=>`<div class="item-imp" data-rel="${_esc(x.rel)}"><b>${_esc(x.cliente)}</b><br><small>${_esc(x.caminho)}</small></div>`).join('')
+    :'<div style="color:var(--mudo);font-size:13px">Nenhum orçamento de carregador salvo ainda.</div>';
+  box.querySelectorAll('.item-imp').forEach(el=>el.onclick=()=>importar(el.dataset.rel));
+ }catch(e){ box.textContent='Erro: '+e; }
+}
+async function importar(rel){
+ try{
+  const j=await (await fetch('/api/importar-resumo',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({rel})})).json();
+  if(!j.ok) throw j.erro;
+  aplicar(j.dados); fechar('modal-importar');
+ }catch(e){ alert('Não foi possível importar: '+e); }
+}
+function aplicar(d){
+ setFoto('mobi', d.img_mobi||null);
+ const br=n=>(n===''||n==null)?'':String(n).replace('.',',');
+ ['nome','endereco','numero','cidade','modelo','garantia','prazo_execucao','cep','mobi_tomadas'].forEach(k=>{
+   if(d[k]!=null) document.getElementById(k).value=d[k];});
+ if(d.alimentacao) document.getElementById('alimentacao').value=d.alimentacao;
+ ['pot_kw','corrente_a','distancia_m','secao_manual','disjuntor_manual','margem_pct','aliquota_pct',
+  'comissao_pct','seguro_pct','cartao_taxa_pct'].forEach(k=>{ if(k in d) document.getElementById(k).value=br(d[k]); });
+ if('cartao_parcelas' in d) document.getElementById('cartao_parcelas').value=d.cartao_parcelas;
+ ['desloc','preco_venda_manual','mobi_preco_manual','material_ca_manual','mo_manual'].forEach(k=>{
+   const el=document.getElementById(k); el.value=d[k]?'R$ '+fmt(d[k]):''; });
+ if(d.preco_venda_manual) document.getElementById('edit-venda').style.display='flex';
+ tgSet('tg-linha',d.mobi_linha||'BOX'); tgSet('tg-cor',d.mobi_cor||'CINZA');
+ document.getElementById('mobi_medidor').checked=!!d.mobi_medidor;
+ calcular();
+}
+
+// ---- ⚙ Preços: edita config.json → wallbox (só admin) ----
+let CW=null;
+const CAMPOS_PRECOS=[
+ ['Margem e pagamento (padrões dos orçamentos novos)'],
+ ['margem_padrao','Margem (%)','pct'],['aliquota_imposto','Imposto (%)','pct'],
+ ['comissao_pct','Comissão (%)','pct'],['seguro_pct','Seguro (%)','pct'],
+ ['cartao.taxa_pct','Taxa do cartão (%)','n'],['cartao.parcelas','Parcelas no cartão','n'],
+ ['garantia','Garantia da instalação','t'],['prazo_execucao','Prazo de execução','t'],
+ ['Mão de obra e ART'],
+ ['mao_de_obra_base','Mão de obra — base (R$)','n'],['mao_de_obra_por_metro','Mão de obra — por metro (R$/m)','n'],
+ ['art_rs','ART (R$)','n'],
+ ['Material CA — base da estimativa automática'],
+ ['eletroduto_rs_m','Eletroduto + fixação (R$/m)','n'],['aterramento_rs','Aterramento completo (R$)','n'],
+ ['miscelanea_rs','Terminais, conexões e disjuntor no quadro geral (R$)','n'],
+ ['Regras do dimensionamento'],
+ ['distancia_padrao_m','Distância estimada quando "a verificar" (m)','n'],
+ ['folga_cabo_pct','Folga no comprimento do cabo (%)','n'],['queda_max_pct','Queda de tensão máxima (%)','n'],
+ ['fator_disjuntor','Disjuntor ≥ fator × corrente','n'],['fator_correcao_iz','Fator de correção da Iz (temp./agrup.)','n'],
+];
+const pegar=(o,p)=>p.split('.').reduce((a,k)=>a==null?a:a[k],o);
+function por(o,p,val){ const ks=p.split('.'); let a=o;
+ ks.slice(0,-1).forEach(k=>{a[k]=a[k]||{}; a=a[k];}); a[ks[ks.length-1]]=val; }
+async function abrirPrecos(){
+ const corpo=document.getElementById('precos-corpo');
+ corpo.textContent='carregando…'; document.getElementById('precos-erro').style.display='none';
+ document.getElementById('modal-precos').classList.add('on');
+ try{
+  const j=await (await fetch('/api/config')).json(); if(!j.ok) throw j.erro;
+  CW=JSON.parse(JSON.stringify(j.config.wallbox||{}));
+  let h='<div class="sub-rot">Fotos padrão da Mobi (vão na pág. 1 quando o orçamento não tem foto própria)</div>'
+    +'<div class="fotos-grid"><div id="fcx-box"></div><div id="fcx-plug"></div></div>', aberto=false;
+  CAMPOS_PRECOS.forEach(c=>{
+    if(c.length===1){ if(aberto) h+='</div>'; h+=`<div class="sub-rot">${c[0]}</div><div class="grid g2">`; aberto=true; return; }
+    let val=pegar(CW,c[0]);
+    if(c[2]==='pct') val=val==null?'':fmtN(val*100);
+    else if(c[2]==='n') val=val==null?'':fmtN(val);
+    h+=`<div><label>${c[1]}</label><input data-p="${c[0]}" data-t="${c[2]}" value="${_esc(val)}" ${c[2]==='t'?'':'inputmode="decimal"'}></div>`;
+  });
+  if(aberto) h+='</div>';
+  h+='<div class="sub-rot">CLAMPER Mobi — modelo e preço de custo</div><table class="tb-mobi">';
+  (CW.mobi||[]).forEach((m,i)=>{
+    h+=`<tr><td><input data-mobi="${i}" data-c="modelo" value="${_esc(m.modelo)}"></td>`
+      +`<td class="pr"><input data-mobi="${i}" data-c="preco" inputmode="decimal" placeholder="R$ —" value="${m.preco?fmt(m.preco):''}"></td></tr>`;});
+  h+='</table>';
+  h+='<div class="sub-rot">Cabo de cobre (R$/m, por seção) — para o Material CA</div><div class="grid g4">';
+  Object.keys(CW.cabo_rs_m||{}).forEach(s=>{
+    h+=`<div><label>${s.replace('.',',')} mm²</label><input data-cabo="${s}" inputmode="decimal" value="${fmtN(CW.cabo_rs_m[s])}"></div>`;});
+  h+='</div>';
+  corpo.innerHTML=h;
+  montarFoto('box','Mobi Box','clique, arraste ou cole (Ctrl+V)<br>a foto da Mobi Box');
+  montarFoto('plug','Mobi Plug','clique, arraste ou cole (Ctrl+V)<br>a foto da Mobi Plug');
+  const fp=await (await fetch('/api/wallbox/fotos-padrao')).json();
+  setFoto('box', fp.box||null); setFoto('plug', fp.plug||null);
+ }catch(e){ corpo.textContent='Erro: '+e; }
+}
+async function salvarPrecos(){
+ const err=document.getElementById('precos-erro'), bt=document.getElementById('bt-precos');
+ try{
+  const novo=JSON.parse(JSON.stringify(CW));
+  document.querySelectorAll('#precos-corpo input[data-p]').forEach(inp=>{
+    const t=inp.dataset.t;
+    if(t==='t'){ por(novo,inp.dataset.p,inp.value.trim()); return; }
+    const n=numBR(inp.value);
+    if(isNaN(n)) throw 'valor inválido em "'+inp.previousElementSibling.textContent+'"';
+    por(novo,inp.dataset.p,t==='pct'?n/100:n);
+  });
+  document.querySelectorAll('#precos-corpo input[data-mobi]').forEach(inp=>{
+    const m=novo.mobi[+inp.dataset.mobi];
+    if(inp.dataset.c==='modelo'){ m.modelo=inp.value.trim()||m.modelo; return; }
+    const n=numBR(inp.value);
+    if(inp.value.trim()!=='' && isNaN(n)) throw 'preço inválido em "'+m.modelo+'"';
+    m.preco=(inp.value.trim()===''||isNaN(n))?null:n; });
+  document.querySelectorAll('#precos-corpo input[data-cabo]').forEach(inp=>{
+    const n=numBR(inp.value); if(isNaN(n)) throw 'preço de cabo inválido';
+    novo.cabo_rs_m[inp.dataset.cabo]=n; });
+  bt.disabled=true;
+  const j=await (await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({wallbox:novo})})).json();
+  if(!j.ok) throw j.erro;
+  const jf=await (await fetch('/api/wallbox/fotos-padrao',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({box:FOTOS.box,plug:FOTOS.plug})})).json();
+  if(!jf.ok) throw jf.erro;
+  // padrões novos de margem/pagamento/textos passam a valer já neste orçamento
+  const set=(id,val)=>{document.getElementById(id).value=val;};
+  set('margem_pct',fmtN(novo.margem_padrao*100)); set('aliquota_pct',fmtN(novo.aliquota_imposto*100));
+  set('comissao_pct',fmtN(novo.comissao_pct*100)); set('seguro_pct',fmtN(novo.seguro_pct*100));
+  set('cartao_taxa_pct',fmtN(novo.cartao.taxa_pct)); set('cartao_parcelas',novo.cartao.parcelas);
+  set('garantia',novo.garantia); set('prazo_execucao',novo.prazo_execucao);
+  fechar('modal-precos'); calcular();
+ }catch(e){ err.textContent=String(e); err.style.display='block'; }
+ finally{ bt.disabled=false; }
+}
+
+// ---- fotos: a da Mobi neste orçamento ('mobi') e as padrão Box/Plug (⚙ Preços) ----
+// mesmo comportamento do solar: clicar, arrastar ou colar (Ctrl+V) o print
+const FOTOS={mobi:null, box:null, plug:null};
+let fotoAlvo=null;
+function montarFoto(k, titulo, dica){
+ const cx=document.getElementById('fcx-'+k);
+ cx.className='foto-cx';
+ cx.innerHTML='<div class="foto-titulo">'+titulo+'</div><img class="foto-prev" alt="" style="display:none">'
+   +'<div class="foto-dica">'+dica+'</div>'
+   +'<button type="button" class="foto-rm" style="display:none">remover</button>'
+   +'<input type="file" accept="image/*" style="display:none">';
+ const file=cx.querySelector('input');
+ cx.addEventListener('click',e=>{ if(e.target.classList.contains('foto-rm')) return; file.click(); });
+ cx.querySelector('.foto-rm').addEventListener('click',e=>{ e.stopPropagation(); setFoto(k,null); });
+ file.addEventListener('click',e=>e.stopPropagation());
+ file.addEventListener('change',e=>{ e.stopPropagation(); if(file.files[0]) lerFoto(file.files[0],k); });
+ cx.addEventListener('dragover',e=>{e.preventDefault();cx.classList.add('drag');});
+ cx.addEventListener('dragleave',()=>cx.classList.remove('drag'));
+ cx.addEventListener('drop',e=>{e.preventDefault();cx.classList.remove('drag');
+   if(e.dataTransfer.files[0]) lerFoto(e.dataTransfer.files[0],k);});
+ cx.addEventListener('mouseenter',()=>fotoAlvo=k);
+ cx.addEventListener('mouseleave',()=>{ if(fotoAlvo===k) fotoAlvo=null; });
+}
+function setFoto(k, dataurl){
+ FOTOS[k]=dataurl;
+ const cx=document.getElementById('fcx-'+k); if(!cx||!cx.firstChild) return;
+ const img=cx.querySelector('img'), dica=cx.querySelector('.foto-dica'), rm=cx.querySelector('.foto-rm');
+ if(dataurl){ img.src=dataurl; img.style.display='block'; dica.style.display='none'; rm.style.display='inline-block'; cx.classList.add('tem'); }
+ else { img.removeAttribute('src'); img.style.display='none'; dica.style.display='block'; rm.style.display='none'; cx.classList.remove('tem'); }
+}
+function lerFoto(file, k){
+ if(!file||!file.type||file.type.indexOf('image/')!==0) return;
+ const fr=new FileReader(); fr.onload=()=>setFoto(k, fr.result); fr.readAsDataURL(file);
+}
+window.addEventListener('paste',e=>{
+ const items=e.clipboardData?e.clipboardData.items:[];
+ let it=null; for(const i of items){ if(i.type&&i.type.indexOf('image/')===0){ it=i; break; } }
+ if(!it) return;
+ if(document.getElementById('modal-precos').classList.contains('on')){
+   const k=(fotoAlvo==='box'||fotoAlvo==='plug')?fotoAlvo:(!FOTOS.box?'box':(!FOTOS.plug?'plug':'box'));
+   lerFoto(it.getAsFile(), k); return;
+ }
+ lerFoto(it.getAsFile(), 'mobi');
+});
+// dica da caixa do orçamento: diz o que vai no PDF quando ela fica vazia
+function dicaMobi(s){
+ const linha=tgVal('tg-linha')==='PLUG'?'Mobi Plug':'Mobi Box';
+ const d=s.tem_foto_padrao?('vazio = vai a foto padrão da '+linha):'vazio = sem foto na proposta';
+ const el=document.querySelector('#fcx-mobi .foto-dica');
+ if(el) el.innerHTML='clique, arraste ou cole (Ctrl+V)<br><small>'+d+'</small>';
+}
+montarFoto('mobi','Mobi','clique, arraste ou cole (Ctrl+V)');
+
+// ---- ligação dos campos ----
+document.querySelectorAll('main input,main select').forEach(el=>{
+ if(el.type==='file') return;
+ el.addEventListener('input',agendar); el.addEventListener('change',agendar);
+});
+document.querySelectorAll('input.rs').forEach(el=>el.addEventListener('input',()=>maskRS(el)));
+calcular();
+</script>
+</body>
+</html>

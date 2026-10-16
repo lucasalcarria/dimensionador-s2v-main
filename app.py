@@ -116,9 +116,13 @@ def _rota_admin(req) -> bool:
     if p == '/api/config':                      # ler ou gravar pré-definições
         return True
     if p in ('/api/imagens-padrao', '/api/atualizar-tarifa',
+             '/api/wallbox/fotos-padrao',
              '/api/drive/desconectar') and m == 'POST':
         return True
     if p == '/api/aneel-tarifa-a':              # tarifas do grupo A: só admin
+        return True
+    # carregador veicular (/wallbox): aba inteira só do admin — pedido do usuário
+    if p == '/wallbox' or p.startswith('/api/wallbox/'):
         return True
     if p in ('/api/resumos-salvos', '/api/importar-resumo'):
         return True                             # importar projeto: só admin
@@ -230,6 +234,22 @@ def _clientes_dir() -> str:
     return _pasta_base()
 
 
+# Pasta "de consultor" EXCLUSIVA dos orçamentos de carregador veicular: todo
+# orçamento da aba /wallbox vai para ela, e o solar NUNCA usa (some da lista de
+# consultores e o servidor recusa) — pedido do usuário. É o nome da pasta que já
+# existe no Drive, no plural.
+PASTA_WALLBOX = 'INSTALAÇÕES WALLBOX'
+
+
+def _eh_pasta_wallbox(nome: str) -> bool:
+    """Compara sem acento/caixa/espaços extras e aceita o singular — 'Instalacao
+    wallbox' digitado no solar também é barrado."""
+    import unicodedata
+    n = unicodedata.normalize('NFKD', str(nome or ''))
+    n = ' '.join(''.join(c for c in n if not unicodedata.combining(c)).upper().split())
+    return n in ('INSTALACOES WALLBOX', 'INSTALACAO WALLBOX')
+
+
 def _limpar_nome(txt: str, padrao: str) -> str:
     """Deixa um texto seguro para virar nome de pasta no Windows."""
     txt = re.sub(r'[\\/:*?"<>|]', ' ', str(txt or ''))
@@ -308,10 +328,15 @@ def _img_ext(dataurl) -> str:
     return _IMG_MIME_EXT.get((m.group(1) if m else '').lower(), '.png')
 
 
+# foto → nome do arquivo na pasta do projeto ('mobi' = a CLAMPER Mobi do
+# orçamento de carregador veicular)
+_IMG_BASE = {'modulo': 'MODULO', 'inversor': 'INVERSOR', 'mobi': 'MOBI'}
+
+
 def _gravar_img_projeto(pasta: str, qual: str, dataurl):
     """Grava a foto usada no PDF na pasta do projeto. Devolve
     (nome, bytes, mime) — ou None quando não há imagem."""
-    base = 'MODULO' if qual == 'modulo' else 'INVERSOR'
+    base = _IMG_BASE.get(qual, 'INVERSOR')
     for ext in _IMG_EXT_MIME:                    # limpa versões antigas
         velho = os.path.join(pasta, base + ext)
         if os.path.exists(velho):
@@ -333,7 +358,7 @@ def _ler_imgs_projeto(pasta: str) -> dict:
     tela usa ({'img_modulo': 'data:image/png;base64,…'})."""
     import base64
     out = {}
-    for qual, base in (('modulo', 'MODULO'), ('inversor', 'INVERSOR')):
+    for qual, base in _IMG_BASE.items():
         for ext, mime in _IMG_EXT_MIME.items():
             caminho = os.path.join(pasta, base + ext)
             if not os.path.isfile(caminho):
@@ -353,8 +378,14 @@ def _ler_imgs_projeto(pasta: str) -> dict:
 # (dir_execucao → bucket no Cloud Run), NUNCA no config.json versionado: são
 # base64 grande e mudariam o arquivo a cada troca. Servem quando a UC não colar
 # a foto no fluxo normal de geração.
+_IMG_PADRAO = {'modulo': 'padrao_modulo.txt', 'inversor': 'padrao_inversor.txt',
+               # carregador veicular: uma foto padrão por linha da CLAMPER Mobi
+               'mobi_box': 'padrao_mobi_box.txt',
+               'mobi_plug': 'padrao_mobi_plug.txt'}
+
+
 def _caminho_img_padrao(qual: str) -> str:
-    nome = 'padrao_modulo.txt' if qual == 'modulo' else 'padrao_inversor.txt'
+    nome = _IMG_PADRAO.get(qual, 'padrao_inversor.txt')
     return os.path.join(engine.dir_execucao(), nome)
 
 
@@ -1142,7 +1173,7 @@ CONFIG_EDITAVEL = ('aliquota_imposto', 'mao_de_obra_minima',
                    'financiamento_padrao', 'cartao_infinitetap', 'performance_ratio',
                    'perda_irradiacao', 'marcas_modulo', 'marcas_inversor',
                    'bandeiras', 'subgrupos', 'pasta_saida', 'pasta_drive',
-                   'pacotes', 'foto_padrao_desc')
+                   'pacotes', 'foto_padrao_desc', 'wallbox')
 
 
 # ----------------------------------------------------------------- pacotes
@@ -1243,6 +1274,8 @@ def api_config():
     try:
         cfg = engine.carregar_config()
         dados = {k: cfg.get(k) for k in CONFIG_EDITAVEL}
+        import wallbox                  # completa com o padrão do programa
+        dados['wallbox'] = wallbox.parametros(cfg)
         # pacotes: acrescenta id estável e as imagens próprias (para o editor)
         pacs = []
         for i, p in enumerate(_pacotes(cfg)):
@@ -1470,7 +1503,8 @@ def api_drive_consultores():
     if not (base and drive.conectado()):
         return jsonify(ok=True, consultores=[])
     try:
-        return jsonify(ok=True, consultores=drive.listar_subpastas(base))
+        return jsonify(ok=True, consultores=[
+            c for c in drive.listar_subpastas(base) if not _eh_pasta_wallbox(c)])
     except Exception as exc:                                    # noqa: BLE001
         return jsonify(ok=False, erro=str(exc), consultores=[])
 
@@ -1478,8 +1512,11 @@ def api_drive_consultores():
 @app.get('/api/resumos-salvos')
 def api_resumos_salvos():
     """Lista os projetos que podem ser reabertos — qualquer pasta que tenha um
-    DADOS.json, em qualquer profundidade (com ou sem o nível do consultor)."""
+    DADOS.json, em qualquer profundidade (com ou sem o nível do consultor).
+    `?tipo=wallbox` lista só os de carregador veicular (pasta 'WALLBOX …'); sem
+    o parâmetro, só os solares — a tela de um não importa projeto do outro."""
     base = _clientes_dir()
+    so_wallbox = request.args.get('tipo') == 'wallbox'
     itens = []
     for raiz, _dirs, arqs in os.walk(base):
         if 'DADOS.json' not in arqs:
@@ -1487,6 +1524,8 @@ def api_resumos_salvos():
         rel = os.path.relpath(raiz, base)
         partes = rel.split(os.sep)
         projeto = partes[-1]
+        if projeto.upper().startswith('WALLBOX') != so_wallbox:
+            continue
         cliente = partes[-2] if len(partes) >= 2 else projeto
         itens.append({'cliente': cliente, 'projeto': projeto,
                       'rel': rel.replace(os.sep, '/'),
@@ -1624,6 +1663,9 @@ def api_proposta():
         # consultor logado manda no nome da pasta (não confia no que veio da tela)
         consultor = (session.get('consultor') if _eh_consultor()
                      else (d.get('consultor') or '')).strip()
+        if _eh_pasta_wallbox(consultor):
+            raise ValueError(f'A pasta "{PASTA_WALLBOX}" é exclusiva dos orçamentos '
+                             f'de carregador veicular — escolha outro consultor.')
         pasta = _pasta_projeto(e, r, consultor)  # <base>/<consultor>/<cliente>/…
         nome_pdf = _limpar_nome(e.nome, 'PROPOSTA')
         if e.tem_micro():                    # proposta de microinversor: sufixo MICRO
@@ -1715,6 +1757,262 @@ def api_cep(cep):
         return jsonify(ok=True, **online.buscar_cep(cep))
     except Exception as exc:                                   # noqa: BLE001
         return jsonify(ok=False, erro=f'Não foi possível buscar agora: {exc}'), 400
+
+
+# ------------------------------------------------------- carregador veicular
+# Aba própria (/wallbox): SERVIÇO de instalação de wallbox — o carregador é do
+# cliente; a proteção é sempre um CLAMPER Mobi. Motor em wallbox.py, PDF em
+# proposta_wallbox.py, preços em config.json → 'wallbox'. Nada passa pelo engine.
+# Campos de CUSTO que o consultor não controla: para ele, o servidor descarta o
+# que veio da tela e usa os padrões das pré-definições (mesma blindagem dos
+# pacotes do solar). Os dados técnicos e as opções da Mobi seguem livres.
+_WB_CUSTOS = ('mobi_preco_manual', 'material_ca_manual', 'mo_manual', 'desloc',
+              'aliquota_pct', 'comissao_pct', 'seguro_pct', 'margem_pct',
+              'preco_venda_manual', 'cartao_taxa_pct', 'cartao_parcelas')
+
+
+def _montar_wallbox(d: dict):
+    import wallbox
+    cw = wallbox.parametros(engine.carregar_config())
+    d = dict(d or {})
+    if _eh_consultor():
+        for k in _WB_CUSTOS:
+            d.pop(k, None)
+    vazio = lambda k: d.get(k) in (None, '')
+    pct = lambda k, padrao: padrao if vazio(k) else _f(d[k]) / 100.0
+    rs = lambda k: None if vazio(k) else _f(d[k])
+    cartao = cw.get('cartao') or {}
+    return wallbox.EntradaWallbox(
+        nome=(d.get('nome') or '').strip(),
+        endereco=(d.get('endereco') or '').strip(),
+        numero=(d.get('numero') or '').strip(),
+        cidade=(d.get('cidade') or '').strip(),
+        consultor=(session.get('consultor') if _eh_consultor()
+                   else (d.get('consultor') or '')).strip(),
+        modelo=(d.get('modelo') or '').strip(),
+        pot_kw=_f(d.get('pot_kw')),
+        corrente_a=rs('corrente_a'),
+        alimentacao=d.get('alimentacao') or '220_FF',
+        distancia_m=rs('distancia_m'),        # vazio = a verificar
+        secao_manual=rs('secao_manual'),
+        disjuntor_manual=rs('disjuntor_manual'),
+        mobi_linha=(d.get('mobi_linha') or 'BOX').upper(),
+        mobi_tomadas=(d.get('mobi_tomadas') or 'RESIDENCIAL').upper(),
+        mobi_cor=(d.get('mobi_cor') or 'CINZA').upper(),
+        mobi_medidor=_regra_bool(d.get('mobi_medidor'), False),
+        mobi_preco_manual=rs('mobi_preco_manual'),
+        material_ca_manual=rs('material_ca_manual'),
+        mo_manual=rs('mo_manual'),
+        desloc=_f(d.get('desloc')),
+        aliquota=pct('aliquota_pct', float(cw.get('aliquota_imposto', 0.08))),
+        comissao_pct=pct('comissao_pct', float(cw.get('comissao_pct', 0))),
+        seguro_pct=pct('seguro_pct', float(cw.get('seguro_pct', 0))),
+        margem=pct('margem_pct', float(cw.get('margem_padrao', 0.30))),
+        preco_venda_manual=rs('preco_venda_manual'),
+        cartao_taxa_pct=(_f(cartao.get('taxa_pct'), 12.4) if vazio('cartao_taxa_pct')
+                         else _f(d['cartao_taxa_pct'])),
+        cartao_parcelas=int(_f(cartao.get('parcelas'), 12) if vazio('cartao_parcelas')
+                            else _f(d['cartao_parcelas'])),
+        garantia=(d.get('garantia') or cw.get('garantia') or '').strip(),
+        prazo_execucao=(d.get('prazo_execucao') or cw.get('prazo_execucao')
+                        or '').strip())
+
+
+def _resumo_wallbox(r: dict, cfg: dict) -> dict:
+    """O que a tela mostra. Para o consultor, sai só o valor, a técnica e o
+    modelo da Mobi — nunca custos."""
+    import wallbox
+    br = cfg.get('formato_ptbr', True)
+    m = lambda v: engine.moeda(v, br)
+    t = r['tecnico']
+    venda = r['preco_venda'] or 0.0
+    pct = lambda v: round(v / venda * 100, 1) if venda else 0.0
+    res = dict(
+        preco_venda=m(venda), preco_venda_num=round(venda, 2),
+        parcela_cartao=m(r['parcela_cartao']), cartao_parcelas=r['cartao_parcelas'],
+        textos=r['textos'], avisos=r['avisos'],
+        tem_foto_padrao=bool(_ler_img_padrao(
+            'mobi_plug' if (r.get('mobi') or {}).get('linha') == 'PLUG' else 'mobi_box')),
+        mobi_modelo=(r.get('mobi') or {}).get('modelo') or '',
+        mobi_sem_preco=r['mobi_sem_preco'],
+        tecnico=dict(alimentacao=t['alimentacao_txt'], ib=round(t['ib'], 1),
+                     disjuntor=t['disjuntor'], polos_dj=t['polos_dj'],
+                     secao=t['secao'], secao_pe=t['secao_pe'],
+                     queda_pct=round(t['queda_pct'], 2)))
+    if _eh_consultor():
+        return res
+    res['composicao'] = [{'rotulo': a, 'rs': m(v), 'pct': pct(v), 'obs': obs}
+                         for a, v, obs in wallbox.composicao(r)]
+    res.update(custo_mobi_auto=round(r['custo_mobi_auto'], 2),
+               custo_material_auto=round(r['custo_material_auto'], 2),
+               custo_mo_auto=round(r['custo_mo_auto'], 2),
+               custo_total=m(r['custo_total']), custo_total_pct=pct(r['custo_total']),
+               lucro_rs=m(r['lucro_rs']), lucro_pct=round(r['lucro_pct'] * 100, 2))
+    return res
+
+
+def _nome_projeto_wallbox(e, r: dict) -> str:
+    """Rótulo da pasta, ex.: 'WALLBOX 7,4KW 220V F+F 18M'."""
+    t = r['tecnico']
+    ali = t['alimentacao_txt'].split('(')[-1].rstrip(')') if '(' in \
+        t['alimentacao_txt'] else ''
+    kw = engine.fmt_general(round(e.pot_kw, 2)).replace('.', ',')
+    dist = (engine.fmt_general(round(e.distancia_m, 1)).replace('.', ',') + 'M'
+            if e.distancia_m else '')               # a verificar: sem metros
+    return _limpar_nome(f"WALLBOX {kw}KW {int(t['tensao'])}V {ali} {dist}",
+                        'WALLBOX')
+
+
+def _foto_mobi(d: dict, e) -> str | None:
+    """Foto da Mobi para a pág. 2: a colada no orçamento, senão a padrão da
+    linha escolhida (Box ou Plug, ⚙ Preços). Data URL ou None (sem foto o
+    espaço fica como na arte)."""
+    return (d.get('img_mobi')
+            or _ler_img_padrao('mobi_plug' if e.mobi_linha == 'PLUG' else 'mobi_box'))
+
+
+def _calcular_wallbox_para_pdf(d: dict):
+    """Cálculo de quem vai virar PDF: Mobi sem preço não sai (o valor estaria
+    errado para menos)."""
+    import wallbox
+    cfg = engine.carregar_config()
+    e = _montar_wallbox(d)
+    r = wallbox.calcular(e, cfg)
+    if r['mobi'] is None:
+        raise ValueError('Nenhum modelo Mobi serve para essas opções: ' +
+                         ' '.join(r['avisos']))
+    if r['mobi_sem_preco']:
+        raise ValueError(f"A {r['mobi']['modelo']} está sem preço: cadastre em "
+                         f"⚙ Preços (ou digite o preço da Mobi no orçamento).")
+    return cfg, e, r
+
+
+@app.get('/wallbox')
+def pagina_wallbox():
+    import wallbox
+    cfg = engine.carregar_config()
+    return render_template('wallbox.html', cfg=cfg, cw=wallbox.parametros(cfg),
+                           papel=_papel(), pasta_wallbox=PASTA_WALLBOX,
+                           consultor_nome=session.get('consultor', ''))
+
+
+@app.get('/api/wallbox/fotos-padrao')
+def api_wallbox_fotos_padrao():
+    """Fotos padrão da Mobi Box e da Mobi Plug (data URLs ou null)."""
+    return jsonify(ok=True, box=_ler_img_padrao('mobi_box'),
+                   plug=_ler_img_padrao('mobi_plug'))
+
+
+@app.post('/api/wallbox/fotos-padrao')
+def api_wallbox_salvar_fotos_padrao():
+    """Só admin (_rota_admin). Body {box, plug}: chave ausente = mantém;
+    vazia = remove."""
+    try:
+        d = request.get_json(force=True) or {}
+        for k in ('box', 'plug'):
+            if k in d:
+                _gravar_img_padrao('mobi_' + k, d.get(k))
+        return jsonify(ok=True)
+    except Exception as exc:                                   # noqa: BLE001
+        return jsonify(ok=False, erro=str(exc)), 400
+
+
+@app.post('/api/wallbox/calcular')
+def api_wallbox_calcular():
+    import wallbox
+    try:
+        cfg = engine.carregar_config()
+        r = wallbox.calcular(_montar_wallbox(request.get_json(force=True)), cfg)
+        return jsonify(ok=True, resumo=_resumo_wallbox(r, cfg))
+    except Exception as exc:                                   # noqa: BLE001
+        return jsonify(ok=False, erro=str(exc)), 400
+
+
+@app.post('/api/wallbox/previa')
+def api_wallbox_previa():
+    """PDF da proposta sem gravar pasta nem enviar ao Drive."""
+    import tempfile
+    import proposta_wallbox
+    try:
+        d = request.get_json(force=True) or {}
+        _, e, r = _calcular_wallbox_para_pdf(d)
+        fd, caminho = tempfile.mkstemp(suffix='.pdf')
+        os.close(fd)
+        try:
+            proposta_wallbox.gerar(r['textos'], caminho,
+                                   foto=_img_bytes(_foto_mobi(d, e)))
+            with open(caminho, 'rb') as f:
+                pdf = f.read()
+        finally:
+            try:
+                os.remove(caminho)
+            except OSError:
+                pass
+        resp = app.response_class(pdf, mimetype='application/pdf')
+        resp.headers['Content-Disposition'] = 'inline; filename="PREVIA.pdf"'
+        resp.headers['Cache-Control'] = 'no-store'
+        return resp
+    except Exception as exc:                                   # noqa: BLE001
+        return jsonify(ok=False, erro=str(exc)), 400
+
+
+@app.post('/api/wallbox/proposta')
+def api_wallbox_proposta():
+    """Calcula, grava a pasta do projeto (RESUMO, DADOS.json, PDF) em
+    <orçamentos>/INSTALAÇÕES WALLBOX/<CLIENTE>/<WALLBOX …>/, envia ao Drive se
+    configurado e devolve o PDF — igual à ação principal do solar."""
+    import wallbox
+    import proposta_wallbox
+    try:
+        d = request.get_json(force=True) or {}
+        cfg, e, r = _calcular_wallbox_para_pdf(d)
+        projeto = _nome_projeto_wallbox(e, r)
+        cliente = _limpar_nome(e.nome, 'CLIENTE')
+        pasta = os.path.join(_pasta_base(), PASTA_WALLBOX, cliente, projeto)
+        os.makedirs(pasta, exist_ok=True)
+        nome_pdf = _limpar_nome(e.nome, 'PROPOSTA') + ' - WALLBOX'
+
+        txt_resumo = wallbox.resumo_texto(e, r, cfg)
+        foto = _foto_mobi(d, e)
+        # a MESMA foto do PDF fica solta na pasta (MOBI.jpg…); o import a devolve
+        arq_foto = _gravar_img_projeto(pasta, 'mobi', foto)
+        d_salvar = {k: v for k, v in d.items() if k != 'img_mobi'}
+        d_salvar['tipo'] = 'wallbox'
+        if _eh_consultor():                    # o que valeu de verdade
+            d_salvar['consultor'] = e.consultor
+        txt_dados = json.dumps(d_salvar, ensure_ascii=False, indent=1)
+        with open(os.path.join(pasta, 'RESUMO.txt'), 'w', encoding='utf-8') as f:
+            f.write(txt_resumo)
+        with open(os.path.join(pasta, 'DADOS.json'), 'w', encoding='utf-8') as f:
+            f.write(txt_dados)
+        destino = os.path.join(pasta, f'{nome_pdf}.pdf')
+        proposta_wallbox.gerar(r['textos'], destino, foto=_img_bytes(foto))
+
+        aviso_drive, enviado_drive = None, False
+        base_drive = (cfg.get('pasta_drive') or '').strip()
+        if base_drive and drive.conectado():
+            try:
+                with open(destino, 'rb') as f:
+                    pdf_bytes = f.read()
+                drive.enviar_projeto(
+                    base_drive, PASTA_WALLBOX, cliente, projeto,
+                    [('RESUMO.txt', txt_resumo.encode('utf-8'), 'text/plain'),
+                     ('DADOS.json', txt_dados.encode('utf-8'), 'application/json'),
+                     (f'{nome_pdf}.pdf', pdf_bytes, 'application/pdf')]
+                    + ([arq_foto] if arq_foto else []))
+                enviado_drive = True
+            except Exception as exc:                           # noqa: BLE001
+                aviso_drive = str(exc)[:300]
+        resp = send_file(destino, as_attachment=True,
+                         download_name=f'{nome_pdf}.pdf')
+        if enviado_drive:
+            resp.headers['X-Drive-Enviado'] = '1'
+        if aviso_drive:
+            resp.headers['X-Drive-Aviso'] = \
+                aviso_drive.encode('ascii', 'replace').decode('ascii')
+        return resp
+    except Exception as exc:                                   # noqa: BLE001
+        return jsonify(ok=False, erro=str(exc)), 400
 
 
 def _abrir_navegador():

@@ -544,5 +544,405 @@
     "inversor": {
       "marca": ""
     }
-  }
+  },
+  "wallbox": {
+    "aliquota_imposto": 0.08,
+    "art_rs": 0,
+    "aterramento_rs": 190,
+    "cabo_rs_m": {
+      "4": 5,
+      "6": 7.5,
+      "10": 12.5,
+      "16": 19,
+      "25": 30,
+      "35": 42,
+      "50": 60,
+      "2.5": 3.2
+    },
+    "cartao": {
+      "parcelas": 12,
+      "taxa_pct": 12.4
+    },
+    "comissao_pct": 0,
+    "disjuntores_a": [
+      10,
+      16,
+      20,
+      25,
+      32,
+      40,
+      50,
+      63,
+      70,
+      80,
+      100,
+      125
+    ],
+    "distancia_padrao_m": 15,
+    "eletroduto_rs_m": 9,
+    "fator_correcao_iz": 1,
+    "fator_disjuntor": 1.25,
+    "folga_cabo_pct": 15,
+    "garantia": "1 ANO",
+    "iz_b1": {
+      "2": {
+        "4": 32,
+        "6": 41,
+        "10": 57,
+        "16": 76,
+        "25": 101,
+        "35": 125,
+        "50": 151,
+        "2.5": 24
+      },
+      "3": {
+        "4": 28,
+        "6": 36,
+        "10": 50,
+        "16": 68,
+        "25": 89,
+        "35": 110,
+        "50": 134,
+        "2.5": 21
+      }
+    },
+    "mao_de_obra_base": 900,
+    "mao_de_obra_por_metro": 12,
+    "margem_padrao": 0.25,
+    "miscelanea_rs": 90,
+    "mobi": [
+      {
+        "alimentacao": [
+          "220_FF",
+          "220_FN"
+        ],
+        "cor": "CINZA",
+        "corrente_a": 32,
+        "linha": "BOX",
+        "medidor": false,
+        "modelo": "CLAMPER Mobi Box 220V 8kW Cinza",
+        "pot_kw": 8,
+        "preco": null,
+        "tomadas": ""
+      },
+      {
+        "alimentacao": [
+          "220_FF",
+          "220_FN"
+        ],
+        "cor": "CINZA",
+        "corrente_a": 32,
+        "linha": "BOX",
+        "medidor": true,
+        "modelo": "CLAMPER Mobi Box 220V 8kW Cinza c/ Medidor",
+        "pot_kw": 8,
+        "preco": null,
+        "tomadas": ""
+      },
+      {
+        "alimentacao": [
+          "220_FF",
+          "220_FN"
+        ],
+        "cor": "PRETO",
+        "corrente_a": 32,
+        "linha": "BOX",
+        "medidor": false,
+        "modelo": "CLAMPER Mobi Box 220V 8kW Preto",
+        "pot_kw": 8,
+        "preco": null,
+        "tomadas": ""
+      },
+      {
+        "alimentacao": [
+          "220_FF",
+          "220_FN"
+        ],
+        "cor": "PRETO",
+        "corrente_a": 32,
+        "linha": "BOX",
+        "medidor": true,
+        "modelo": "CLAMPER Mobi Box 220V 8kW Preto c/ Medidor",
+        "pot_kw": 8,
+        "preco": null,
+        "tomadas": ""
+      },
+      {
+        "alimentacao": [
+          "220_3F"
+        ],
+        "cor": "CINZA",
+        "corrente_a": 40,
+        "linha": "BOX",
+        "medidor": false,
+        "modelo": "CLAMPER Mobi Box 220V Tri 15kW Cinza",
+        "pot_kw": 15,
+        "preco": null,
+        "tomadas": ""
+      },
+      {
+        "alimentacao": [
+          "220_3F"
+        ],
+        "cor": "CINZA",
+        "corrente_a": 40,
+        "linha": "BOX",
+        "medidor": true,
+        "modelo": "CLAMPER Mobi Box 220V Tri 15kW Cinza c/ Medidor",
+        "pot_kw": 15,
+        "preco": null,
+        "tomadas": ""
+      },
+      {
+        "alimentacao": [
+          "220_3F"
+        ],
+        "cor": "PRETO",
+        "corrente_a": 40,
+        "linha": "BOX",
+        "medidor": false,
+        "modelo": "CLAMPER Mobi Box 220V Tri 15kW Preto",
+        "pot_kw": 15,
+        "preco": null,
+        "tomadas": ""
+      },
+      {
+        "alimentacao": [
+          "220_3F"
+        ],
+        "cor": "PRETO",
+        "corrente_a": 40,
+        "linha": "BOX",
+        "medidor": true,
+        "modelo": "CLAMPER Mobi Box 220V Tri 15kW Preto c/ Medidor",
+        "pot_kw": 15,
+        "preco": null,
+        "tomadas": ""
+      },
+      {
+        "alimentacao": [
+          "380_3FN"
+        ],
+        "cor": "CINZA",
+        "corrente_a": 40,
+        "linha": "BOX",
+        "medidor": false,
+        "modelo": "CLAMPER Mobi Box 380V 26kW Cinza",
+        "pot_kw": 26,
+        "preco": null,
+        "tomadas": ""
+      },
+      {
+        "alimentacao": [
+          "380_3FN"
+        ],
+        "cor": "CINZA",
+        "corrente_a": 40,
+        "linha": "BOX",
+        "medidor": true,
+        "modelo": "CLAMPER Mobi Box 380V 26kW Cinza c/ Medidor",
+        "pot_kw": 26,
+        "preco": null,
+        "tomadas": ""
+      },
+      {
+        "alimentacao": [
+          "380_3FN"
+        ],
+        "cor": "PRETO",
+        "corrente_a": 40,
+        "linha": "BOX",
+        "medidor": false,
+        "modelo": "CLAMPER Mobi Box 380V 26kW Preto",
+        "pot_kw": 26,
+        "preco": null,
+        "tomadas": ""
+      },
+      {
+        "alimentacao": [
+          "380_3FN"
+        ],
+        "cor": "PRETO",
+        "corrente_a": 40,
+        "linha": "BOX",
+        "medidor": true,
+        "modelo": "CLAMPER Mobi Box 380V 26kW Preto c/ Medidor",
+        "pot_kw": 26,
+        "preco": null,
+        "tomadas": ""
+      },
+      {
+        "alimentacao": [
+          "220_FF",
+          "220_FN"
+        ],
+        "cor": "CINZA",
+        "corrente_a": 20,
+        "linha": "PLUG",
+        "medidor": false,
+        "modelo": "CLAMPER Mobi Plug 220V 5kW Residencial Cinza",
+        "pot_kw": 5,
+        "preco": null,
+        "tomadas": "RESIDENCIAL"
+      },
+      {
+        "alimentacao": [
+          "220_FF",
+          "220_FN"
+        ],
+        "cor": "CINZA",
+        "corrente_a": 20,
+        "linha": "PLUG",
+        "medidor": true,
+        "modelo": "CLAMPER Mobi Plug 220V 5kW Residencial Cinza c/ Medidor",
+        "pot_kw": 5,
+        "preco": null,
+        "tomadas": "RESIDENCIAL"
+      },
+      {
+        "alimentacao": [
+          "220_FF",
+          "220_FN"
+        ],
+        "cor": "PRETO",
+        "corrente_a": 20,
+        "linha": "PLUG",
+        "medidor": false,
+        "modelo": "CLAMPER Mobi Plug 220V 5kW Residencial Preto",
+        "pot_kw": 5,
+        "preco": null,
+        "tomadas": "RESIDENCIAL"
+      },
+      {
+        "alimentacao": [
+          "220_FF",
+          "220_FN"
+        ],
+        "cor": "PRETO",
+        "corrente_a": 20,
+        "linha": "PLUG",
+        "medidor": true,
+        "modelo": "CLAMPER Mobi Plug 220V 5kW Residencial Preto c/ Medidor",
+        "pot_kw": 5,
+        "preco": null,
+        "tomadas": "RESIDENCIAL"
+      },
+      {
+        "alimentacao": [
+          "220_FF",
+          "220_FN"
+        ],
+        "cor": "CINZA",
+        "corrente_a": 32,
+        "linha": "PLUG",
+        "medidor": false,
+        "modelo": "CLAMPER Mobi Plug 220V 8kW Industrial Cinza",
+        "pot_kw": 8,
+        "preco": null,
+        "tomadas": "INDUSTRIAL"
+      },
+      {
+        "alimentacao": [
+          "220_FF",
+          "220_FN"
+        ],
+        "cor": "CINZA",
+        "corrente_a": 32,
+        "linha": "PLUG",
+        "medidor": true,
+        "modelo": "CLAMPER Mobi Plug 220V 8kW Industrial Cinza c/ Medidor",
+        "pot_kw": 8,
+        "preco": null,
+        "tomadas": "INDUSTRIAL"
+      },
+      {
+        "alimentacao": [
+          "220_FF",
+          "220_FN"
+        ],
+        "cor": "PRETO",
+        "corrente_a": 32,
+        "linha": "PLUG",
+        "medidor": false,
+        "modelo": "CLAMPER Mobi Plug 220V 8kW Industrial Preto",
+        "pot_kw": 8,
+        "preco": null,
+        "tomadas": "INDUSTRIAL"
+      },
+      {
+        "alimentacao": [
+          "220_FF",
+          "220_FN"
+        ],
+        "cor": "PRETO",
+        "corrente_a": 32,
+        "linha": "PLUG",
+        "medidor": true,
+        "modelo": "CLAMPER Mobi Plug 220V 8kW Industrial Preto c/ Medidor",
+        "pot_kw": 8,
+        "preco": null,
+        "tomadas": "INDUSTRIAL"
+      },
+      {
+        "alimentacao": [
+          "220_FF",
+          "220_FN"
+        ],
+        "cor": "CINZA",
+        "corrente_a": 32,
+        "linha": "PLUG",
+        "medidor": false,
+        "modelo": "CLAMPER Mobi Plug 220V 8+5kW Residencial+Industrial Cinza",
+        "pot_kw": 13,
+        "preco": null,
+        "tomadas": "RESIDENCIAL + INDUSTRIAL"
+      },
+      {
+        "alimentacao": [
+          "220_FF",
+          "220_FN"
+        ],
+        "cor": "CINZA",
+        "corrente_a": 32,
+        "linha": "PLUG",
+        "medidor": true,
+        "modelo": "CLAMPER Mobi Plug 220V 8+5kW Residencial+Industrial Cinza c/ Medidor",
+        "pot_kw": 13,
+        "preco": null,
+        "tomadas": "RESIDENCIAL + INDUSTRIAL"
+      },
+      {
+        "alimentacao": [
+          "220_FF",
+          "220_FN"
+        ],
+        "cor": "PRETO",
+        "corrente_a": 32,
+        "linha": "PLUG",
+        "medidor": false,
+        "modelo": "CLAMPER Mobi Plug 220V 8+5kW Residencial+Industrial Preto",
+        "pot_kw": 13,
+        "preco": null,
+        "tomadas": "RESIDENCIAL + INDUSTRIAL"
+      },
+      {
+        "alimentacao": [
+          "220_FF",
+          "220_FN"
+        ],
+        "cor": "PRETO",
+        "corrente_a": 32,
+        "linha": "PLUG",
+        "medidor": true,
+        "modelo": "CLAMPER Mobi Plug 220V 8+5kW Residencial+Industrial Preto c/ Medidor",
+        "pot_kw": 13,
+        "preco": null,
+        "tomadas": "RESIDENCIAL + INDUSTRIAL"
+      }
+    ],
+    "prazo_execucao": "ATÉ 5 DIAS ÚTEIS",
+    "queda_max_pct": 4,
+    "seguro_pct": 0
+  },
+  "_wallbox": "Carregador veicular (aba /wallbox, motor wallbox.py). Só SERVIÇO de instalação: o carregador é do cliente; a proteção é SEMPRE um CLAMPER Mobi (Box para wallbox, Plug quando há tomadas), que já traz DPS, disjuntor e IDR. Custos: Mobi (catálogo 'mobi', preço de CUSTO por modelo — em branco até o usuário cadastrar) + Material CA (estimativa: cabos cabo_rs_m com folga, eletroduto, aterramento_rs, miscelanea_rs) + mão de obra (base + por metro) + ART + deslocamento. Preço = custo ÷ (1 − margem − imposto − comissão − seguro), a mesma conta convergida do solar com kit = 0. Catálogo do guia CLAMPER 2024: Box 8 kW 220 bifásico, 15 kW 220 tri, 26 kW 380 tri; Plug 220 bifásico 5 kW (residencial), 8 kW (industrial), 8+5 kW (ambas); cinza/preto; medidor opcional. iz_b1 = NBR 5410 Tab. 36, método B1, cobre/PVC 70 °C, por nº de condutores carregados. O disjuntor é o 1º padrão ≥ fator_disjuntor × corrente nominal."
 }
