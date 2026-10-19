@@ -6,9 +6,8 @@ Resumo dos resultados em texto, para salvar na pasta do cliente.
 cliente, o dimensionamento, a composição do preço e o retorno financeiro.
 """
 from __future__ import annotations
-from datetime import datetime
 
-from engine import Entradas, calcular, moeda
+from engine import Entradas, calcular, moeda, agora
 
 
 def resumo_texto(e: Entradas, cfg: dict, ano: int | None = None) -> str:
@@ -22,7 +21,7 @@ def resumo_texto(e: Entradas, cfg: dict, ano: int | None = None) -> str:
     add('=' * 60)
     add('RESUMO DA PROPOSTA — S2V ENGENHARIA')
     add('=' * 60)
-    add(f"Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+    add(f"Gerado em: {agora().strftime('%d/%m/%Y %H:%M')}")
     add('')
     logradouro = ', '.join(x for x in (e.endereco, e.numero) if x) or '—'
     ucs_num = ', '.join(str(u.uc_numero) for u in e.ucs

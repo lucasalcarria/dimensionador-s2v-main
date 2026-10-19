@@ -1293,6 +1293,12 @@ lá — ao mexer nele, prefira acrescentar chaves a reescrever o arquivo.
 - **Servidor** → suba numa porta de teste e chame os endpoints; não deixe
   processos pendurados.
 
+## Data e hora = Brasília
+
+O Cloud Run roda em UTC. Toda data/hora do programa sai de `engine.agora()` /
+`engine.hoje()` (UTC−3 fixo, `FUSO_BR`) — nunca do relógio do servidor. Sem isso a
+solicitação das 17:37 saía às 20:37 e, depois das 21h, o mês do orçamento virava.
+
 ## Estilo
 
 Código e comentários em português, com referência à célula da planilha quando

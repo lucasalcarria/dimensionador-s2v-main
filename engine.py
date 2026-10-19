@@ -18,7 +18,22 @@ import os
 import shutil
 import sys
 from dataclasses import dataclass, field, asdict, replace
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
+
+# Horário de BRASÍLIA (UTC−3, sem horário de verão desde 2019). O Cloud Run roda
+# em UTC: com o relógio do servidor a solicitação feita às 17:37 saía gravada
+# às 20:37, e depois das 21h o "mês do orçamento" já virava. Use SEMPRE
+# agora()/hoje() daqui — offset fixo, não depende de tzdata nem de internet.
+FUSO_BR = timezone(timedelta(hours=-3), 'BRT')
+
+
+def agora() -> datetime:
+    return datetime.now(FUSO_BR)
+
+
+def hoje() -> date:
+    return agora().date()
+
 
 DIAS_MES = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun',
@@ -558,7 +573,7 @@ class Resultado(dict):
 def fator_fio_b(config: dict, ano: int | None = None) -> float:
     """DD!J47:K52 — escalonamento da Lei 14.300. Na planilha o ano estava
     fixado em 2026 (60%); aqui segue o ano corrente, com tabela configurável."""
-    ano = ano or date.today().year
+    ano = ano or hoje().year
     tab = {int(k): v for k, v in config['fio_b_escalonamento'].items()}
     if ano in tab:
         return tab[ano]
@@ -848,7 +863,7 @@ def _faturas_uc(e: 'Entradas', geracao_media: float, config: dict, ano: int):
 
 def calcular(e: Entradas, config: dict, ano: int | None = None) -> Resultado:
     r = Resultado()
-    ano = ano or date.today().year
+    ano = ano or hoje().year
     ucs_ativas = [u for u in e.ucs if u.ativa]
     geradora = next((u for u in e.ucs if u.tipo == 'GERADORA'), None)
 
@@ -1352,7 +1367,7 @@ def _textos(e: Entradas, r: Resultado, config: dict) -> dict:
         t['sb_qtd'] = f'{int(e.sb_qtd or 1)}x'                # cartão STRING BOX
         t['sb_desc'] = ' '.join(x for x in (e.sb_marca.strip().title(),
                                             e.sb_es.strip().upper()) if x)
-    hoje = date.today()
+    hoje = agora().date()
     t['disclaimer_data'] = (f'considerados são referentes a '
                             f'{MESES[hoje.month - 1]}/{hoje.year}.')
     # pág. 5, ao lado do "RETORNO FINANCEIRO": bandeira vigente no orçamento

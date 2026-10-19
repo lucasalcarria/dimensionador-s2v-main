@@ -12,7 +12,6 @@ import re
 import threading
 import webbrowser
 import json
-from datetime import datetime
 
 from flask import (Flask, jsonify, redirect, render_template,
                    render_template_string, request, send_file,
@@ -837,7 +836,7 @@ def api_criar_solic():
         if not (d.get('telhado') or '').strip():
             raise ValueError('Selecione o telhado do cliente.')
         reg = {'id': 's' + _s.token_hex(4),
-               'criada_em': datetime.now().strftime('%d/%m/%Y %H:%M'),
+               'criada_em': engine.agora().strftime('%d/%m/%Y %H:%M'),
                'consultor': consultor,
                'cliente': (d.get('cliente') or '').strip(),
                'cidade': (d.get('cidade') or '').strip(),
@@ -1131,7 +1130,7 @@ def api_aneel_bandeira():
     offline: devolve o último registro salvo (`cache: true`)."""
     import online
     try:
-        b = online.buscar_bandeira_aneel()
+        b = online.buscar_bandeira_aneel(engine.hoje())
         _salvar_cache_tarifa('BANDEIRA', b)
         return jsonify(ok=True, cache=False, **b)
     except Exception as exc:                                   # noqa: BLE001
@@ -1210,7 +1209,7 @@ def api_atualizar_tarifa():
         tab.update(te=round(te, 5), tusd=round(tusd, 5),
                    resolucao=(d.get('resolucao') or '').strip(),
                    vigencia=(d.get('vigencia') or '').strip(),
-                   obs=f'atualizado pela tela em {datetime.now():%d/%m/%Y %H:%M}')
+                   obs=f'atualizado pela tela em {engine.agora():%d/%m/%Y %H:%M}')
         with open(caminho, 'w', encoding='utf-8') as f:
             json.dump(cfg, f, ensure_ascii=False, indent=2)
         return jsonify(ok=True, te=tab['te'], tusd=tab['tusd'])

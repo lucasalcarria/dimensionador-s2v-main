@@ -282,10 +282,9 @@ _MESES = ('JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO',
 
 
 def _textos(e: EntradaWallbox, r: dict, config: dict) -> dict:
-    from datetime import date
     br = config.get('formato_ptbr', True)
     t = r['tecnico']
-    hoje = date.today()
+    hoje = engine.hoje()
     num = lambda v, nd=1: engine.fmt_num(v, nd, br).rstrip('0').rstrip(',.')
     local = ', '.join(p for p in ((e.endereco or '').strip(),
                                   (e.numero or '').strip()) if p)

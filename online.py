@@ -150,7 +150,7 @@ def buscar_bandeira_aneel(hoje=None) -> dict:
     `proxima`. Devolve {bandeira, adicional (R$/kWh), competencia 'AAAA-MM',
     proxima}. `bandeira` vem no rótulo do config ('VERDE', 'VERMELHA P1'…)."""
     from datetime import date
-    hoje = hoje or date.today()
+    hoje = hoje or date.today()       # o app passa engine.hoje() (Brasília)
     mes = f'{hoje.year:04d}-{hoje.month:02d}'
     p = urllib.parse.urlencode({'resource_id': ANEEL_BANDEIRA_RID,
                                 'sort': 'DatCompetencia desc', 'limit': 3})
