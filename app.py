@@ -884,6 +884,13 @@ def api_atender_solic():
             for s in lst:
                 if s.get('id') == sid:
                     s['status'] = 'atendida'
+                    s.setdefault('atendida_em', engine.agora().strftime('%d/%m/%Y %H:%M'))
+                    # pacote criado a partir desta solicitação (o consultor vê
+                    # qual kit o atendeu e o escolhe com um clique)
+                    if d.get('pacote_id'):
+                        s['pacote'] = {'id': str(d['pacote_id']),
+                                       'nome': str(d.get('pacote_nome') or ''),
+                                       'kwp': _f(d.get('pacote_kwp'))}
         _salvar_solic(lst)
         return jsonify(ok=True)
     except Exception as exc:                                    # noqa: BLE001

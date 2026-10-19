@@ -879,6 +879,17 @@ campos de custo (`app._RESUMO_CUSTOS`: composição, custos, margem, lucro, pre�
 solicitação de cotação exige o telhado (a lista abre vazia; antes vinha
 FIBROCIMENTO marcado sem ninguém escolher). O telhado da PROPOSTA do consultor
 vem do pacote (`_PACOTE_EQUIP`), não de um campo dele.
+**Pacote ← solicitação:** no 🔔 do admin, "📦 Criar pacote" abre um pacote com o
+telhado do pedido, nome NEUTRO (kWp + telhado — o nome aparece a todos os consultores
+e vai ao config.json público) e `origem` = {solicitacao_id, cidade, consumo_medio,
+kwp_sugerido} (sem nome de cliente/consultor; o selo lê o nome da solicitação). O
+quadro do kit usa a irradiação dessa cidade e mostra cobertura % + "usar N módulos"
+para 100 %. Salvar marca a solicitação `atendida` com `pacote {id,nome,kwp}`; o
+consultor vê isso em "Suas solicitações" (quadro da potência sugerida) com "usar
+este kit". `origem` nunca vai ao consultor (`_pacote_publico` só manda equipamento).
+Editor de pacotes: Ctrl+V/arrastar caem na caixa de imagem sob o mouse; micro =
+botão Micro/String, string box/bateria = chaves; Custo 380 V só com inversor 380 V
+(e vai ZERO sem ele — o motor soma sempre; vale também no formulário do admin).
 `/api/sugestao` (potência sugerida do consultor) agora roda o próprio `engine.calcular`
 com kit zero (`_montar_entradas(d, com_pacote=False)`): desconta as usinas
 existentes igual à proposta (antes era uma conta à parte que não descontava).

@@ -459,6 +459,7 @@ body:not(.consultor) .so-consultor{display:none!important;}
       <div class="v" id="sug-kwp" style="font-size:26px;font-weight:700;color:var(--verde)">—</div>
       <div class="l" id="sug-obs" style="color:var(--mudo);font-size:12px"></div>
       <button type="button" class="bt-verde bt-mini" style="margin-top:10px" onclick="abrirSolicitacao()">📨 Solicitar cotação ao administrador</button>
+      <div id="minhas-solic" style="margin-top:10px;font-size:12px"></div>
     </div>
     <div class="destaque"><div class="l">Valor de venda
         <button type="button" class="bt-edit-val so-admin" id="bt-edit-val" onclick="toggleEditVenda()"
@@ -1321,8 +1322,26 @@ async function enviarSolicitacao(){
     obs:document.getElementById('sol-obs').value.trim()};
   const j=await (await fetch('/api/solicitacoes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
   if(!j.ok) throw j.erro;
-  ok.style.display='block'; setTimeout(fecharSolicitacao,1400);
+  ok.style.display='block'; setTimeout(fecharSolicitacao,1400); _minhasSolic();
  }catch(e){ err.textContent='Falha ao enviar: '+e; err.style.display='block'; bt.disabled=false; }
+}
+// ---- consultor: as SUAS solicitações e o kit que o admin montou para cada ----
+async function _minhasSolic(){
+ const box=document.getElementById('minhas-solic'); if(!box||PAPEL!=='consultor') return;
+ try{
+  const j=await (await fetch('/api/solicitacoes')).json();
+  const lst=(j.ok&&j.solicitacoes||[]).slice(0,5);
+  if(!lst.length){ box.innerHTML=''; return; }
+  box.innerHTML='<div style="color:var(--mudo);margin-bottom:4px">Suas solicitações</div>'+lst.map(s=>{
+    const kwp=s.kwp?' · '+s.kwp.toLocaleString('pt-BR',{maximumFractionDigits:2})+' kWp':'';
+    const pac=s.pacote&&PACOTES.find(x=>String(x.id)===String(s.pacote.id));
+    const st=s.status!=='atendida'?'<span style="color:#b26a00">⏳ aguardando</span>'
+      : s.pacote?`✔ kit <b>${_esc(s.pacote.nome)}</b>`+(pac?` <button type="button" class="bt-claro bt-mini"
+          onclick="selecionarPacote('${_esc(s.pacote.id)}')">usar este kit</button>`:' <span class="mudo">(kit removido)</span>')
+      : '✔ atendida';
+    return `<div style="border-top:1px solid var(--borda);padding:5px 0">${_esc(s.cliente||'—')}${kwp}${s.telhado?' · '+_esc(s.telhado):''}<br>${st}</div>`;
+  }).join('');
+ }catch(e){}
 }
 // ---- admin: inbox de solicitações + contador no sino ----
 async function _carregarSolic(){
@@ -1339,6 +1358,7 @@ async function abrirSolicitacoes(){
  document.getElementById('modal-solicitacoes').classList.add('on');
  const itens=await _carregarSolic();
  if(!itens.length){ box.innerHTML='<p class="mudo" style="font-size:13px">Nenhuma solicitação por enquanto.</p>'; return; }
+ window._solicPorId={}; itens.forEach(s=>window._solicPorId[s.id]=s);
  box.innerHTML=itens.map(s=>{
    const at=s.status==='atendida';
    const kwp=s.kwp?`<b>${s.kwp.toLocaleString('pt-BR',{maximumFractionDigits:2})} kWp</b>`:'';
@@ -1349,7 +1369,10 @@ async function abrirSolicitacoes(){
      <div class="mudo" style="font-size:12px;margin-top:2px">Consultor: ${_esc(s.consultor||'—')}${s.consumo_medio?` · consumo ${s.consumo_medio.toLocaleString('pt-BR')} kWh/mês`:''}</div>
      ${s.obs?`<div style="font-size:12px;margin-top:4px;font-style:italic">"${_esc(s.obs)}"</div>`:''}
      <div style="display:flex;gap:6px;margin-top:8px">
-       ${at?'<span class="mudo" style="font-size:12px">✔ atendida</span>':`<button class="bt-verde bt-mini" onclick="atenderSolic('${s.id}','atender')">marcar atendida</button>`}
+       ${at?`<span class="mudo" style="font-size:12px">✔ atendida${s.pacote?' com o kit <b>'+_esc(s.pacote.nome)+'</b>':''}</span>`
+           :`<button class="bt-verde bt-mini" onclick="criarPacoteDeSolic('${s.id}')"
+               title="abre um pacote novo já com o telhado, a cidade e a potência deste pedido">📦 Criar pacote</button>
+             <button class="bt-claro bt-mini" onclick="atenderSolic('${s.id}','atender')">marcar atendida</button>`}
        <button class="bt-claro bt-mini" onclick="atenderSolic('${s.id}','remover')">remover</button>
      </div></div>`;
  }).join('');
@@ -1359,6 +1382,62 @@ async function atenderSolic(id,acao){
  await fetch('/api/solicitacoes/atender',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id,acao:acao})});
  abrirSolicitacoes();
 }
+// ---- pacote criado a partir de uma SOLICITAÇÃO ----
+// O pacote nasce com o telhado do pedido e guarda a `origem` (cliente, cidade,
+// consumo, kWp sugerido). A origem serve para o quadro do kit usar a irradiação
+// da CIDADE do cliente e sugerir quantos módulos abatem 100 %; ao salvar, a
+// solicitação vira "atendida" com o kit. O pacote continua público e
+// reutilizável — a origem nunca vai ao consultor (o servidor só manda o
+// equipamento: _pacote_publico).
+async function criarPacoteDeSolic(id){
+ const s=(window._solicPorId||{})[id]; if(!s) return;
+ fecharSolicitacoes();
+ await abrirPacotes();
+ const box=document.getElementById('pacotes-lista');
+ if(!box.querySelector('.pacote-card')) box.innerHTML='';
+ const pid='p'+Array.from(crypto.getRandomValues(new Uint8Array(4))).map(b=>b.toString(16).padStart(2,'0')).join('');
+ // nome NEUTRO (potência + telhado): o nome do pacote aparece para TODOS os
+ // consultores e vai ao config.json — nunca o nome do cliente
+ const kwp=s.kwp?String(s.kwp).replace('.',',')+' kWp':'KIT';
+ box.insertAdjacentHTML('afterbegin',pacoteCardHTML({id:pid, nome:`${kwp} ${(s.telhado||'').toUpperCase()}`.trim(),
+   estrutura:s.telhado||'', pot_modulo_w:620, inversores:[{}],
+   // SEM nome de cliente/consultor: o config.json vai ao GitHub (público);
+   // o nome é lido da solicitação na hora de mostrar
+   origem:{solicitacao_id:s.id, cidade:s.cidade||'',
+           consumo_medio:s.consumo_medio||0, kwp_sugerido:s.kwp||0}},true));
+ const card=box.firstElementChild;
+ aplicarMascaras(card); _wirePacPreco(card);
+ await _pacIrrOrigem(card);
+ // já começa com a quantidade que abate 100 % (o admin ajusta à vontade)
+ const n=_pacModulos100(card); if(n){ card.querySelector('.pac-qtd').value=n; _pacAtualizar(card); }
+ card.scrollIntoView({block:'start'});
+}
+function _pacOrigem(card){
+ try{ return JSON.parse((card.querySelector('.pac-origem')||{}).value||'null'); }catch(e){ return null; }
+}
+// irradiação da cidade da solicitação (INPE, sem internet) — fica só no cartão
+async function _pacIrrOrigem(card){
+ const o=_pacOrigem(card); if(!o||!o.cidade) return;
+ try{
+  const j=await (await fetch('/api/irradiacao',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({cidade:o.cidade})})).json();
+  if(j.ok){ card._irr=j.mensal; card._irrLocal=j.cidade+(j.uf?'/'+j.uf:''); _pacKwpInfo(card); }
+ }catch(e){}
+}
+// kWh/kWp/ano da referência do cartão (cidade da origem → tela → perfil 3.8)
+function _pacKwhKwpAno(card){
+ const irr=card._irr||irrCustom||PERFIS_IRR['3.8']||[];
+ return irr.reduce((a,x,m)=>a+Number(x)/1000*_DIAS_MES[m],0);
+}
+// módulos para abater 100 % do consumo da origem (mesma conta do engine,
+// DD!B21 + PR!U12: kWp necessário arredondado, ÷ potência do módulo)
+function _pacModulos100(card){
+ const o=_pacOrigem(card); const w=_n(card.querySelector('.pac-pot-mod'))||0;
+ const base=_pacKwhKwpAno(card)*PR_PADRAO;
+ if(!o||!o.consumo_medio||!w||!base) return 0;
+ const kwp=Math.round(o.consumo_medio*12/base*100)/100;
+ return Math.round(kwp*1000/w);
+}
 // ---- admin: gerenciador de PACOTES (criar/editar/preço) ----
 async function abrirPacotes(){
  const box=document.getElementById('pacotes-lista'); box.innerHTML='carregando…';
@@ -1366,6 +1445,8 @@ async function abrirPacotes(){
  document.getElementById('pacotes-ok').style.display='none';
  document.getElementById('modal-pacotes').classList.add('on');
  try{
+  // solicitações em memória: o selo "criado a partir da solicitação de…" lê o nome daqui
+  const sol=await _carregarSolic(); window._solicPorId={}; sol.forEach(x=>window._solicPorId[x.id]=x);
   const j=await (await fetch('/api/config')).json();
   if(!j.ok) throw j.erro;
   const pacs=(j.config.pacotes)||[];
@@ -1385,6 +1466,13 @@ async function salvarPacotes(){
   const pacotes=_coletarPacotes(document.getElementById('pacotes-lista'));
   const j=await (await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pacotes:pacotes})})).json();
   if(!j.ok) throw j.erro;
+  for(const p of pacotes){
+    if(!(p.origem&&p.origem.solicitacao_id&&p.id)) continue;
+    try{ await fetch('/api/solicitacoes/atender',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({id:p.origem.solicitacao_id,acao:'atender',pacote_id:p.id,pacote_nome:p.nome,
+        pacote_kwp:(p.qtd_modulos||0)*(p.pot_modulo_w||0)/1000})}); }catch(e){}
+  }
+  _carregarSolic();
   ok.style.display='block'; setTimeout(fecharPacotes,1200);
  }catch(e){ err.textContent='Falha ao salvar: '+e; err.style.display='block'; }
  finally{ bt.disabled=false; }
@@ -1672,7 +1760,7 @@ function coletar(){
   inversores:invs,
   marca_inversor:iv0.marca,pot_inversor_kw:iv0.pot_kw,tensao_inversor:iv0.tensao,
   conexao:selVal('conexao'),estrutura:selVal('estrutura'),valor_kit:num('valor_kit'),
-  entrada:num('entrada'),custo_380v:num('custo_380v'),desloc:num('desloc'),
+  entrada:num('entrada'),custo_380v:temInv380()?num('custo_380v'):0,desloc:num('desloc'),
   comissao_pct:num('comissao'),seguro_pct:num('seguro'),
   margem_desejada:num('margem'),fin_taxa_mes:num('fin_taxa'),fin_parcelas:num('fin_parcelas'),
   cartao_taxa_pct:num('cartao_taxa'),cartao_parcelas:num('cartao_parcelas'),
@@ -2346,13 +2434,15 @@ function _pacInvHTML(iv){iv=iv||{};
    <input class="pi-pot" type="number" step="0.1" placeholder="kW" value="${_esc(iv.pot_kw)}" style="width:64px">
    <input class="pi-tensao" type="number" placeholder="V" value="${_esc(iv.tensao==null?220:iv.tensao)}" style="width:60px">
    <input class="pi-qtd" type="number" placeholder="qtd" value="${_esc(iv.qtd==null?1:iv.qtd)}" style="width:56px">
-   <label style="display:flex;gap:4px;align-items:center;font-size:12px"><input type="checkbox" class="pi-micro" ${iv.micro?'checked':''}>micro</label>
-   <span class="rm" onclick="this.closest('.pac-inv').remove()" style="cursor:pointer">×</span></div>`;
+   <button type="button" class="iv-micro pi-micro ${iv.micro?'on':''}" data-micro="${iv.micro?1:0}" style="width:74px"
+     onclick="setMicro(this,this.dataset.micro!=='1');_pacAtualizar(this.closest('.pacote-card'))">${iv.micro?'Micro':'String'}</button>
+   <span class="rm" onclick="const c=this.closest('.pacote-card');this.closest('.pac-inv').remove();_pacAtualizar(c)" style="cursor:pointer">×</span></div>`;
 }
 function pacoteCardHTML(p, aberto){p=p||{};
  const invs=(p.inversores||[]).map(_pacInvHTML).join('');
  return `<div class="pacote-card" style="border:1px solid var(--borda);border-radius:10px;padding:10px 12px;margin-bottom:10px;background:var(--card2)">
    <input type="hidden" class="pac-id" value="${_esc(p.id)}">
+   <input type="hidden" class="pac-origem" value="${_esc(p.origem?JSON.stringify(p.origem):'')}">
    <div style="display:flex;gap:8px;align-items:center">
      <button type="button" class="pac-toggle bt-claro bt-mini" onclick="_togglePac(this)" style="width:34px" title="expandir / recolher">${aberto?'▾':'▸'}</button>
      <input class="pac-nome" placeholder="nome do kit (ex.: 6× ASTRONERGY 620W + CHINT 3K)" value="${_esc(p.nome)}" style="flex:1;font-weight:600">
@@ -2360,6 +2450,10 @@ function pacoteCardHTML(p, aberto){p=p||{};
      <input class="pac-kit rs" inputmode="decimal" placeholder="R$ 0,00" title="valor do kit (edição rápida)" value="${_iRS(p.valor_kit)}" style="width:130px">
      <button type="button" class="bt-claro bt-mini" onclick="this.closest('.pacote-card').remove()">remover</button>
    </div>
+   ${p.origem?(()=>{ const so=(window._solicPorId||{})[p.origem.solicitacao_id]||{};
+     return `<div style="font-size:12px;color:var(--mudo);margin-top:6px">📨 criado a partir da solicitação
+     ${so.cliente?'de <b>'+_esc(so.cliente)+'</b>':''}${p.origem.cidade?' · '+_esc(p.origem.cidade):''}${so.consultor?' · consultor '+_esc(so.consultor):''}
+     ${p.origem.consumo_medio?' · consumo '+fmtBR(p.origem.consumo_medio,0)+' kWh/mês':''}</div>`; })():''}
    <div class="pac-body" style="margin-top:10px;${aberto?'':'display:none'}">
      <div class="grid g4">
        <div><label>Conexão</label>${pacSelectHTML('pac-conexao',CONEXOES,p.conexao||'HÍBRIDO')}</div>
@@ -2383,22 +2477,24 @@ function pacoteCardHTML(p, aberto){p=p||{};
      </div>
      <div class="grid g4" style="margin-top:8px">
        <div><label>Deslocamento</label><input class="pac-desloc rs" inputmode="decimal" placeholder="R$ 0,00" value="${_iRS(p.desloc)}"></div>
-       <div><label>Custo 380 V</label><input class="pac-380v rs" inputmode="decimal" placeholder="R$ 0,00" value="${_iRS(p.custo_380v)}"></div>
+       <div class="pac-380v-box"><label>Custo 380 V</label><input class="pac-380v rs" inputmode="decimal" placeholder="R$ 0,00" value="${_iRS(p.custo_380v)}"></div>
        <div><label>Mão de obra <small class="auto">vazio=auto</small></label><input class="pac-mo rs" inputmode="decimal" placeholder="automática" value="${_iRS(p.mo_manual)}"></div>
        <div><label>Material <small class="auto">vazio=auto</small></label><input class="pac-material rs" inputmode="decimal" placeholder="automático" value="${_iRS(p.material_manual)}"></div>
      </div>
      <label style="display:block;margin:10px 0 4px;font-size:12px;color:var(--mudo)">String box e bateria (já inclusos no valor do kit — aparecem na página 3)</label>
      <div class="grid g4">
-       <div><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" class="pac-sb-on" ${p.tem_stringbox?'checked':''}> String box CC</label></div>
-       <div><label>Qtd. string box</label><input class="pac-sb-qtd" type="number" value="${_esc(p.sb_qtd)}"></div>
-       <div><label>Marca (opcional)</label><input class="pac-sb-marca" value="${_esc(p.sb_marca)}"></div>
-       <div><label>Entradas/Saídas</label><input class="pac-sb-es" value="${_esc(p.sb_es)}"></div>
+       <div style="align-self:end;padding-bottom:7px"><label class="sw-wrap"><input type="checkbox" class="sw-in pac-sb-on" ${p.tem_stringbox?'checked':''}
+         onchange="_pacAtualizar(this.closest('.pacote-card'))"><span class="sw"></span><span class="sw-rot"><b>String box CC</b></span></label></div>
+       <div class="pac-sb-campo"><label>Qtd. string box</label><input class="pac-sb-qtd" type="number" value="${_esc(p.sb_qtd)}"></div>
+       <div class="pac-sb-campo"><label>Marca (opcional)</label><input class="pac-sb-marca" value="${_esc(p.sb_marca)}"></div>
+       <div class="pac-sb-campo"><label>Entradas/Saídas</label><input class="pac-sb-es" value="${_esc(p.sb_es)}"></div>
      </div>
      <div class="grid g4" style="margin-top:8px">
-       <div><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" class="pac-bat-on" ${p.tem_bateria?'checked':''}> Bateria de lítio</label></div>
-       <div><label>Qtd. baterias</label><input class="pac-bat-qtd" type="number" value="${_esc(p.bat_qtd)}"></div>
-       <div><label>Marca</label><input class="pac-bat-marca" value="${_esc(p.bat_marca)}"></div>
-       <div><label>Capacidade</label><input class="pac-bat-kwh kwh" inputmode="decimal" placeholder="0,00 kWh" value="${_iKWH(p.bat_kwh)}"></div>
+       <div style="align-self:end;padding-bottom:7px"><label class="sw-wrap"><input type="checkbox" class="sw-in pac-bat-on" ${p.tem_bateria?'checked':''}
+         onchange="_pacAtualizar(this.closest('.pacote-card'))"><span class="sw"></span><span class="sw-rot"><b>Bateria de lítio</b></span></label></div>
+       <div class="pac-bat-campo"><label>Qtd. baterias</label><input class="pac-bat-qtd" type="number" value="${_esc(p.bat_qtd)}"></div>
+       <div class="pac-bat-campo"><label>Marca</label><input class="pac-bat-marca" value="${_esc(p.bat_marca)}"></div>
+       <div class="pac-bat-campo"><label>Capacidade</label><input class="pac-bat-kwh kwh" inputmode="decimal" placeholder="0,00 kWh" value="${_iKWH(p.bat_kwh)}"></div>
      </div>
      <label style="display:block;margin:10px 0 4px;font-size:12px;color:var(--mudo)">Imagens deste pacote (opcional — vazio usa a imagem padrão do ⚙)</label>
      <div style="display:flex;gap:10px">
@@ -2425,6 +2521,7 @@ function _pacImgBoxHTML(qual,dataurl){
  const tem=!!dataurl, titulo=qual==='modulo'?'Módulo':'Inversor';
  return `<div class="pac-img" data-qual="${qual}" style="flex:1;border:1px dashed var(--borda);border-radius:8px;padding:8px;text-align:center">
    <div style="font-size:12px;color:var(--mudo);margin-bottom:6px">${titulo}</div>
+   <div style="font-size:11px;color:var(--mudo);margin-bottom:6px">envie, arraste ou passe o mouse aqui e cole (Ctrl+V)</div>
    <img class="pac-img-prev" src="${tem?dataurl:''}" style="max-width:100%;max-height:90px;border-radius:6px;${tem?'':'display:none'}">
    <input type="hidden" class="pac-img-data" value="${_esc(dataurl)}">
    <input type="file" class="pac-img-file" accept="image/*" style="display:none">
@@ -2457,10 +2554,11 @@ function _coletarPacote(card){
      pot_kw:_n(row.querySelector('.pi-pot'))||0,
      tensao:parseInt(row.querySelector('.pi-tensao').value)||220,
      qtd:parseInt(row.querySelector('.pi-qtd').value)||1,
-     micro:row.querySelector('.pi-micro').checked,
+     micro:row.querySelector('.pi-micro').dataset.micro==='1',
    })).filter(iv=>iv.marca||iv.pot_kw);
    return {id:((q('pac-id')&&q('pac-id').value)||'').trim(),
      img_modulo:imgData('modulo'), img_inversor:imgData('inversor'),
+     origem:_pacOrigem(card)||undefined,          // solicitação de onde veio (só admin)
      nome:(q('pac-nome').value||'').trim(),
      conexao:pacSelVal(card,'pac-conexao')||'HÍBRIDO',
      estrutura:pacSelVal(card,'pac-estrutura')||'FIBROCIMENTO',
@@ -2474,7 +2572,8 @@ function _coletarPacote(card){
      seguro_pct:pacNum(card,'pac-seguro')||0,
      preco_venda_manual:pacNum(card,'pac-venda'),// null = usa a margem (convergido)
      desloc:pacNum(card,'pac-desloc')||0,
-     custo_380v:pacNum(card,'pac-380v')||0,
+     // escondido sem inversor 380 V: não pode pesar no preço (o motor soma sempre)
+     custo_380v:invs.some(iv=>iv.tensao>=380)?(pacNum(card,'pac-380v')||0):0,
      mo_manual:pacNum(card,'pac-mo'),            // null = automática
      material_manual:pacNum(card,'pac-material'),// null = automático
      aliquota_pct:pacNum(card,'pac-aliq'),       // null = usa o config
@@ -2504,13 +2603,25 @@ function _pacKwpInfo(card){
  const cab=card.querySelector('.pac-kwp-cab'), box=card.querySelector('.pac-kwp-info');
  if(cab) cab.textContent=kwp?_fmtKwp(kwp)+' kWp':'';
  if(!box) return;
- if(!kwp){ box.innerHTML='informe a <b>quantidade</b> e a <b>potência do módulo</b> para ver o kWp e a geração'; return; }
- const irr=irrCustom||PERFIS_IRR['3.8']||[];
- const kwhKwpAno=irr.reduce((a,x,m)=>a+Number(x)/1000*_DIAS_MES[m],0);
- const ano=kwp*PR_PADRAO*kwhKwpAno, mes=ano/12;
- const ref=irrCustom?(irrLocal||'cidade buscada'):'Maringá (perfil 3.8)';
+ if(!kwp){
+   const n=_pacModulos100(card);
+   box.innerHTML='informe a <b>quantidade</b> e a <b>potência do módulo</b> para ver o kWp e a geração'
+     +(n?` · para 100 % do consumo do cliente: <b>${n} módulos</b>`:''); return; }
+ const ano=kwp*PR_PADRAO*_pacKwhKwpAno(card), mes=ano/12;
+ const ref=card._irr?card._irrLocal:(irrCustom?(irrLocal||'cidade buscada'):'Maringá (perfil 3.8)');
+ const o=_pacOrigem(card);
+ let cob='';
+ if(o&&o.consumo_medio){
+   const pct=mes/o.consumo_medio*100, n=_pacModulos100(card);
+   cob=`<div style="margin-top:4px">cliente consome <b style="color:var(--texto)">${fmtBR(o.consumo_medio,0)} kWh/mês</b>`
+     +` → este kit cobre <b style="color:${pct>=100?'var(--verde)':'#b26a00'}">${fmtBR(pct,0)} %</b>`
+     +(n&&n!==qtd?` · para 100 %: <b>${n} módulos</b> <button type="button" class="bt-claro bt-mini"
+         onclick="const c=this.closest('.pacote-card');c.querySelector('.pac-qtd').value=${n};_pacAtualizar(c)">usar ${n}</button>`:'')
+     +`</div>`;
+ }
  box.innerHTML=`<span style="font-size:15px;font-weight:700;color:var(--verde)">${qtd} × ${fmtBR(w,0)} W = ${_fmtKwp(kwp)} kWp</span>`
    +` &nbsp;·&nbsp; geração estimada <b style="color:var(--texto)">${fmtBR(mes,0)} kWh/mês</b> (${fmtBR(ano,0)} kWh/ano)`
+   +cob
    +`<div style="margin-top:2px">referência: ${_esc(ref)} · PR ${fmtBR(PR_PADRAO,2)}</div>`;
 }
 // prévia ao vivo do preço/margem do kit (só admin) — atualiza o selo e a linha
@@ -2540,10 +2651,23 @@ async function atualizarPacotePreco(card){
  }catch(e){ info.textContent='—'; badge.style.display='none'; }
 }
 // liga a prévia a um cartão: recalcula a cada edição e uma vez ao abrir
+// mostra/esconde o que depende de outra escolha no cartão do pacote (igual ao
+// formulário do admin): campos da string box / bateria só com a chave ligada e
+// o "Custo 380 V" só quando algum inversor do kit é 380 V
+function _pacVisivel(card){
+ const sb=card.querySelector('.pac-sb-on'), bat=card.querySelector('.pac-bat-on');
+ card.querySelectorAll('.pac-sb-campo').forEach(el=>el.style.visibility=sb&&sb.checked?'':'hidden');
+ card.querySelectorAll('.pac-bat-campo').forEach(el=>el.style.visibility=bat&&bat.checked?'':'hidden');
+ const tem380=[...card.querySelectorAll('.pi-tensao')].some(i=>parseInt(i.value)>=380);
+ const b=card.querySelector('.pac-380v-box'); if(b) b.style.display=tem380?'':'none';
+}
+// botões e chaves não disparam 'input': atualizam o cartão por aqui
+function _pacAtualizar(card){ if(!card) return; _pacVisivel(card); _pacKwpInfo(card); agendarPacPreco(card); }
 function _wirePacPreco(card){
  card.addEventListener('input',()=>agendarPacPreco(card));
- card.addEventListener('input',()=>_pacKwpInfo(card));
- _pacKwpInfo(card);
+ card.addEventListener('input',()=>{ _pacKwpInfo(card); _pacVisivel(card); });
+ _pacKwpInfo(card); _pacVisivel(card);
+ if(_pacOrigem(card)&&!card._irr) _pacIrrOrigem(card);
  atualizarPacotePreco(card);
 }
 function consultorRowHTML(cn){cn=cn||{};
@@ -2841,10 +2965,39 @@ document.addEventListener('change',e=>{
  const box=e.target.closest('.pac-img'); const r=new FileReader();
  r.onload=()=>_pacImgSet(box,r.result); r.readAsDataURL(f);
 });
+// imagens dos PACOTES: Ctrl+V e arrastar caem na caixa sob o mouse. Antes a
+// colagem com a janela de pacotes aberta ia para a foto da proposta, por trás.
+let pacImgAlvo=null;     // última caixa .pac-img sob o mouse
+document.addEventListener('mouseover',e=>{
+ const b=e.target&&e.target.closest&&e.target.closest('.pac-img'); if(b) pacImgAlvo=b; });
+function _pacImgLer(box,f){
+ if(!box||!f||!f.type||f.type.indexOf('image/')!==0) return;
+ const r=new FileReader(); r.onload=()=>_pacImgSet(box,r.result); r.readAsDataURL(f);
+}
+document.addEventListener('dragover',e=>{
+ if(e.target.closest&&e.target.closest('.pac-img')) e.preventDefault(); });
+document.addEventListener('drop',e=>{
+ const box=e.target.closest&&e.target.closest('.pac-img'); if(!box) return;
+ e.preventDefault(); _pacImgLer(box, e.dataTransfer.files&&e.dataTransfer.files[0]); });
 window.addEventListener('paste',e=>{
  const items=e.clipboardData?e.clipboardData.items:[];
  let it=null; for(const i of items){ if(i.type && i.type.indexOf('image/')===0){ it=i; break; } }
  if(!it) return;
+ // janela de pacotes aberta: cola na caixa sob o mouse; sem ela, na 1ª caixa
+ // vazia do pacote aberto (expandido). Nunca cai na foto da proposta.
+ if(document.getElementById('modal-pacotes').classList.contains('on')){
+   e.preventDefault();
+   let box=(pacImgAlvo&&pacImgAlvo.isConnected&&pacImgAlvo.offsetParent)?pacImgAlvo:null;
+   if(!box){
+     const abertos=[...document.querySelectorAll('#pacotes-lista .pac-body')]
+       .filter(b=>b.style.display!=='none');
+     if(abertos.length===1)
+       box=[...abertos[0].querySelectorAll('.pac-img')].find(b=>!b.querySelector('.pac-img-data').value)
+           || null;
+   }
+   if(box) _pacImgLer(box, it.getAsFile());
+   return;
+ }
  // pré-definições aberto: a colagem cai nas imagens PADRÃO, não nas da UC
  if(document.getElementById('modal-config').classList.contains('on')){
    const q=imgPadraoAlvo || (!imgPadraoMod?'mod':(!imgPadraoInv?'inv':'mod'));
@@ -2875,7 +3028,8 @@ if(PAPEL==='consultor'){
  }
  // pacote novo do admin aparece sem refresh (sem perder dados já preenchidos)
  window._pacotesSig=JSON.stringify(PACOTES.map(p=>[p.id,p.nome]));
- setInterval(_pollPacotes,30000);
+ setInterval(async()=>{ await _pollPacotes(); _minhasSolic(); },30000);
+ _minhasSolic();
 }else{
  // admin: contador de solicitações no sino, atualizado periodicamente
  _carregarSolic(); setInterval(_carregarSolic,45000);
