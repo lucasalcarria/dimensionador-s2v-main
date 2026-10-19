@@ -2356,6 +2356,7 @@ function pacoteCardHTML(p, aberto){p=p||{};
    <div style="display:flex;gap:8px;align-items:center">
      <button type="button" class="pac-toggle bt-claro bt-mini" onclick="_togglePac(this)" style="width:34px" title="expandir / recolher">${aberto?'▾':'▸'}</button>
      <input class="pac-nome" placeholder="nome do kit (ex.: 6× ASTRONERGY 620W + CHINT 3K)" value="${_esc(p.nome)}" style="flex:1;font-weight:600">
+     <span class="pac-kwp-cab" style="font-size:13px;font-weight:700;color:var(--verde);white-space:nowrap" title="potência do kit = módulos × potência do módulo"></span>
      <input class="pac-kit rs" inputmode="decimal" placeholder="R$ 0,00" title="valor do kit (edição rápida)" value="${_iRS(p.valor_kit)}" style="width:130px">
      <button type="button" class="bt-claro bt-mini" onclick="this.closest('.pacote-card').remove()">remover</button>
    </div>
@@ -2368,6 +2369,8 @@ function pacoteCardHTML(p, aberto){p=p||{};
      </div>
      <div class="grid g4" style="margin-top:8px">
        <div><label>Potência módulo (W)</label><input class="pac-pot-mod" type="number" value="${_esc(p.pot_modulo_w)}"></div>
+       <div class="pac-kwp-info" style="grid-column:span 3;align-self:end;padding:8px 12px;border:1px solid var(--verde-forte);
+            border-radius:8px;background:var(--card);font-size:12px;color:var(--mudo)"></div>
      </div>
      <label style="display:block;margin:10px 0 4px;font-size:12px;color:var(--mudo)">Inversores</label>
      <div class="pac-invs">${invs}</div>
@@ -2488,6 +2491,28 @@ function _coletarPacote(card){
 function _coletarPacotes(root){
  return [...root.querySelectorAll('.pacote-card')].map(_coletarPacote).filter(p=>p.nome);
 }
+// Indicador do kit: kWp = módulos × potência (confere o que foi digitado) e a
+// geração estimada pela MESMA conta da proposta (engine: kWp × PR × irradiação ×
+// dias do mês). Irradiação de referência: a cidade buscada na tela, se houver;
+// senão o perfil padrão "3.8" (Maringá). PR das pré-definições — o kit é
+// genérico, não é o PR de um projeto.
+const _DIAS_MES=[31,28,31,30,31,30,31,31,30,31,30,31];
+function _pacKwpInfo(card){
+ const qtd=parseInt((card.querySelector('.pac-qtd')||{}).value)||0;
+ const w=_n(card.querySelector('.pac-pot-mod'))||0;
+ const kwp=qtd*w/1000;
+ const cab=card.querySelector('.pac-kwp-cab'), box=card.querySelector('.pac-kwp-info');
+ if(cab) cab.textContent=kwp?_fmtKwp(kwp)+' kWp':'';
+ if(!box) return;
+ if(!kwp){ box.innerHTML='informe a <b>quantidade</b> e a <b>potência do módulo</b> para ver o kWp e a geração'; return; }
+ const irr=irrCustom||PERFIS_IRR['3.8']||[];
+ const kwhKwpAno=irr.reduce((a,x,m)=>a+Number(x)/1000*_DIAS_MES[m],0);
+ const ano=kwp*PR_PADRAO*kwhKwpAno, mes=ano/12;
+ const ref=irrCustom?(irrLocal||'cidade buscada'):'Maringá (perfil 3.8)';
+ box.innerHTML=`<span style="font-size:15px;font-weight:700;color:var(--verde)">${qtd} × ${fmtBR(w,0)} W = ${_fmtKwp(kwp)} kWp</span>`
+   +` &nbsp;·&nbsp; geração estimada <b style="color:var(--texto)">${fmtBR(mes,0)} kWh/mês</b> (${fmtBR(ano,0)} kWh/ano)`
+   +`<div style="margin-top:2px">referência: ${_esc(ref)} · PR ${fmtBR(PR_PADRAO,2)}</div>`;
+}
 // prévia ao vivo do preço/margem do kit (só admin) — atualiza o selo e a linha
 let _pacTimers=new WeakMap();
 function agendarPacPreco(card){
@@ -2517,6 +2542,8 @@ async function atualizarPacotePreco(card){
 // liga a prévia a um cartão: recalcula a cada edição e uma vez ao abrir
 function _wirePacPreco(card){
  card.addEventListener('input',()=>agendarPacPreco(card));
+ card.addEventListener('input',()=>_pacKwpInfo(card));
+ _pacKwpInfo(card);
  atualizarPacotePreco(card);
 }
 function consultorRowHTML(cn){cn=cn||{};
