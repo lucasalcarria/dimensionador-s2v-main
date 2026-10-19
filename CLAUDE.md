@@ -873,6 +873,16 @@ pede nada (e `teste_planilha`, que não usa HTTP, fica intacto).
 `@app.before_request` protege tudo; `/login`, estáticos e `/icons/` ficam livres;
 rotas `/api/*` sem sessão devolvem 401. `_obter_secret()` guarda uma chave de
 sessão estável em `acesso.json` (o login não cai a cada reinício).
+**Consultor × admin (19/10/2026):** o `/api/calcular` do consultor sai SEM os
+campos de custo (`app._RESUMO_CUSTOS`: composição, custos, margem, lucro, preço/Wp)
+— antes a tela só os escondia e o JSON chegava inteiro ao navegador. A
+solicitação de cotação exige o telhado (a lista abre vazia; antes vinha
+FIBROCIMENTO marcado sem ninguém escolher). O telhado da PROPOSTA do consultor
+vem do pacote (`_PACOTE_EQUIP`), não de um campo dele.
+`/api/sugestao` (potência sugerida do consultor) agora roda o próprio `engine.calcular`
+com kit zero (`_montar_entradas(d, com_pacote=False)`): desconta as usinas
+existentes igual à proposta (antes era uma conta à parte que não descontava).
+
 ## Google Drive (OAuth) — `drive.py`
 
 Envia as propostas para uma pasta do Drive (para ver no celular). Sem

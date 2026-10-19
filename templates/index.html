@@ -546,7 +546,7 @@ body:not(.consultor) .so-consultor{display:none!important;}
       <div><label>Cidade</label><input id="sol-cidade"></div>
     </div>
     <div class="grid g2" style="gap:10px;margin-top:8px">
-      <div><label>Telhado</label><select id="sol-telhado"></select></div>
+      <div><label>Telhado do cliente</label><select id="sol-telhado"></select></div>
       <div><label>Potência desejada (kWp)</label><input id="sol-kwp" inputmode="decimal"></div>
     </div>
     <div style="margin-top:8px"><label>Observação (opcional)</label>
@@ -1276,13 +1276,23 @@ async function atualizarSugestao(){
   const j=await (await fetch('/api/sugestao',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
   if(!j.ok) return;
   _sugestao={kwp:j.kwp_necessario||0, consumo:j.consumo_medio||0};
-  set('sug-kwp', _sugestao.kwp? _sugestao.kwp.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' kWp':'—');
-  set('sug-obs', _sugestao.consumo? `com base num consumo médio de ${_sugestao.consumo.toLocaleString('pt-BR')} kWh/mês`:'preencha os consumos das UCs');
+  const gex=j.geracao_existente||0;   // usinas que a UC já tem (descontadas)
+  const cobre=gex && !_sugestao.kwp && _sugestao.consumo;   // a usina atual já basta
+  set('sug-kwp', _sugestao.kwp? _sugestao.kwp.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' kWp'
+    :(cobre?'0 kWp':'—'));
+  set('sug-obs', !_sugestao.consumo? 'preencha os consumos das UCs'
+    : cobre? `a usina que o cliente já tem (${gex.toLocaleString('pt-BR')} kWh/mês) já cobre o consumo de ${_sugestao.consumo.toLocaleString('pt-BR')} kWh/mês`
+    : `com base num consumo médio de ${_sugestao.consumo.toLocaleString('pt-BR')} kWh/mês`
+      +(gex?`, já descontados ${gex.toLocaleString('pt-BR')} kWh/mês das usinas que o cliente já tem`:''));
  }catch(e){}
 }
 function abrirSolicitacao(){
+ // telhado: abre SEMPRE sem escolha — antes a lista já vinha em FIBROCIMENTO
+ // (1ª opção) e o pedido chegava ao admin com um telhado que ninguém escolheu
  const sel=document.getElementById('sol-telhado');
- if(sel && !sel.options.length) sel.innerHTML=ESTRUTURAS.map(e=>`<option>${_esc(e)}</option>`).join('');
+ if(sel && !sel.options.length) sel.innerHTML='<option value="">— selecione o telhado —</option>'
+   +ESTRUTURAS.map(e=>`<option>${_esc(e)}</option>`).join('');
+ if(sel) sel.value='';
  document.getElementById('sol-cliente').value=v('nome')||'';
  document.getElementById('sol-cidade').value=v('cidade')||'';
  document.getElementById('sol-kwp').value=_sugestao.kwp?String(_sugestao.kwp).replace('.',','):'';
@@ -1299,6 +1309,9 @@ async function enviarSolicitacao(){
  err.style.display='none';
  const cliente=document.getElementById('sol-cliente').value.trim();
  if(!cliente){ err.textContent='Informe o nome do cliente.'; err.style.display='block'; return; }
+ if(!document.getElementById('sol-telhado').value){
+   err.textContent='Selecione o telhado do cliente — o administrador monta o kit conforme ele.';
+   err.style.display='block'; return; }
  bt.disabled=true;
  try{
   const body={cliente, cidade:document.getElementById('sol-cidade').value.trim(),
@@ -1799,9 +1812,11 @@ async function calc(mostrarErro){
       : `${s.consumo_medio} kWh/mês`);
   set('r-comp',`${s.compensacao_pct}%`); set('r-area',`${s.area_m2} m²`);
   set('r-pay',s.payback); set('r-25',s.retorno_25);
-  document.getElementById('mo-auto').textContent=`auto: ${s.custo_mo_auto}`;
-  document.getElementById('mat-auto').textContent=`auto: ${s.custo_material_auto}`;
-  renderComposicao(s);
+  if(PAPEL!=='consultor'){   // consultor: o servidor não manda custos
+   document.getElementById('mo-auto').textContent=`auto: ${s.custo_mo_auto}`;
+   document.getElementById('mat-auto').textContent=`auto: ${s.custo_material_auto}`;
+   renderComposicao(s);
+  }
   renderGrupoA(s);
   atualizarEditVenda(s);
   document.getElementById('sugestao').textContent=s.modulos_sugeridos?`· sugerido: ${s.modulos_sugeridos}`:'';

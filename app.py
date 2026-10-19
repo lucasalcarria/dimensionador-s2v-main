@@ -508,8 +508,9 @@ def _pr_do_payload(d: dict) -> float | None:
     return v
 
 
-def _montar_entradas(d: dict) -> engine.Entradas:
-    d = _aplicar_pacote(d)          # consultor: injeta equipamento+custos do pacote
+def _montar_entradas(d: dict, com_pacote: bool = True) -> engine.Entradas:
+    if com_pacote:
+        d = _aplicar_pacote(d)      # consultor: injeta equipamento+custos do pacote
     # padrão de segurança para TE/TUSD quando o campo vem vazio: o ÚLTIMO valor
     # da COPEL vindo da ANEEL (cache), em vez de um número fixo desatualizado.
     _cache = _ler_cache_tarifas().get('COPEL-DIS|B1') or {}
@@ -833,6 +834,8 @@ def api_criar_solic():
         d = request.get_json(force=True) or {}
         consultor = (session.get('consultor') if _eh_consultor()
                      else (d.get('consultor') or '')).strip() or '—'
+        if not (d.get('telhado') or '').strip():
+            raise ValueError('Selecione o telhado do cliente.')
         reg = {'id': 's' + _s.token_hex(4),
                'criada_em': datetime.now().strftime('%d/%m/%Y %H:%M'),
                'consultor': consultor,
@@ -926,13 +929,29 @@ def favicon():
                                'icon-192.png')
 
 
+# Campos do resumo que revelam CUSTO/MARGEM. A tela do consultor já os
+# escondia (.so-admin), mas o JSON chegava inteiro ao navegador dele — bastava
+# abrir o F12 para ler kit, mão de obra, imposto e lucro. Agora o servidor nem
+# manda (mesma ideia do _WB_CUSTOS do carregador).
+_RESUMO_CUSTOS = ('composicao', 'custo_kit', 'custo_desloc', 'custo_entrada',
+                  'custo_380v', 'custo_total_pct', 'custo_mo', 'custo_material',
+                  'custo_trafo', 'custo_imposto', 'custo_comissao',
+                  'custo_seguro', 'custo_total', 'margem_usada_pct', 'preco_wp',
+                  'lucro_pct', 'lucro_rs', 'custo_mo_auto',
+                  'custo_material_auto', 'aliquota_usada_pct')
+
+
 @app.post('/api/calcular')
 def api_calcular():
     try:
         cfg = engine.carregar_config()
         e = _montar_entradas(request.get_json(force=True))
         r = engine.calcular(e, cfg)
-        return jsonify(ok=True, resumo=_resumo(r, cfg))
+        res = _resumo(r, cfg)
+        if _eh_consultor():
+            for k in _RESUMO_CUSTOS:
+                res.pop(k, None)
+        return jsonify(ok=True, resumo=res)
     except Exception as exc:                                   # noqa: BLE001
         return jsonify(ok=False, erro=str(exc)), 400
 
@@ -985,35 +1004,20 @@ def api_sugestao():
     pacote — depende só do consumo + irradiação. O consultor usa para pedir uma
     cotação ao administrador antes de existir um kit."""
     try:
-        d = request.get_json(force=True) or {}
+        d = dict(request.get_json(force=True) or {})
         cfg = engine.carregar_config()
-        # consumo anual das UCs ativas (as que têm tipo preenchido). No grupo A
-        # a ponta entra corrigida pelo fator de ajuste (REN 1.059/2023): 1 kWh
-        # de ponta só é zerado com `fator` kWh gerados fora ponta.
-        consumo_anual = 0.0
-        for u in (d.get('ucs') or []):
-            if not (u.get('tipo') or '').strip():
-                continue
-            consumo_anual += sum(_f(x) for x in (u.get('consumos') or []))
-            if (u.get('grupo') or 'B').strip().upper() == 'A' and _pode_admin():
-                tef, tep = _f(u.get('te_fora')), _f(u.get('te_ponta'))
-                fator = (tep / tef) if tef else 1.0
-                consumo_anual += sum(_f(x) for x in
-                                     (u.get('consumos_ponta') or [])) * fator
-        # irradiação: customizada, ou o perfil (o consultor usa o padrão)
-        irr = d.get('irradiacao_customizada')
-        if irr:
-            irr = [_f(x) for x in irr]
-        else:
-            perfil = str(d.get('perfil_irradiacao') or '3.8')
-            irr = (cfg['perfis_irradiacao'].get(perfil)
-                   or cfg['perfis_irradiacao'].get('3.8'))
-        kwh_kwp_ano = sum(irr[m] / 1000.0 * engine.DIAS_MES[m] for m in range(12))
-        pr = _pr_do_payload(d) or cfg['performance_ratio']
-        kwp = round(consumo_anual / (pr * kwh_kwp_ano), 2) if kwh_kwp_ano else 0.0
-        return jsonify(ok=True, kwp_necessario=kwp,
-                       consumo_medio=round(consumo_anual / 12.0, 1),
-                       consumo_anual=round(consumo_anual, 1))
+        # É a MESMA conta da proposta (engine.calcular → DD!B21), com o kit
+        # zerado e sem pacote: consumo real − geração das usinas que a UC já
+        # tem, fator da ponta no grupo A, irradiação e PR. Antes havia aqui uma
+        # conta à parte que NÃO descontava as usinas existentes — a sugestão
+        # do consultor saía maior que o kWp da proposta para quem já gera.
+        d.update(qtd_modulos_kit=0, valor_kit=0, pacote_id=None)
+        e = _montar_entradas(d, com_pacote=False)
+        r = engine.calcular(e, cfg)
+        return jsonify(ok=True, kwp_necessario=r['kwp_necessario'],
+                       consumo_medio=round(r['consumo_medio'], 1),
+                       consumo_anual=round(r['consumo_anual_equiv'], 1),
+                       geracao_existente=round(r['geracao_existente_ano'] / 12.0, 1))
     except Exception as exc:                                   # noqa: BLE001
         return jsonify(ok=False, erro=str(exc)), 400
 
