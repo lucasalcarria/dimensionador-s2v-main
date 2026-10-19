@@ -630,6 +630,40 @@ let irrMeta=null, irrAviso='';     // fonte/obs da última busca; aviso do impor
 let perfilLegado=null;             // projeto antigo importado com perfil da lista
 let CONC={};       // concessionárias (tarifas locais + alíquotas)
 let SUBGRUPOS=[];  // modalidades (B1, B2, B3)
+let BANDEIRAS={{ cfg.bandeiras | tojson }};   // adicional R$/kWh, SEM impostos
+let BAND_VIG=null; // bandeira vigente no mês (ANEEL): {bandeira, adicional, competencia, cache}
+// Bandeira acionada no mês (ANEEL Dados Abertos, cache offline no servidor).
+// UC nova já nasce com ela; UC de projeto importado mantém a que foi salva.
+async function carregarBandeira(){
+ try{
+  const r=await fetch('/api/aneel-bandeira'); const j=await r.json();
+  if(!j.ok) return;
+  BAND_VIG=j;
+  document.querySelectorAll('#ucs .uc').forEach(uc=>{
+    if(!uc.dataset.importada) bandeiraPadrao(uc);
+    cheiaLocal(uc); });
+  agendar();
+ }catch(e){}
+}
+function bandeiraPadrao(uc){
+ const s=uc&&uc.querySelector('.u-band'); if(!s||!BAND_VIG) return;
+ if([...s.options].some(o=>o.value===BAND_VIG.bandeira)) s.value=BAND_VIG.bandeira;
+}
+// linha de conferência da bandeira (com impostos, como a fatura mostra)
+function bandeiraTxt(el,g){
+ const s=el.querySelector('.u-band'); if(!s||!g) return '';
+ const nome=s.value, ad=+((BANDEIRAS||{})[nome]||0);
+ let t = ad ? `bandeira ${nome}: + R$ ${(ad/g).toFixed(4).replace('.',',')} /kWh`
+            : `bandeira ${nome}: sem adicional`;
+ if(BAND_VIG){
+   const [a,m]=String(BAND_VIG.competencia||'').split('-');
+   const mes=(m&&a)?`${['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'][+m-1]}/${a}`:'';
+   t += BAND_VIG.bandeira===nome
+     ? ` · é a vigente${mes?' em '+mes:''} (ANEEL${BAND_VIG.cache?', último registro salvo':''})`
+     : ` · ⚠ a vigente${mes?' em '+mes:''} é ${BAND_VIG.bandeira} (ANEEL)`;
+ }
+ return t;
+}
 
 async function carregarConcessionarias(force){
  try{
@@ -1002,9 +1036,13 @@ function ucHTML(i){
 function addUC(){const box=document.getElementById('ucs');const n=box.children.length;
  if(n>=9)return; box.insertAdjacentHTML('beforeend',ucHTML(n));
  document.getElementById('badge-ucs').textContent=n+1; wire(box.lastElementChild);
- const _el=box.lastElementChild; preencherConcSelects(_el);
- if(n===0) aplicarConcAuto(_el);            // geradora (UC 1): COPEL padrão
- else sincronizarConcBeneficiarias();       // beneficiária: herda a geradora e trava
+ const _el=box.lastElementChild; preencherConcSelects(_el); bandeiraPadrao(_el);
+ // beneficiária: herda a concessionária da geradora e trava o seletor. A
+ // tarifa é buscada SEMPRE (aplicarConcAuto, a UC nasce vazia): antes só se
+ // buscava quando a concessionária mudava — e a UC nova já nascia em COPEL,
+ // igual à geradora, então ficava sem TE/TUSD.
+ if(n>0) sincronizarConcBeneficiarias(true);
+ aplicarConcAuto(_el);
 }
 
 // refaz as opções de um <select> de marca a partir de uma lista nova,
@@ -1614,6 +1652,8 @@ function coletar(){
   irradiacao_customizada:irrCustom,
   irradiacao_local:irrCustom?irrLocal:'',
   irradiacao_bruta:irrCustom?true:undefined,
+  bandeira_vigente:BAND_VIG?BAND_VIG.bandeira:'',          // só p/ a pág. 5
+  bandeira_competencia:BAND_VIG?BAND_VIG.competencia:'',
   performance_ratio:PAPEL==='consultor'?null:(v('pr-proj')||null),
   marca_modulo:selVal('marca_modulo'),pot_modulo_w:num('pot_modulo_w'),qtd_modulos_kit:num('qtd_modulos'),
   inversores:invs,
@@ -1792,14 +1832,18 @@ function cheiaLocal(el){
    const usado=(!isNaN(man)&&man>0)?man:fTE;
    obs.innerHTML=`com impostos: fora ponta ${f(tef+tuf)}/kWh · ponta ${f(tep+tup)}/kWh`+
      ` · demanda ${f(n('.u-a-tud'))}/kW<br>1 kWh de ponta = <b>${bl(usado)} kWh</b> fora ponta`+
-     ` (pelas TEs ${bl(fTE)}; pela tarifa cheia seria ${bl(fCH)})`;
+     ` (pelas TEs ${bl(fTE)}; pela tarifa cheia seria ${bl(fCH)})`+
+     `<br>${bandeiraTxt(el,g)}`;
   }
   return;
  }
  const te=n('.u-te'), tusd=n('.u-tusd');
  if(!g||(!te&&!tusd)){el.querySelector('.u-cheia').textContent='';return;}
- el.querySelector('.u-cheia').textContent=
-   `com impostos (conferência): TE ${f(te)} · TUSD ${f(tusd)} · cheia ${f(te+tusd)} /kWh`;
+ const ad=+((BANDEIRAS||{})[(el.querySelector('.u-band')||{}).value]||0);
+ el.querySelector('.u-cheia').innerHTML=
+   `com impostos (conferência): TE ${f(te)} · TUSD ${f(tusd)} · cheia ${f(te+tusd)} /kWh`+
+   (ad?` · com a bandeira ${f(te+tusd+ad)} /kWh`:'')+
+   `<br>${bandeiraTxt(el,g)}`;
 }
 function agendar(){clearTimeout(timer);timer=setTimeout(()=>calc(false),450);}
 function toggleFormaParcela(){
@@ -1845,11 +1889,13 @@ function wire(root){root.querySelectorAll('input,select').forEach(el=>{
   cheiaLocal(uc); syncNoturno(uc);
   uc.querySelector('.u-tipo').addEventListener('change',()=>syncNoturno(uc));
   uc.querySelectorAll('.u-te,.u-tusd,.u-icms,.u-cofins,.u-pis,.u-a-tep,.u-a-tup,.u-a-tef,.u-a-tuf,.u-a-tud,.u-a-fator').forEach(inp=>
-    inp.addEventListener('input',()=>cheiaLocal(uc)));});
+    inp.addEventListener('input',()=>cheiaLocal(uc)));
+  uc.querySelector('.u-band').addEventListener('change',()=>cheiaLocal(uc));});
  if(root.classList&&root.classList.contains('uc')){cheiaLocal(root); syncNoturno(root);
   root.querySelector('.u-tipo').addEventListener('change',()=>syncNoturno(root));
-  root.querySelectorAll('.u-te,.u-tusd,.u-icms,.u-cofins,.u-pis').forEach(inp=>
-    inp.addEventListener('input',()=>cheiaLocal(root)));}}
+  root.querySelectorAll('.u-te,.u-tusd,.u-icms,.u-cofins,.u-pis,.u-a-tep,.u-a-tup,.u-a-tef,.u-a-tuf,.u-a-tud,.u-a-fator').forEach(inp=>
+    inp.addEventListener('input',()=>cheiaLocal(root)));
+  root.querySelector('.u-band').addEventListener('change',()=>cheiaLocal(root));}}
 
 let _pdfUrl=null;                 // guarda o último PDF gerado (link opcional de download)
 // PRÉ-VISUALIZAÇÃO: mesmo PDF, sem salvar pasta nem enviar ao Drive
@@ -2518,6 +2564,8 @@ function salvarConfig(){
     if(Array.isArray(c.marcas_inversor)) MARCAS_INV=c.marcas_inversor;
     if(Array.isArray(c.marcas_modulo)) MARCAS_MOD=c.marcas_modulo;
     if(c.performance_ratio!=null) PR_PADRAO=c.performance_ratio;
+    BANDEIRAS=c.bandeiras;
+    document.querySelectorAll('#ucs .uc').forEach(cheiaLocal);
     rebuildMarcas(); carregarConsultores();
     // aplica os impostos novos a todas as UCs já abertas na tela
     const ic=c.impostos_copel;
@@ -2610,7 +2658,8 @@ function aplicar(d){
  const box=document.getElementById('ucs'); box.innerHTML='';
  const ucs=(d.ucs&&d.ucs.length)?d.ucs:[{}];
  ucs.forEach((u,i)=>{ box.insertAdjacentHTML('beforeend',ucHTML(i));
-   const el=box.lastElementChild; wire(el); preencherConcSelects(el); preencherUC(el,u); });
+   const el=box.lastElementChild; el.dataset.importada='1';
+   wire(el); preencherConcSelects(el); preencherUC(el,u); });
  sincronizarConcBeneficiarias(true);   // trava as beneficiárias sem rebuscar (mantém tarifas importadas)
  document.getElementById('badge-ucs').textContent=box.children.length;
  calc(false);
@@ -2764,6 +2813,7 @@ window.addEventListener('paste',e=>{
 });
 
 carregarConcessionarias();
+carregarBandeira();
 _setupComboConsultor();
 carregarConsultores();
 // "Nova proposta" recarrega a página; mantém o consultor para não redigitar.

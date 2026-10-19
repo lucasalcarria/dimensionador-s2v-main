@@ -409,6 +409,20 @@ não é afetado.
    (`window._tarCache`) p/ não rebuscar a mesma conc/subgrupo.
    (O `/api/copel-verificar` ainda existe p/ o ICMS/resolução da COPEL, mas não é
    mais chamado no fluxo automático — o ICMS vem do `config`, offline-safe.)
+   **UC adicionada (beneficiária) também busca a tarifa** (`addUC` →
+   `aplicarConcAuto`): antes ela nascia em COPEL igual à geradora, o
+   `sincronizarConcBeneficiarias` via "nada mudou" e TE/TUSD ficavam vazias.
+   **Bandeira vigente (19/10/2026):** `online.buscar_bandeira_aneel` lê a base
+   "Bandeiras tarifárias → Acionamento" (`0591b8f6-…`, uma linha por mês, R$/MWh
+   sem impostos) → `GET /api/aneel-bandeira`, cache `BANDEIRA` no
+   `tarifas_cache.json`. A tela busca ao abrir (`carregarBandeira`): UC nova
+   nasce com a bandeira vigente (importada mantém a sua) e a linha de
+   conferência da aba Tarifas mostra o adicional com impostos, a "cheia + bandeira"
+   e avisa se a escolhida difere da vigente. Na proposta, pág. 5, a linha do
+   "RETORNO FINANCEIRO" ganha à direita "BANDEIRA TARIFÁRIA EM OUT/2026 [VERDE]"
+   (`proposta._bandeira_p5`; `Entradas.bandeira_vigente/_competencia`, só texto,
+   não entra na conta; sem a tela, `app._bandeira_do_payload` usa o cache; sem
+   nada, não imprime).
    **PIS/COFINS não são automatizáveis** (alíquota efetiva mensal por
    distribuidora, sem API — cada uma publica em PDF/Power BI): ficam manuais nas
    pré-definições.

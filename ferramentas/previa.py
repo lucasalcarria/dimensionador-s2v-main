@@ -48,7 +48,10 @@ def _residencial(bateria=True, stringbox=True):
                     marca_modulo='ASTRONERGY N-TYPE', pot_modulo_w=620,
                     estrutura='FIBROCIMENTO', perfil_irradiacao='3.8',
                     margem_desejada=0.16, tem_bateria=bateria, bat_kwh=5, bat_marca='DEYE',
-                    tem_stringbox=stringbox)
+                    tem_stringbox=stringbox,
+                    # uma cor de bandeira por caso, para a prévia mostrar as três
+                    bandeira_vigente='VERDE' if bateria else 'AMARELA',
+                    bandeira_competencia='2026-10' if bateria else '2026-09')
 
 
 def _grupo_a():
@@ -58,7 +61,8 @@ def _grupo_a():
     d.update(nome='CLIENTE EXEMPLO MEDIA TENSAO', qtd_modulos_kit=200,
              valor_kit=190000, marca_inversor='CHINT', pot_inversor_kw=125,
              tensao_inversor=380,
-             inversores=[dict(marca='CHINT', pot_kw=125, tensao=380, qtd=1)])
+             inversores=[dict(marca='CHINT', pot_kw=125, tensao=380, qtd=1)],
+             bandeira_vigente='VERMELHA P1', bandeira_competencia='2026-08')
     with app.app.test_request_context('/'):
         return app._montar_entradas(d)
 

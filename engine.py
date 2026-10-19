@@ -449,6 +449,10 @@ class Entradas:
     # PR do projeto (só o admin define; None = config.performance_ratio).
     # É a ÚNICA perda: perda = 1 − PR.
     performance_ratio: float | None = None
+    # bandeira tarifária vigente na data do orçamento (ANEEL, só p/ a proposta —
+    # não entra na conta; a da conta é a `UC.bandeira`). '' = não imprime.
+    bandeira_vigente: str = ''
+    bandeira_competencia: str = ''    # 'AAAA-MM'
     # custos ------------------------------------------------------------
     entrada: float = 0.0              # PR!R21 (custo 'ENTRADA')
     custo_380v: float = 0.0           # custo extra p/ inversor(es) 380 V (manual)
@@ -1351,6 +1355,14 @@ def _textos(e: Entradas, r: Resultado, config: dict) -> dict:
     hoje = date.today()
     t['disclaimer_data'] = (f'considerados são referentes a '
                             f'{MESES[hoje.month - 1]}/{hoje.year}.')
+    # pág. 5, ao lado do "RETORNO FINANCEIRO": bandeira vigente no orçamento
+    if e.bandeira_vigente:
+        try:
+            ano, mes = (int(x) for x in e.bandeira_competencia.split('-')[:2])
+        except ValueError:
+            ano, mes = hoje.year, hoje.month
+        t['bandeira_mes'] = f'{MESES[mes - 1]}/{ano}'.upper()
+        t['bandeira_nome'] = e.bandeira_vigente.upper()
     # prazo de validade impresso na pág. 5 (era fixo na arte antiga)
     t['validade_txt'] = f"{int(config.get('validade_dias', 7))} DIAS"
     t['fin_txt'] = (f'EM {e.fin_parcelas}x SOB '

@@ -635,6 +635,7 @@ def _montar_entradas(d: dict) -> engine.Entradas:
         irradiacao_customizada=irr,
         irradiacao_local=str(d.get('irradiacao_local') or '').strip() if irr else '',
         performance_ratio=_pr_do_payload(d),
+        **_bandeira_do_payload(d),
         entrada=_f(d.get('entrada')),
         desloc=_f(d.get('desloc')),
         comissao_pct=_f(d.get('comissao_pct')) / 100.0,
@@ -1100,6 +1101,38 @@ def api_aneel_tarifa():
     except Exception as exc:                                   # noqa: BLE001
         cached = _ler_cache_tarifas().get(chave)
         if cached:                                    # sem internet: último salvo
+            return jsonify(ok=True, cache=True,
+                           aviso=f'ANEEL indisponível ({exc}) — usei o último registro',
+                           **cached)
+        return jsonify(ok=False, erro=str(exc)), 502
+
+
+def _bandeira_do_payload(d: dict) -> dict:
+    """Bandeira vigente para a pág. 5: a que a tela buscou na ANEEL
+    (`bandeira_vigente` + `bandeira_competencia`); sem ela, o último registro
+    salvo no cache. Nunca vai à internet aqui (a geração do PDF não pode
+    esperar a ANEEL). Sem nada, a proposta sai sem a indicação."""
+    nome = str(d.get('bandeira_vigente') or '').strip().upper()
+    comp = str(d.get('bandeira_competencia') or '').strip()
+    if not nome:
+        c = _ler_cache_tarifas().get('BANDEIRA') or {}
+        nome, comp = str(c.get('bandeira') or '').upper(), str(c.get('competencia') or '')
+    return {'bandeira_vigente': nome, 'bandeira_competencia': comp}
+
+
+@app.get('/api/aneel-bandeira')
+def api_aneel_bandeira():
+    """Bandeira tarifária acionada no mês corrente (ANEEL Dados Abertos), com
+    o adicional em R$/kWh SEM impostos. Online: busca e grava no cache;
+    offline: devolve o último registro salvo (`cache: true`)."""
+    import online
+    try:
+        b = online.buscar_bandeira_aneel()
+        _salvar_cache_tarifa('BANDEIRA', b)
+        return jsonify(ok=True, cache=False, **b)
+    except Exception as exc:                                   # noqa: BLE001
+        cached = _ler_cache_tarifas().get('BANDEIRA')
+        if cached:
             return jsonify(ok=True, cache=True,
                            aviso=f'ANEEL indisponível ({exc}) — usei o último registro',
                            **cached)

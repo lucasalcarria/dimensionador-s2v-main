@@ -135,6 +135,44 @@ def buscar_tarifa_aneel(sigla: str, subgrupo: str = 'B1') -> dict:
             'sigla': sigla, 'subgrupo': subgrupo}
 
 
+# Base "Bandeiras tarifárias" (Dados Abertos ANEEL), recurso "Acionamento": uma
+# linha por mês (DatCompetencia), com a bandeira acionada e o adicional em
+# R$/MWh SEM impostos. Vale para o país inteiro (SIN).
+ANEEL_BANDEIRA_RID = '0591b8f6-fe54-437b-b72b-1aa2efd46e42'
+
+
+def buscar_bandeira_aneel(hoje=None) -> dict:
+    """Bandeira tarifária acionada no mês de `hoje` (padrão: hoje).
+
+    A ANEEL anuncia a bandeira do mês seguinte no fim do mês, então a linha
+    mais recente pode ser a do mês que vem — pegamos a do mês corrente (ou a
+    última anterior a ele) e devolvemos a seguinte, se já anunciada, em
+    `proxima`. Devolve {bandeira, adicional (R$/kWh), competencia 'AAAA-MM',
+    proxima}. `bandeira` vem no rótulo do config ('VERDE', 'VERMELHA P1'…)."""
+    from datetime import date
+    hoje = hoje or date.today()
+    mes = f'{hoje.year:04d}-{hoje.month:02d}'
+    p = urllib.parse.urlencode({'resource_id': ANEEL_BANDEIRA_RID,
+                                'sort': 'DatCompetencia desc', 'limit': 3})
+    data = _get_json('https://dadosabertos.aneel.gov.br/api/3/action/'
+                     'datastore_search?' + p)
+    recs = ((data.get('result') or {}).get('records')) or []
+
+    def _linha(x):
+        return {'bandeira': ' '.join(str(x.get('NomBandeiraAcionada') or '')
+                                     .upper().split()),
+                'adicional': round(_num_aneel(x.get('VlrAdicionalBandeira') or '0'), 6),
+                'competencia': str(x.get('DatCompetencia') or '')[:7]}
+    linhas = [_linha(x) for x in recs if x.get('NomBandeiraAcionada')]
+    atuais = [l for l in linhas if l['competencia'] <= mes]
+    if not atuais:
+        raise LookupError('ANEEL sem bandeira acionada para ' + mes)
+    atual = max(atuais, key=lambda l: l['competencia'])
+    futuras = [l for l in linhas if l['competencia'] > atual['competencia']]
+    atual['proxima'] = min(futuras, key=lambda l: l['competencia']) if futuras else None
+    return atual
+
+
 def _num_bruto(s) -> float:
     """'20,45' -> 20.45 (sem dividir por mil — usado nas tarifas de DEMANDA)."""
     try:

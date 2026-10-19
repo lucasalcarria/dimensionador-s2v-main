@@ -647,6 +647,37 @@ def _notas_p5(c, textos, grupo_a):
     c.drawString(NOTA_P5['x'], 186.94, usina)
 
 
+# Bandeira tarifária vigente no orçamento (ANEEL), na linha do título "RETORNO
+# FINANCEIRO" (Inter Bold 13,87, base 353,34), terminando na margem direita
+# (558,84): rótulo cinza + "pílula" na cor da bandeira, centrados na altura das
+# maiúsculas do título. Sem bandeira informada, nada é desenhado.
+BANDEIRA_P5 = dict(x1=558.84, base_tit=353.34, tam_tit=13.87, tam=6.9,
+                   alt=11.0, pad=5.0, gap=5.0)
+BANDEIRA_COR = {'VERDE': ('#089C83', '#FFFFFF'), 'AMARELA': ('#F2B705', '#3A2E00'),
+                'VERMELHA': ('#D64541', '#FFFFFF')}
+
+
+def _bandeira_p5(c, textos):
+    nome, mes = textos.get('bandeira_nome'), textos.get('bandeira_mes')
+    if not nome:
+        return
+    b = BANDEIRA_P5
+    fb = _font_key('Inter', True)
+    fundo, cor = next((v for k, v in BANDEIRA_COR.items() if nome.startswith(k)),
+                      ('#434F5C', '#FFFFFF'))
+    meio = b['base_tit'] + 0.727 * b['tam_tit'] / 2      # meio das maiúsculas
+    base = meio - 0.727 * b['tam'] / 2
+    larg = c.stringWidth(nome, fb, b['tam']) + 2 * b['pad']
+    x0 = b['x1'] - larg
+    c.setFillColor(HexColor(fundo))
+    c.roundRect(x0, meio - b['alt'] / 2, larg, b['alt'], b['alt'] / 2, stroke=0, fill=1)
+    c.setFillColor(HexColor(cor))
+    c.setFont(fb, b['tam'])
+    c.drawCentredString(x0 + larg / 2, base, nome)
+    c.setFillColor(HexColor('#434F5C'))
+    c.drawRightString(x0 - b['gap'], base, f'BANDEIRA TARIFÁRIA EM {mes}')
+
+
 # FAIXA DA CAPA (cliente · UC · local · sistema) — colunas de LARGURA IGUAL
 # sempre que possível (pedido do usuário): o espaço entre colunas é fixo
 # (FAIXA_ESPACO, divisória no meio) e as 4 colunas dividem o resto por igual;
@@ -1197,6 +1228,7 @@ def gerar_proposta(resultado: dict, caminho_saida: str,
             _cartoes_grupo_a(c, textos, page_h)
         if pagina == 5:
             _notas_p5(c, textos, resultado.get('tem_grupo_a'))
+            _bandeira_p5(c, textos)
         faixa_ovr = {}
         if pagina == 1:
             # capa: estende a foto das placas até a borda direita
