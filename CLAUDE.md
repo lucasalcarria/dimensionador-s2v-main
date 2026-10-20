@@ -174,7 +174,7 @@ em azul; textos da pág. 2 em minúsculas; ícones dimensionados só pela área
 (ficaram pequenos); caixa de ícone quadrada com margens vazias.
 
 Resumo do que ficou:
-- **Defeitos corrigidos**: eixo do gráfico em MWh a partir de 1.000 kWh (o
+- **Defeitos corrigidos**: eixo do gráfico SEMPRE em kWh (20/10/2026: números com milhar e "kWh" uma vez no alto do eixo; a regra antiga de MWh virava o eixo quando só o TOPO chegava a 1.000) (o
   rótulo era cortado); separador de milhar ("19.473 kWh/mês"); "05" no cabeçalho
   da pág. 5; "—" quando não há nº de UC; "COBERTURA DO CONSUMO" no grupo A.
 - **Padronização**: títulos de seção verdes (só "KIT GERADOR FOTOVOLTAICO"

@@ -868,14 +868,16 @@ def _pdf_grafico(consumo_mensal: list[float], geracao_mensal: list[float],
     ax.set_xlim(-0.5, 11.5)
     ax.set_ylim(0, ymax)
     ax.set_yticks([passo * i for i in range(int(ymax / passo) + 1)])
-    # o rótulo tem ~46 pt à esquerda do eixo: "600 kWh" cabe, "1000 kWh" não
-    # (saía cortado como "000 kWh"). A partir de 1.000 o eixo passa a MWh.
+    # SEMPRE em kWh, com separador de milhar, e a unidade escrita UMA vez no
+    # alto do eixo. O rótulo tem ~46 pt à esquerda do eixo: "1.000 kWh" não
+    # cabia (saía "000 kWh") e a regra antiga trocava o eixo inteiro para MWh
+    # quando só o TOPO chegava a 1.000 — geração de 860 kWh aparecia em "0,8 MWh".
     def _rot(v):
-        if ymax >= 1000:
-            return f'{v / 1000:g}'.replace('.', ',') + ' MWh'
-        return f'{v:g} kWh'
+        return f'{v:,.0f}'.replace(',', '.')
     ax.set_yticklabels([_rot(passo * i)
                         for i in range(int(ymax / passo) + 1)])
+    ax.text(-0.012, 1.045, 'kWh', transform=ax.transAxes, ha='right',
+            va='bottom', fontsize=9.9, color=COR_TEXTO)
     ax.set_xticks(list(xs))
     ax.set_xticklabels(meses)
     ax.tick_params(axis='both', length=0, labelsize=9.9, colors=COR_TEXTO,

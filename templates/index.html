@@ -32,6 +32,10 @@ header small{color:var(--mudo);font-size:12px}
 .abas-topo a:hover{color:var(--texto)}
 .abas-topo a.on{background:var(--azul-forte);color:#fff}
 main{display:grid;grid-template-columns:minmax(0,1fr) 390px;gap:18px;max-width:1300px;margin:18px auto;padding:0 16px}
+/* as colunas nunca crescem além da tela por causa do conteúdo: a tabela de kits
+   (só aberta no consultor) tem linhas que não quebram e esticava a página
+   inteira no celular — agora ela rola de lado dentro do próprio quadro */
+main>div{min-width:0}
 @media(max-width:1020px){main{grid-template-columns:1fr}}
 section{background:var(--card);border:1px solid var(--borda);border-radius:12px;padding:16px 18px;margin-bottom:16px}
 section h2{margin:0 0 12px;font-size:12.5px;color:var(--verde);text-transform:uppercase;letter-spacing:1px}
@@ -182,7 +186,7 @@ small.auto{color:var(--mudo)}
  line-height:1.5;color:#cfe0f0;white-space:pre-wrap;max-height:65vh;overflow:auto;margin:0}
 
 @media (max-width: 760px){
- main{grid-template-columns:1fr !important;padding:10px}
+ main{grid-template-columns:minmax(0,1fr) !important;padding:10px}
  .grid.g4,.grid.g3{grid-template-columns:1fr 1fr}
  .grid.g2{grid-template-columns:1fr}
  header{flex-wrap:wrap;gap:8px;padding:10px 12px}
