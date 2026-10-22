@@ -170,8 +170,12 @@ preço unitário for menor que o da TE consumida, o prazo acabou (`false`).
 - **A demanda (R$/kW) o solar NÃO abate.** É o piso da conta — por isso a
   economia percentual do grupo A é menor que a do grupo B. Nunca prometa "zerar a
   conta" para um cliente de média tensão.
-- **Não existe Fio B no grupo A** (nem GD1 nem GD2) e **não existe custo de
-  disponibilidade**.
+- **Fio B no grupo A só na PONTA** (A4 Verde): fora ponta ele é zero, então o
+  crédito que abate o fora ponta volta inteiro. O crédito **GD2** que sobra e
+  abate a PONTA desconta o Fio B de ponta escalonado, proporcional à potência
+  de inversor GD2 na UC (REN 1.000 art. 655-R — o programa faz). Cada usina
+  em `gds_existentes` pode levar `gd: "GD1"`/`"GD2"`; o projeto novo segue o `gd`
+  da UC (projeto novo = **GD2**). **Não existe custo de disponibilidade.**
 - **Para abater 1 kWh de ponta são precisos ~1,6 kWh gerados fora ponta** (fator
   de correção = TE ponta ÷ TE fora ponta). Mande `fator_ponta_manual: 1.63` se o
   cliente for COPEL. **Nunca calcule esse fator pela tarifa cheia** — daria ~4,4 e

@@ -437,6 +437,10 @@
       "aneel_sigla": "COPEL-DIS",
       "fio_b_rs_mwh": 214.5356,
       "_fio_b_fonte": "ANEEL Componentes Tarifárias, B1, TUSD_FioB — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.592, DE 23 DE… vigência 2026-06-24",
+      "fio_b_ponta_a_rs_mwh": {
+        "A4": 1018.5350622
+      },
+      "_fio_b_ponta_a": "Grupo A, modalidade VERDE: Fio B da TUSD de PONTA (R$/MWh, cheio; fora ponta = 0). ANEEL Componentes Tarifárias, A4 Verde, TUSD_FioB, Tarifa de Aplicação — REH 3.592/2026, vigência 2026-06-24. Desconta só o crédito GD2 que abate a ponta, escalonado como o do grupo B.",
       "site_tarifas": "https://www.copel.com/site/copel-distribuicao/tarifas-de-energia-eletrica/",
       "site_tributos": "https://www.copel.com/site/copel-distribuicao/tributos/",
       "icms_sobre_te": true,

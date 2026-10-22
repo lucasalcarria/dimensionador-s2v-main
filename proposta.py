@@ -627,6 +627,13 @@ NOTA2_A = ('** Estes valores são referências, e podem sofrer alterações de a
            'consumo do cliente.')
 
 
+# grupo A com AUTOCONSUMO estimado (> 0): a ** diz a hipótese — é número
+# digitado, não medido, e mexe na economia (pedido do usuário, 20/10/2026)
+NOTA2_A_AUTO = ('** Estes valores são referências e consideram que {pct} % da '
+                'geração nova é consumida na hora (estimativa); podem variar com a '
+                'demanda medida e o consumo na ponta.')
+
+
 def _notas_p5(c, textos, grupo_a):
     """Notas de rodapé da pág. 5. A arte traz * (bases 236,74/227,29) e **
     (207,94/198,50), com uma folga de ~1 linha entre elas. No grupo A a ** muda
@@ -634,14 +641,17 @@ def _notas_p5(c, textos, grupo_a):
     as folgas viram iguais e menores (6 pt) para as três caberem acima do
     título "ACEITE DA PROPOSTA" — ** sobe para 211,84/202,39, *** em 186,94."""
     usina = textos.get('nota_usina')
+    nota2 = NOTA2_B
+    if grupo_a:
+        nota2 = (NOTA2_A_AUTO.format(pct=textos['nota_autoconsumo'])
+                 if textos.get('nota_autoconsumo') else NOTA2_A)
     if not usina:
         if grupo_a:
-            _reescrever_nota(c, NOTA_P5, NOTA2_A)
+            _reescrever_nota(c, NOTA_P5, nota2)
         return
     c.setFillColor(HexColor('#FFFFFF'))                # apaga a ** da arte
     c.rect(34.0, 195.5, 337.0, 22.0, stroke=0, fill=1)
-    _reescrever_nota(c, dict(NOTA_P5, bases=(211.84, 202.39)),
-                     NOTA2_A if grupo_a else NOTA2_B)
+    _reescrever_nota(c, dict(NOTA_P5, bases=(211.84, 202.39)), nota2)
     c.setFillColor(HexColor('#434F5C'))
     c.setFont(_font_key('Inter', False), NOTA_P5['size'])
     c.drawString(NOTA_P5['x'], 186.94, usina)
@@ -804,6 +814,7 @@ def _rodape_capa(c, page_h):
 # ------------------------------------------------------------------ gráfico
 COR_CONSUMO = '#004D94'
 COR_GERACAO = '#089C83'
+COR_GER_ATUAL = '#83CDC1'   # o verde da marca a 50 % (usinas que o cliente já tem)
 COR_TEXTO = '#434F5C'
 COR_GRADE = '#F2F2F2'
 COR_EIXO = '#D9D9D9'
@@ -826,7 +837,8 @@ COR_PONTA = '#7FA6C9'      # o azul da marca a 50 % (tinta clara do #004D94)
 
 
 def _pdf_grafico(consumo_mensal: list[float], geracao_mensal: list[float],
-                 w_pt: float, h_pt: float, ponta_mensal=None) -> bytes:
+                 w_pt: float, h_pt: float, ponta_mensal=None,
+                 existente_mensal=None) -> bytes:
     """Gera o gráfico da página 4 como PDF vetorial transparente.
 
     `consumo_mensal` são os 12 meses como o usuário digitou: quando ele usou o
@@ -841,7 +853,11 @@ def _pdf_grafico(consumo_mensal: list[float], geracao_mensal: list[float],
     # 195,24–374,72 pt. Assim as barras caem exatamente sobre a arte da página.
     ax = fig.add_axes([0.11665, 0.13796, 0.85864, 0.66794])
 
-    vmax = max(list(consumo_mensal) + list(geracao_mensal) + [1.0])
+    ex = list(existente_mensal or [])
+    tem_ex = bool(ex) and any(ex)
+    ger_tot = ([ex[m] + geracao_mensal[m] for m in range(12)] if tem_ex
+               else list(geracao_mensal))
+    vmax = max(list(consumo_mensal) + ger_tot + [1.0])
     passo = _unidade_eixo(vmax)
     ymax = math.ceil(vmax / passo) * passo
 
@@ -853,17 +869,28 @@ def _pdf_grafico(consumo_mensal: list[float], geracao_mensal: list[float],
         # grupo A: a barra de consumo em duas partes — fora ponta embaixo, no
         # azul da marca, e a ponta em cima, no mesmo azul mais claro
         fora = [max(consumo_mensal[m] - ponta_mensal[m], 0.0) for m in range(12)]
-        ax.bar([x - off for x in xs], fora, width=bw,
-               color=COR_CONSUMO, label='Consumo fora ponta', zorder=3)
+        # com a geração atual a legenda vai a 4 itens e não cabe: os rótulos
+        # de consumo encurtam (o azul já diz que é consumo)
+        ax.bar([x - off for x in xs], fora, width=bw, color=COR_CONSUMO,
+               label='Fora ponta' if tem_ex else 'Consumo fora ponta', zorder=3)
         ax.bar([x - off for x in xs], list(ponta_mensal), width=bw, bottom=fora,
-               color=COR_PONTA, label='Consumo ponta', zorder=3)
+               color=COR_PONTA, label='Ponta' if tem_ex else 'Consumo ponta', zorder=3)
         ncol_leg = 3
     else:
         ax.bar([x - off for x in xs], list(consumo_mensal), width=bw,
                color=COR_CONSUMO, label='Consumo', zorder=3)
         ncol_leg = 2
-    ax.bar([x + off for x in xs], geracao_mensal, width=bw,
-           color=COR_GERACAO, label='Geração', zorder=3)
+    if tem_ex:
+        # usinas que o cliente já tem embaixo (verde claro); o projeto S2V em
+        # cima — a altura total é toda a geração contra a barra de consumo
+        ax.bar([x + off for x in xs], ex, width=bw,
+               color=COR_GER_ATUAL, label='Geração atual', zorder=3)
+        ax.bar([x + off for x in xs], geracao_mensal, width=bw, bottom=ex,
+               color=COR_GERACAO, label='Geração S2V', zorder=3)
+        ncol_leg += 1
+    else:
+        ax.bar([x + off for x in xs], geracao_mensal, width=bw,
+               color=COR_GERACAO, label='Geração', zorder=3)
 
     ax.set_xlim(-0.5, 11.5)
     ax.set_ylim(0, ymax)
@@ -1399,7 +1426,8 @@ def gerar_proposta(resultado: dict, caminho_saida: str,
                    or [resultado['consumo_medio']] * 12)
     graf_pdf = PdfReader(io.BytesIO(_pdf_grafico(
         consumo_mes, resultado['geracao_mensal'], gw, gh,
-        resultado.get('consumo_ponta_mensal'))))
+        resultado.get('consumo_ponta_mensal'),
+        resultado.get('geracao_existente_mensal'))))
     graf_page = graf_pdf.pages[0]
 
     # 3) mescla com o fundo

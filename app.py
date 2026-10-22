@@ -472,6 +472,19 @@ def _regra_bool(valor, padrao: bool = True) -> bool:
     return str(valor).strip().lower() not in ('false', '0', 'nao', 'não', 'no', '')
 
 
+def _fio_b_ponta_da_conc(nome, subgrupo) -> float:
+    """Fio B da TUSD de PONTA do grupo A (R$/MWh, A4 Verde) cadastrado na
+    concessionária, por subgrupo; 0 sem cadastro (= não desconta)."""
+    try:
+        v = (engine.carregar_config().get('concessionarias') or {}).get(
+            (nome or '').strip()) or {}
+        x = (v.get('fio_b_ponta_a_rs_mwh') or {}).get(
+            (subgrupo or 'A4').strip().upper())
+        return float(x) if x else 0.0
+    except (ValueError, TypeError, AttributeError):
+        return 0.0
+
+
 def _fio_b_da_conc(nome) -> float | None:
     """Fio B (R$/MWh) cadastrado na concessionária, ou None."""
     try:
@@ -550,7 +563,11 @@ def _montar_entradas(d: dict, com_pacote: bool = True) -> engine.Entradas:
                 # fator de correção da ponta (vazio = relação das TEs)
                 fator_ponta_manual=(None if u.get('fator_ponta_manual')
                                     in (None, '', 0)
-                                    else _f(u.get('fator_ponta_manual'))))
+                                    else _f(u.get('fator_ponta_manual'))),
+                # autoconsumo do sistema NOVO, em % (vazio = pior caso, 0 %)
+                autoconsumo_pct=(None if u.get('autoconsumo_pct') in (None, '')
+                                 else max(min(_f(u.get('autoconsumo_pct')), 100.0),
+                                          0.0) / 100.0))
         # usinas de GD que a UC já tinha ANTES deste orçamento (A e B).
         # Só o que é número interessa ao cálculo: os kWh injetados por mês.
         gds = []
@@ -570,7 +587,11 @@ def _montar_entradas(d: dict, com_pacote: bool = True) -> engine.Entradas:
                         # não vê o que foi gerado e consumido no mesmo instante.
                         'geracao_kwh': _f(g.get('geracao_kwh')),
                         'isento_icms': (None if iso is None
-                                        else _regra_bool(iso, True))})
+                                        else _regra_bool(iso, True)),
+                        # classe desta usina: no grupo A só o crédito GD2 que
+                        # abate a PONTA desconta o Fio B. Ausente = o gd da UC.
+                        'gd': (str(g.get('gd')).strip().upper()
+                               if g.get('gd') else None)})
         ucs.append(engine.UC(
             grupo=grupo, gds_existentes=gds, **ga,
             tipo=(u.get('tipo') or '').strip(),
@@ -595,6 +616,10 @@ def _montar_entradas(d: dict, com_pacote: bool = True) -> engine.Entradas:
             # Fio B da concessionária escolhida na UC (config). Sem
             # concessionária ou sem valor cadastrado, o motor usa o global.
             fio_b_rs_mwh=_fio_b_da_conc(u.get('conc')),
+            # grupo A Verde: Fio B da TUSD de ponta (desconta o crédito GD2
+            # que migra para a ponta)
+            fio_b_ponta_rs_mwh=(_fio_b_ponta_da_conc(u.get('conc'), ga.get('subgrupo_a'))
+                                if grupo == 'A' else 0.0),
             # anos que ainda restam de isenção NESTE parecer de acesso
             isencao_icms_anos=(None if u.get('isencao_icms_anos') in (None, '')
                                else _f(u.get('isencao_icms_anos')))))

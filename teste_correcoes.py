@@ -203,9 +203,17 @@ e = Entradas(nome='subdim', ucs=[uc] + [UC() for _ in range(8)],
              margem_desejada=0.16)
 r = calcular(e, cfg_real, ano=2026)
 d = r['detalhes_uc'][0]
-ger_faturavel = math.trunc(d['geracao_rateada'] * d['pct_noturno'])
+# ALTERADO com autorização do usuário (auditoria de 20/10/2026, ponto 3 —
+# balanço de energia): o crédito é a geração MENOS o que é consumido na hora
+# (o consumo diurno, (1 − %noturno) × consumo, até o limite da geração). Antes
+# esperava-se TRUNC(geração × %noturno), que somado ao autoconsumo passava do
+# que o sistema gera (385 + 285 = 670 kWh para 439 gerados).
+_auto = min((1 - d['pct_noturno']) * d['consumo'], d['geracao_rateada'])
+ger_faturavel = math.trunc(max(d['geracao_rateada'] - _auto, 0))
 ok('compensação < 100 % (é subdimensionado)', r['compensacao'] < 1.0, True)
 ok('crédito limitado à geração faturável', d['compensado'], ger_faturavel, 0)
+ok('balanço: consumido na hora + compensado ≤ gerado',
+   (d['consumo'] - d['faturado']) + d['compensado'] <= d['geracao_rateada'] + 1, True)
 ok('crédito ABAIXO do (faturado−disp) antigo',
    d['compensado'] < d['faturado'] - d['disponibilidade'], True)
 comp_antigo = d['faturado'] - d['disponibilidade']
@@ -261,6 +269,60 @@ with app.app.test_request_context():
     usp = app._montar_entradas({'ucs': [{'tipo': 'GERADORA',
         'abat_tusd_inclui_icms': True}]}).ucs[0]
 ok('payload abat_tusd_inclui_icms=True chega na UC', usp.abat_tusd_inclui_icms, True)
+
+# ---------------------------------------------------------------------------
+secao('Auditoria REN 1.000/1.059 (20/10/2026): 655-R no grupo B, bandeira na conta SEM, Fio B ano a ano')
+from engine import fator_fio_b as _ffb
+_cfgA = dict(carregar_config(), performance_ratio=0.75)
+
+
+def _ucA(**kw):
+    b = dict(tipo='GERADORA', ilum_publica=38.7, ligacao='BIFASICO',
+             consumos=[344, 384, 256, 250] + [300] * 8, te=0.31085, tusd=0.45717,
+             icms=0.19, cofins=0.066555, pis=0.014485, pct_noturno=0.65)
+    b.update(kw)
+    return UC(**b)
+
+
+def _entA(u, qtd=6):
+    return Entradas(nome='T', ucs=[u] + [UC() for _ in range(8)], qtd_modulos_kit=qtd,
+                    marca_inversor='CHINT', pot_inversor_kw=3, tensao_inversor=220,
+                    valor_kit=4974.72, marca_modulo='ASTRONERGY N-TYPE', pot_modulo_w=620,
+                    estrutura='FIBROCIMENTO', perfil_irradiacao='3.8', margem_desejada=0.16)
+
+
+# (1) REN 655-R no grupo B: crédito de usina GD1 não paga Fio B
+_r1 = calcular(_entA(_ucA(gds_existentes=[{'injetado_kwh': 150, 'gd': 'GD1', 'inversor_kw': 2}])), _cfgA, 2026)
+_r2 = calcular(_entA(_ucA(gds_existentes=[{'injetado_kwh': 150, 'gd': 'GD2', 'inversor_kw': 2}])), _cfgA, 2026)
+ok('conta SEM: usina antiga GD1 paga menos que GD2 (sem Fio B)',
+   _r1['fatura_sem'] < _r2['fatura_sem'], True)
+ok('parcela GD2 da conta COM = 3 kW novos ÷ (2 + 3)',
+   _r1['detalhes_uc'][0]['frac_gd2'], 3 / 5, 1e-12)
+ok('sem usina antiga: fração 1 (GD2) — conta da planilha intacta',
+   calcular(_entA(_ucA()), _cfgA, 2026)['detalhes_uc'][0]['frac_gd2'], 1.0, 1e-12)
+# (4) bandeira na conta SEM (REN art. 307): sobre todo o kWh faturado
+_rv = calcular(_entA(_ucA()), _cfgA, 2026)
+_ra = calcular(_entA(_ucA(bandeira='AMARELA')), _cfgA, 2026)
+_ua = _ucA()
+_bg = _cfgA['bandeiras']['AMARELA'] / ((1 - _ua.icms) * (1 - (_ua.cofins + _ua.pis)))
+ok('conta SEM amarela = verde + bandeira × kWh da conta sem',
+   _ra['fatura_sem'] - _rv['fatura_sem'], _bg * _rv['detalhes_uc'][0]['maior'], 0.01)
+# (5) projeção: cada ano com o Fio B daquele ano
+_rp = calcular(_entA(_ucA()), _cfgA, 2026)
+_e27 = calcular(_entA(_ucA()), _cfgA, 2027)['economia_mensal'] * 12
+ok('ano 2 da projeção usa o Fio B de 2027 (75 %)',
+   _rp['retorno_serie'][1], _e27 * (1 + _cfgA['reajuste_tarifa_aa'])
+   * (1 - _cfgA['degradacao_ano1']), 0.01)
+ok('Fio B maior em 2027 → economia de 2027 menor que a de 2026',
+   _e27 < _rp['economia_mensal'] * 12, True)
+# (3) balanço de energia em QUALQUER tamanho de sistema: consumido na hora +
+# compensado nunca passa do gerado; do 100 % para cima é a conta da planilha
+for _qtd in (1, 2, 3, 4, 6, 9, 12):
+    _rq = calcular(_entA(_ucA(), _qtd), _cfgA, 2026)
+    _dq = _rq['detalhes_uc'][0]
+    _coberto = (_dq['maior'] - _dq['faturado']) + _dq['compensado']
+    ok(f'{_qtd:>2} módulos ({_rq["compensacao"] * 100:5.1f} %): coberto ≤ gerado',
+       _coberto <= _dq['geracao_rateada'] + 1, True)
 
 print()
 if falhas:

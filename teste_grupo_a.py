@@ -11,9 +11,10 @@ decidido, para ninguém "consertar" depois sem perceber o estrago:
      pelo fator de ajuste da REN 1.059/2023 (relação entre as TEs).
   4. A fatura COM sistema nunca cai abaixo do piso (demanda + iluminação).
   5. Não existe custo de disponibilidade (30/50/100 kWh) no grupo A.
-  6. NÃO há Fio B no grupo A (nem GD1 nem GD2): o fio é pago na demanda, e o
-     kWh compensado abate TE + TUSD-energia inteiras. Há, opcionalmente,
-     TUSD-G (demanda de geração), que só existe COM o sistema.
+  6. Fio B só na PONTA: fora ponta ele é zero (o fio é pago na demanda) e o
+     kWh compensado abate TE + TUSD-energia inteiras; o crédito GD2 que migra
+     para a PONTA desconta o Fio B de ponta escalonado (seção 19). Há,
+     opcionalmente, TUSD-G (demanda de geração), que só existe COM o sistema.
   7. Ultrapassagem de demanda (acima de 105 % da contratada) é cobrada.
   8. O dimensionamento usa o consumo EQUIVALENTE (a ponta pede mais geração).
   9. Só o ADMIN cria UC do grupo A — o payload de um consultor volta a grupo B.
@@ -542,10 +543,169 @@ _d18b = dict(_d18, ucs=[_u18], qtd_modulos_kit=180, pot_modulo_w=625,
 with _app.app.test_request_context('/'):
     _r18b = calcular(_app._montar_entradas(_d18b),
                     dict(carregar_config(), performance_ratio=0.75))
-ok('TUSD-G = 75 (novo) + 135 (existente) − 175 contratados = 35 kW',
-   _r18b['detalhes_uc'][0]['demanda_g_kw'], 35.0, 1e-9)
+# ALTERADO com autorização do usuário (auditoria de 20/10/2026, correção 2):
+# REN 1.000 art. 294 §1º II b desconta a demanda FATURADA (167,47 kW na
+# FATURA-A), não a contratada (175) — antes o esperado era 35 kW.
+ok('TUSD-G = 75 (novo) + 135 (existente) − 167,47 faturados = 42,53 kW',
+   _r18b['detalhes_uc'][0]['demanda_g_kw'], 42.53, 1e-6)
 ok('nota *** da usina existente (5.490 kWh/mês injetados)',
    '(5.490 kWh/mês)' in _r18['textos'].get('nota_usina', ''), True)
+
+# ---------------------------------------------------------------------------
+secao('19. Fio B de PONTA no crédito GD2 (A4 Verde) — regra do usuário, 20/10/2026')
+# A TUSD fora ponta do A4 tem Fio B ZERO; a de PONTA tem 1.018,54 R$/MWh (REH
+# 3.592/2026). O crédito GD2 que migra para a ponta devolve a TUSD SEM o Fio B
+# escalonado, só com PIS/COFINS — igual ao `abat_tusd` do grupo B:
+#   TUSD P abatida = (TUSD P s/ imp. − Fio B escalonado) ÷ (1 − PIS − COFINS)
+# Planilha do usuário: ICMS 19 %, COFINS 6,66 %, PIS 1,45 %, Fio B 60 % (2026)
+# → TE P 0,638914752 + TUSD P 0,927485036 = 1,566399788 por kWh de ponta.
+FIOB_P = 1018.5350622                       # R$/MWh, A4 Verde COPEL (oficial)
+_cfg19 = carregar_config()
+# a planilha do usuário usa o Fio B arredondado (1.018,54): é ele que reproduz
+# os números dela; a diferença para o oficial é R$ 0,000003/kWh
+_fb26 = fator_fio_b(_cfg19, 2026) * 1018.54 / 1000.0
+_u19 = UC(tipo='GERADORA', grupo='A', subgrupo_a='A4', modalidade_a='VERDE',
+          te_ponta=0.47555, tusd_kwh_ponta=1.46339, te_fora=0.29575,
+          tusd_kwh_fora=0.14659, icms=0.19, cofins=0.0666, pis=0.0145,
+          abat_te_inclui_icms=True)
+_pc19 = 1 - (0.0666 + 0.0145)
+ok('Fio B de ponta escalonado 2026 (60 %)', _fb26, 0.611124, 1e-6)
+ok('TE ponta abatida (com ICMS, convênio valendo)',
+   0.47555 / (0.81 * _pc19), 0.638914752, 1e-8)
+ok('TUSD ponta abatida = (TUSD − Fio B esc.) ÷ (1 − PIS − COFINS)',
+   (1.46339 - _fb26) / _pc19, 0.927485036, 1e-6)
+ok('total por kWh de ponta = 1,566400 (planilha do usuário)',
+   _u19.abat_posto(True, True, _fb26), 1.566399788, 1e-6)
+ok('fora ponta NÃO desconta (Fio B fora ponta = 0)',
+   _u19.abat_posto(False, True, _fb26), _u19.abat_posto(False, True), 1e-12)
+
+# na fatura: geração grande o bastante para o crédito chegar à PONTA
+def _fat19(gd, ano=2026, **kw):
+    u = uc_a4(gd=gd, fio_b_ponta_rs_mwh=FIOB_P, **kw)
+    from engine import _fatura_grupo_a
+    return _fatura_grupo_a(u, 30000.0, _cfg19, 0.0, ano), u
+_g2, _uu = _fat19('GD2')
+_g1, _ = _fat19('GD1')
+ok('crédito chegou à ponta (sobra do fora ponta)', _g2['compensado_ponta'] > 0, True)
+ok('GD1 e GD2 compensam os mesmos kWh', _g1['compensado_ponta'], _g2['compensado_ponta'], 1e-9)
+_pc = 1 - (_uu.pis + _uu.cofins)
+ok('GD2 paga a mais exatamente ponta compensada × Fio B esc. ÷ PIS/COFINS',
+   _g2['total'] - _g1['total'],
+   _g2['compensado_ponta'] * fator_fio_b(_cfg19, 2026) * FIOB_P / 1000 / _pc, 0.01)
+ok('GD1: abatimento da ponta sem desconto', _g1['abat_ponta'], _uu.abat_posto(True), 1e-12)
+ok('conta SEM sistema não muda (GD1 × GD2)', _g2['fatura_sem_uc'], _g1['fatura_sem_uc'], 1e-9)
+_g27, _ = _fat19('GD2', 2027)
+ok('escalonamento: 2027 desconta 75 % (ano a ano, como o grupo B)',
+   _g27['fio_b_ponta'], fator_fio_b(_cfg19, 2027) * FIOB_P / 1000, 1e-12)
+_gaz, _ = _fat19('GD2', modalidade_a='AZUL', tusd_demanda_p=60.0, demanda_kw_p=100.0)
+ok('modalidade AZUL: sem desconto (ainda não levantada)', _gaz['fio_b_ponta'], 0.0, 1e-12)
+# usina antiga GD1 + projeto novo GD2 na mesma UC: só a parte GD2 desconta
+_umix = uc_a4(gd='GD2', fio_b_ponta_rs_mwh=FIOB_P,
+              gds_existentes=[{'injetado_kwh': 10000, 'gd': 'GD1'}])
+from engine import _fatura_grupo_a as _fga
+_gmix = _fga(_umix, 20000.0, _cfg19, 0.0, 2026)
+_uall = uc_a4(gd='GD2', fio_b_ponta_rs_mwh=FIOB_P,
+              gds_existentes=[{'injetado_kwh': 10000, 'gd': 'GD2'}])
+_gall = _fga(_uall, 20000.0, _cfg19, 0.0, 2026)
+_u1 = uc_a4(gd='GD1', fio_b_ponta_rs_mwh=FIOB_P,
+            gds_existentes=[{'injetado_kwh': 10000, 'gd': 'GD1'}])
+_gnone = _fga(_u1, 20000.0, _cfg19, 0.0, 2026)
+ok('mista (antiga GD1 + nova GD2) fica entre só-GD1 e só-GD2',
+   _gnone['total'] < _gmix['total'] <= _gall['total'] + 1e-9, True)
+# REN 1.000/2021, art. 655-R §1º II b (REN 1.059/2023): no aumento de
+# potência de UC GD I, os descontos são PROPORCIONALIZADOS pela potência
+# instalada (CA = inversores) GD I × GD II — nenhuma usina "abate primeiro".
+# GD1 existente 135 kW + projeto novo GD2 75 kW → 75/210 = 35,7 % GD2.
+_ur = uc_a4(gd='GD2', fio_b_ponta_rs_mwh=FIOB_P, te_ponta=0.47555,
+            tusd_kwh_ponta=1.46339, icms=0.19, cofins=0.0666, pis=0.0145,
+            gds_existentes=[{'injetado_kwh': 10000, 'gd': 'GD1', 'inversor_kw': 135}])
+_gr = _fga(_ur, 20000.0, _cfg19, 75.0, 2026)
+_fr = fator_fio_b(_cfg19, 2026) * FIOB_P / 1000.0
+ok('fração GD2 pela potência dos inversores (75 ÷ 210)',
+   _gr['gd_depois']['frac_gd2'], 75 / 210, 1e-12)
+ok('Fio B efetivo na ponta = Fio B escalonado × 75/210',
+   _gr['gd_depois']['fio_b_efetivo'], _fr * 75 / 210, 1e-12)
+_pcr = 1 - (0.0666 + 0.0145)
+ok('kWh de ponta abatido = TE com ICMS + (TUSD − Fio B ef.) ÷ (1 − PIS − COFINS)',
+   _gr['abat_ponta'], 0.47555 / (0.81 * _pcr) + (1.46339 - _fr * 75 / 210) / _pcr, 1e-9)
+ok('mesmo valor para os dois créditos (mistura única, sem ordem)',
+   _gr['gd_depois']['usinas'][0]['ap'], _gr['gd_depois']['usinas'][1]['ap'], 1e-12)
+ok('conta SEM: só a usina GD1 → sem desconto',
+   _gr['gd_hoje']['frac_gd2'], 0.0, 1e-12)
+# sem a potência de alguma usina: proporção pela energia injetada (e avisa)
+ok('sem potência informada: proporção pela injeção',
+   _gmix['gd_depois']['base_prop'], 'injecao')
+# a ordem da lista não muda nada
+_uinv = uc_a4(gd='GD1', fio_b_ponta_rs_mwh=FIOB_P,
+              gds_existentes=[{'injetado_kwh': 5000, 'gd': 'GD2'},
+                              {'injetado_kwh': 17000, 'gd': 'GD1'}])
+_uinv2 = uc_a4(gd='GD1', fio_b_ponta_rs_mwh=FIOB_P,
+               gds_existentes=[{'injetado_kwh': 17000, 'gd': 'GD1'},
+                               {'injetado_kwh': 5000, 'gd': 'GD2'}])
+ok('ordem das usinas na lista não muda a conta',
+   _fga(_uinv, 0.0, _cfg19, 0.0, 2026)['total'],
+   _fga(_uinv2, 0.0, _cfg19, 0.0, 2026)['total'], 1e-6)
+# o valor chega pelo cadastro da concessionária (config → app → UC)
+import app as _app19
+with _app19.app.test_request_context('/'):
+    _e19 = _app19._montar_entradas({'ucs': [{'tipo': 'GERADORA', 'grupo': 'A',
+        'subgrupo_a': 'A4', 'conc': 'COPEL (PR)', 'consumos': [1000] * 12,
+        'gds_existentes': [{'nome': 'antiga', 'injetado_kwh': 100, 'gd': 'GD1'}]}]})
+ok('COPEL A4: Fio B de ponta vem do config', _e19.ucs[0].fio_b_ponta_rs_mwh, FIOB_P, 1e-9)
+ok('a classe da usina existente chega ao motor', _e19.ucs[0].gds_existentes[0]['gd'], 'GD1')
+
+# ---------------------------------------------------------------------------
+secao('20. Autoconsumo do sistema novo informado na tela (padrão 0 % = pior caso)')
+_cfg20 = dict(carregar_config(), autoconsumo_grupo_a='pior_caso')
+_g0 = _fga(uc_a4(), 15000.0, _cfg20, 0.0, 2026)
+ok('vazio: autoconsumo zero (pior caso)', _g0['autoconsumo'], 0.0, 1e-12)
+ok('vazio: a regra é o pior caso', _g0['autoconsumo_regra'], 'pior_caso')
+_g30 = _fga(uc_a4(autoconsumo_pct=0.30), 15000.0, _cfg20, 0.0, 2026)
+ok('30 %: autoconsumo = 30 % da geração', _g30['autoconsumo'], 4500.0, 1e-9)
+ok('30 %: injeta o resto', _g30['injetado'], 10500.0, 1e-9)
+ok('30 %: regra "informado"', _g30['autoconsumo_regra'], 'informado')
+ok('autoconsumo economiza mais que injetar (conta COM menor)',
+   _g30['total'] < _g0['total'], True)
+ok('conta SEM não muda com o autoconsumo', _g30['fatura_sem_uc'], _g0['fatura_sem_uc'], 1e-9)
+_g100 = _fga(uc_a4(autoconsumo_pct=1.0), 30000.0, _cfg20, 0.0, 2026)
+ok('100 %: limitado ao consumo fora ponta (20.000)', _g100['autoconsumo'], 20000.0, 1e-9)
+_ginf = _fga(uc_a4(autoconsumo_pct=0.0), 15000.0,
+             dict(_cfg20, autoconsumo_grupo_a='otimista'), 0.0, 2026)
+ok('0 % digitado vale mesmo com a regra "otimista" no config', _ginf['autoconsumo'], 0.0, 1e-12)
+with _app19.app.test_request_context('/'):
+    _e20 = _app19._montar_entradas({'ucs': [{'tipo': 'GERADORA', 'grupo': 'A',
+        'subgrupo_a': 'A4', 'consumos': [1000] * 12, 'autoconsumo_pct': 35}]})
+    _e20v = _app19._montar_entradas({'ucs': [{'tipo': 'GERADORA', 'grupo': 'A',
+        'subgrupo_a': 'A4', 'consumos': [1000] * 12, 'autoconsumo_pct': ''}]})
+ok('tela manda % → motor recebe fração', _e20.ucs[0].autoconsumo_pct, 0.35, 1e-12)
+ok('campo vazio → None (regra do config)', _e20v.ucs[0].autoconsumo_pct is None, True)
+
+# ---------------------------------------------------------------------------
+secao('21. Várias UCs: usina só na GERADORA (TUSD-G, autoconsumo) — 21/10/2026')
+_cfg21 = dict(carregar_config(), autoconsumo_grupo_a='pior_caso', performance_ratio=0.75)
+_ua21 = lambda tipo, **k: uc_a4(tipo=tipo, consumos=[8000.0] * 12,
+                                consumos_ponta=[800.0] * 12, demanda_kw=60.0,
+                                tusd_g_rs_kw=7.66, autoconsumo_pct=0.3, **k)
+_r21 = calcular(entradas(_ua21('GERADORA'), 120, pot_inversor_kw=75,
+                         ucs=[_ua21('GERADORA'), _ua21('BENEFICIÁRIA')] + [UC() for _ in range(7)]),
+                _cfg21, 2026)
+_g21, _b21 = _r21['detalhes_uc'][0], _r21['detalhes_uc'][1]
+ok('geradora: TUSD-G = 75 kW de inversor − 60 kW faturados', _g21['demanda_g_kw'], 15.0, 1e-9)
+ok('beneficiária: sem TUSD-G (a usina não está ligada nela)', _b21['demanda_g_kw'], 0.0, 1e-12)
+ok('geradora: autoconsumo de 30 % vale', _g21['autoconsumo'] > 0, True)
+ok('beneficiária: autoconsumo zero mesmo com o campo em 30 %', _b21['autoconsumo'], 0.0, 1e-12)
+ok('beneficiária: regra "beneficiaria"', _b21['autoconsumo_regra'], 'beneficiaria')
+_ger = _r21['geracao_media']
+_usada = sum(d['autoconsumo'] + d['compensado_fora'] + d['compensado_ponta'] * d['fator_ajuste']
+             for d in (_g21, _b21))
+ok('energia usada nas duas UCs ≤ gerada', _usada <= _ger + 2, True)
+# TUSD-G que a usina ATUAL já paga entra na conta SEM (não é custo do projeto)
+_ux = uc_a4(demanda_kw=60.0, tusd_g_rs_kw=7.66,
+            gds_existentes=[{'injetado_kwh': 5000, 'inversor_kw': 100, 'gd': 'GD1'}])
+_gx = _fga(_ux, 6000.0, _cfg21, 25.0, 2026)
+ok('TUSD-G de hoje = 100 kW atuais − 60 faturados', _gx['demanda_g_hoje_kw'], 40.0, 1e-9)
+ok('TUSD-G com o projeto = 125 − 60', _gx['demanda_g_kw'], 65.0, 1e-9)
+ok('a TUSD-G de hoje está na conta SEM', _gx['custo_g_hoje'] > 0, True)
 
 print()
 if falhas:

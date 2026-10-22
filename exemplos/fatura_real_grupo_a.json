@@ -13,7 +13,7 @@
       "grupo": "A",
       "subgrupo_a": "A4",
       "modalidade_a": "VERDE",
-      "gd": "GD1",
+      "gd": "GD2",
       "tipo": "GERADORA",
       "ligacao": "TRIFASICO",
       "conc": "COPEL (PR)",
@@ -81,6 +81,7 @@
         {
           "_comentario": "A usina de 135 kW que ela JA TEM, injetando 5.490 kWh/mes (linha ENERGIA INJETADA). isento_icms false: o prazo desta usina venceu. geracao_kwh so o app de monitoramento informa.",
           "nome": "usina atual",
+          "gd": "GD1",
           "kwp": 135,
           "injetado_kwh": 5490,
           "geracao_kwh": 0,

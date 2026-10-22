@@ -270,6 +270,12 @@ centrado na vertical — pedido do usuário.
 ponta 18.434" (`textos['consumo_postos']`; fora ponta = total exibido − ponta,
 para a soma bater), Inter 6 pt cinza; o par fica centrado na célula (centro
 309 pt no topo, linhas da tabela em 290/328).
+**Usinas atuais no gráfico (pág. 4, A e B, 21/10/2026)** — com `gds_existentes`, a
+barra verde empilha a geração das usinas atuais (`COR_GER_ATUAL` #83CDC1, embaixo) e a
+do projeto ("Geração S2V", em cima): a altura total é toda a geração contra o consumo.
+Dado: `r['geracao_existente_mensal']` = geração real atual do ano distribuída pela curva
+de sol do projeto (a fatura só dá um mês). Com 4 itens na legenda (grupo A) os de
+consumo encurtam para "Fora ponta"/"Ponta". Sem usina, gráfico como antes.
 **Grupo A, pág. 4** — a barra de consumo do gráfico vira duas: fora ponta no
 azul da marca (embaixo) e ponta em `COR_PONTA` #7FA6C9 (o mesmo azul a 50 %),
 legenda com 3 itens. Dado: `r['consumo_ponta_mensal']`. No grupo B, idêntico.
@@ -378,7 +384,10 @@ não é afetado.
    **BENEFICIÁRIA usa sempre 1,0 (100%)**. Vem da planilha (M32:M39 =
    `SE(tipo="BENEFICIÁRIA";1;…)`). Está em `UC.pct_noturno_efetivo`.
 2. **Retorno de 25 anos**: economia mensal × 12 projetada (reajuste 5% a.a. a
-   partir do ano 2, degradação 2,5%/0,7%). A planilha original tinha um bug
+   partir do ano 2, degradação 2,5%/0,7%). **Desde 20/10/2026 (auditoria) cada
+   ano usa a economia recalculada com o Fio B DAQUELE ano** (60 % 2026 → 75 % →
+   90 % → valor cadastrado de 2029 em diante, hoje 100 %): antes o % do ano
+   corrente valia os 25 anos, otimista no GD2. No grupo A pesa só na ponta. A planilha original tinha um bug
    (dividia a tarifa por 9 via COUNTA) que dava R$ 16.651 em vez de ~R$ 141 mil.
    `compat_planilha: true` no config reproduz o comportamento antigo. (Modelar
    a subida do Fio B ano a ano na projeção ficou pendente: o Fio B vai a 90% em
@@ -438,6 +447,14 @@ não é afetado.
    (`engine.calcular`). Em sistemas 100%+ isso é um no-op → o `teste_planilha`
    fica idêntico. Isto também faz a regra do "maior valor" (disponibilidade ×
    Fio B) operar de verdade quando falta geração.
+   **Balanço de energia (auditoria de 20/10/2026, decisão do usuário):**
+   `autoconsumo = min((1 − %noturno) × maior, geração)`, `faturado = maior −
+   autoconsumo`, `injetado = geração − autoconsumo` — consumido na hora +
+   injetado nunca passa do gerado. A planilha tirava (1 − p) × consumo da rede
+   E creditava p × geração; abaixo de 100 % somava mais do que o sistema gera
+   (20 % de cobertura: 60 kWh gerados, 144 "cobertos"). **Do 100 % para cima é
+   idêntico à planilha** (o caso de validação, 141 %, não mudou). A convenção da
+   S2V fica: a conta sem é a de quem consome o que o sistema gera (`maior`).
 9. **Abatimento de ICMS na COPEL é assimétrico — de propósito.** Na **TE**
    abatida o crédito devolve o ICMS (`abat_te = te_com_imposto`) → a TE
    compensada zera. Na **TUSD** abatida o crédito **não** re-embute o ICMS
@@ -472,6 +489,27 @@ não é afetado.
     B vencendo, continua se anulando (como na FATURA-B). ⚠ Regra da ANEEL, ainda
     sem fatura que a comprove. A "conta SEM" segue a planilha (sem bandeira).
 
+## Auditoria contra a REN 1.000/2021 + REN 1.059/2023 (20/10/2026)
+
+**Várias UCs (21/10/2026):** a usina nova fica na GERADORA — só lá entram o
+autoconsumo e os inversores do projeto na TUSD-G (antes as beneficiárias do grupo A
+também levavam os dois); a TUSD-G que as usinas ATUAIS já pagam entra na conta SEM
+(`custo_g_hoje`). Seção 21 do `teste_grupo_a`. Rateio da geração entre UCs segue pelo
+consumo (planilha); crédito que chega a UC horária conta como fora ponta (655 §6º).
+
+Conferido artigo por artigo (textos em PDF: REN 1.059 da Amazonas Energia, REN 1.000 de
+2021 da CPFL — o site da ANEEL bloqueia acesso automático). Bate: maior valor
+(655-I §1º), limite da compensada (§2º), grupo A (655-J), disponibilidade (291), GD1
+até 2045 (655-O), transição GD2 (655-Q), ordem dos postos e relação das TEs (655 §3º/§5º),
+bandeira só na diferença positiva (307 §2º), demanda faturada (294 II), ultrapassagem
+5 % em dobro (301). **Corrigido:** (1) grupo B passou a aplicar a REN 655-R por usina
+(`_frac_gd2`, comum aos dois grupos; antes o crédito de usina GD1 pagava Fio B se a UC
+fosse GD2); (2) TUSD-G desconta a demanda FATURADA, não a contratada (art. 294 §1º II b;
+exemplo: 35 → 42,53 kW, teste seção 18 alterado com autorização); (4) bandeira na conta
+SEM do grupo B (art. 307); (5) projeção de 25 anos com o Fio B de cada ano. **Fora do
+motor, por decisão:** GD III (655-P: >500 kW remoto/compartilhado paga 100 % Fio B + 40 %
+Fio A — o motor trataria como GD2), regra definitiva de 2029+, TUSDg do grupo B (655-I §3º).
+
 ## Grupo A (média tensão) — SÓ o administrador
 
 UC de **grupo A** (A4, A3a…) tem fatura de outra natureza e por isso um bloco
@@ -501,7 +539,15 @@ O que muda na conta (`engine._fatura_grupo_a`, testado em `teste_grupo_a.py`):
    `pior_caso` (padrão) · `medido` (fração medida na usina existente com a
    geração do app; sem ela, pior caso) · `otimista` (tudo até o consumo fora
    ponta — era o padrão antigo e superestimava a economia; na FATURA-A com
-   112,5 kWp novos: R$ 7.642,99 otimista × **R$ 7.159,31** pior caso). O autoconsumo some da conta pela **tarifa CHEIA (com ICMS)**,
+   112,5 kWp novos: R$ 7.642,99 otimista × **R$ 7.159,31** pior caso).
+   **Campo "Autoconsumo (%)" por UC (20/10/2026)** — no lugar do % noturno,
+   só no grupo A (`UC.autoconsumo_pct`, fração; a tela manda em %). **Vazio = a
+   regra do config (padrão pior caso = 0 %)**; preenchido, MANDA (inclusive 0
+   %), limitado ao consumo fora ponta. A dica ao lado do rótulo mostra o
+   autoconsumo MEDIDO nas usinas da UC ("gerou" − "injeta"), sem preencher. É
+   estimativa para ser testada contra faturas reais: com valor > 0 a nota ** da
+   pág. 5 diz a hipótese (`NOTA2_A_AUTO`, `textos['nota_autoconsumo']`).
+   Conferência: seção 1. Teste: seção 20 do `teste_grupo_a`. O autoconsumo some da conta pela **tarifa CHEIA (com ICMS)**,
    porque nem chega a ser medido; o injetado volta pelo abatimento (sem o ICMS
    da TE onde o convênio venceu). Sem o Convênio 16/2015, **1 kWh autoconsumido
    vale mais que 1 kWh injetado**.
@@ -534,12 +580,40 @@ O que muda na conta (`engine._fatura_grupo_a`, testado em `teste_grupo_a.py`):
    ponta** e respeita o modo rápido/detalhado. Dentro das abas, seções com
    `.sub-rot`. A **bandeira** mora na aba Tarifas nos dois grupos (antes ela era
    movida de container por JS — isso deixou de existir).
-5. **NÃO existe Fio B no grupo A** — nem em GD1 nem em GD2. O fio é remunerado
-   pela **demanda**, então o escalonamento da Lei 14.300 que corta o crédito no
-   grupo B não se aplica: o kWh compensado abate a **TE e a TUSD-energia
-   inteiras** (`abat_posto`, sem nenhum desconto). Confirmado pela fatura
-   FATURA-A: "ENERGIA INJETADA FP TUSD" devolve R$ 0,159457, que é a TUSD cheia
-   (0,146590) apenas dividida por PIS/COFINS. **Não reintroduzir Fio B aqui.**
+5. **Fio B no grupo A só na PONTA** (regra do usuário, 20/10/2026). Fora ponta
+   o Fio B do A4 é ZERO: o kWh compensado ali abate a **TE e a TUSD-energia
+   inteiras** — confirmado pela fatura FATURA-A ("ENERGIA INJETADA FP TUSD"
+   devolve R$ 0,159457 = TUSD cheia 0,146590 ÷ PIS/COFINS). **Na PONTA**, o
+   crédito **GD2** desconta o Fio B de ponta **escalonado** (mesmo % do grupo B):
+   `TUSD P abatida = (TUSD P − Fio B esc.) ÷ (1 − PIS − COFINS)` — a TE de ponta
+   volta com ICMS enquanto o convênio vale. Planilha do usuário (ICMS 19 %,
+   COFINS 6,66 %, PIS 1,45 %): TE 0,638915 + TUSD 0,927485 = **1,566400 por kWh de
+   ponta** (seção 19 do `teste_grupo_a`). GD1 não desconta. Só modalidade
+   **VERDE** (a Azul não foi levantada — fica sem desconto). Fio B de ponta por
+   concessionária e subgrupo: `concessionarias.<nome>.fio_b_ponta_a_rs_mwh`
+   (COPEL A4 = 1.018,5350622, REH 3.592/2026) → `app._fio_b_ponta_da_conc` →
+   `UC.fio_b_ponta_rs_mwh`. **Classe por usina:** o projeto novo segue o `gd`
+   da UC; cada usina em `gds_existentes` tem `gd` próprio (chave "Classe" na
+   aba Usinas; ausente = o `gd` da UC). **GD1 + GD2 na mesma UC = REN 1.000/2021,
+   art. 655-R §1º II b** (incluído pela REN 1.059/2023; lido no texto oficial
+   em 20/10/2026): no aumento de potência de UC GD I, os descontos são
+   **PROPORCIONALIZADOS pela potência instalada em CA** (inversores) GD I × GD
+   II. Um medidor só não diz de qual usina veio o kWh, então NENHUMA usina
+   "abate primeiro": `Fio B efetivo = Fio B escalonado × kW GD2 ÷ kW total`,
+   igual para todo kWh que abate a ponta (`_proporcao_gd2`; potência = inversor
+   da usina, sem ele o kWp; sem nenhum dos dois, cai na proporção da injeção e
+   a conferência avisa). Ex.: 135 kW GD1 + 75 kW GD2 → 35,7 %. A conta SEM usa
+   a proporção só das usinas atuais. (Houve, no mesmo dia, uma versão "GD2
+   primeiro na ponta" — substituída por esta, que é a da norma.) O § 9º do art.
+   655 (créditos mais antigos primeiro) fala de crédito guardado entre meses,
+   que o motor não modela.
+   **Conferência do grupo A** (`conferencia_retorno._bloco_grupo_a`) em 7
+   seções: consumo · tarifas · usinas e classes (tabela + proporção + Fio B
+   efetivo) · uso do crédito em kWh (HOJE × COM lado a lado) · quanto volta por
+   kWh, passo a passo, por grupo de isenção de ICMS · demanda/TUSD-G ·
+   resultado SEM × COM. Os números vêm de `d['gd_hoje']`, `d['gd_depois']` e
+   `d['tar_sem']` (motor). ⚠ Na nuvem a
+   chave nova do config precisa ser MESCLADA no bucket (ver "Cloud Run").
 5b. **TUSD-G — demanda de GERAÇÃO** (`UC.demanda_g_kw`, `UC.tusd_g_rs_kw`).
    Opcional e disponível para **GD1 e GD2**. É bem mais barata que a demanda de
    consumo. **A tarifa entra SEM impostos**, como todas as outras
@@ -791,6 +865,9 @@ passa a valer dinheiro. O usuário afirma que não incide em nenhum posto; a bas
 não contradiz (o Fio B pertence ao posto da injeção, que é fora ponta). A fatura
 FATURA-A **não resolve** — nela nenhum crédito migrou de posto. Fica como a
 principal pendência do grupo A.
+**RESOLVIDO (20/10/2026):** o usuário confirmou que o Fio B de ponta INCIDE no
+crédito GD2 que abate a ponta (escalonado, só Verde) — ver item 5 do Grupo A.
+Ainda vale travar com uma fatura real que mostre crédito usado na ponta.
 
 ### Portais bloqueados (não insista)
 `calculostarifarios.aneel.gov.br` e `leis.org` estão atrás do **Cloudflare**:
@@ -1221,7 +1298,7 @@ que a tela importa).
 Moldes prontos e conferidos (anonimizados): `exemplos/fatura_real_grupo_b.json`
 (R$ 117,53), `exemplos/fatura_real_grupo_a.json` (R$ 17.648,01) e
 `exemplos/projeto_novo_grupo_a.json` (projeto novo de 112,5 kWp sobre a usina
-existente: conta R$ 17.648,01 → R$ 10.488,70, 35 kW de TUSD-G, pior caso).
+existente: conta R$ 17.648,01 → R$ 10.070,92 com PR 0,77 e o Fio B de ponta × 35,7 % (REN 655-R), 35 kW de TUSD-G, pior caso).
 
 ### Critérios da S2V que a Helena tem de respeitar
 - **Pior caso sempre** no autoconsumo do grupo A (o programa já faz).
@@ -1251,10 +1328,13 @@ existente: conta R$ 17.648,01 → R$ 10.488,70, 35 kW de TUSD-G, pior caso).
 ### Decisões de cálculo em aberto (aguardando o usuário)
 Surgiram ao auditar um orçamento do grupo B em 08/10/2026 e mexem em valores do
 `teste_planilha` — **não fazer sem confirmação**:
-- **A "conta sem S2V" não inclui a bandeira** (fórmula da planilha:
-  tarifa × kWh + iluminação). Erro para o lado conservador (~R$ 16/mês numa
-  amarela com 640 kWh).
-- **A "conta sem" usa o MAIOR entre consumo e geração** (`maior`, DD!G48). Em
+- ~~A "conta sem S2V" não inclui a bandeira~~ **RESOLVIDO (20/10/2026)**: pela
+  REN art. 307 quem não compensa paga a bandeira sobre todo o kWh; a conta sem
+  do grupo B passou a incluí-la (como o grupo A já fazia). Na verde, nada muda.
+- **A "conta sem" usa o MAIOR entre consumo e geração** (`maior`, DD!G48) —
+  **MANTIDO por decisão do usuário (20/10/2026)**: é a convenção da S2V ("o que a
+  conta gastaria se consumisse o que essa geração proporciona"); a coerência do
+  subdimensionado foi resolvida pelo balanço de energia (decisão 8). Em
   sistema sobredimensionado (176 % no caso auditado) a conta sem vira a de quem
   consumiria toda a geração: R$ 709 contra ~R$ 424 da conta de hoje, e a economia
   anunciada R$ 554 contra ~R$ 315 com o consumo atual. É réplica fiel da

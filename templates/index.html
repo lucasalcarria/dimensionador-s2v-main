@@ -93,6 +93,19 @@ button:disabled{opacity:.5;cursor:wait}
 .inv-linha{display:grid;grid-template-columns:88px 1fr 76px 76px 52px 62px;gap:8px;align-items:end;margin-bottom:8px}
 .inv-linha>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .inv-linha .rm{color:var(--vermelho,#c0392b);cursor:pointer;font-size:12px;padding-bottom:8px}
+/* usina existente = um cartão de DUAS linhas: os números em cima (a
+   identificação mais larga) e as duas chaves + "remover" embaixo — em uma linha
+   só eram 8 colunas fixas e a identificação ficava espremida */
+.gd-linha{border:1px solid var(--borda);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:var(--card2)}
+.gd-campos{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,.7fr) minmax(0,.8fr) minmax(0,1.2fr) minmax(0,1.2fr);gap:8px 10px;align-items:end}
+.gd-campos label{line-height:1.25}  /* em tela estreita o rótulo quebra em 2 linhas (nunca corta); os campos seguem alinhados pela base */
+.gd-opcoes{display:flex;flex-wrap:wrap;align-items:center;gap:8px 22px;margin-top:10px}
+.gd-opcoes .gd-op{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mudo)}
+.gd-opcoes .rm{margin-left:auto;color:var(--vermelho,#c0392b);cursor:pointer;font-size:12px}
+@media (max-width:760px){
+ .gd-campos{grid-template-columns:1fr 1fr}
+ .gd-campos>div:first-child{grid-column:1/-1}
+}
 .iv-micro{width:100%;height:36px;padding:0 8px;border:1px solid var(--borda);border-radius:8px;background:var(--card2);color:var(--mudo);cursor:pointer;font-size:12px;font-weight:600}
 .iv-micro.on{background:var(--verde-forte);color:#fff;border-color:var(--verde-forte)}
 .uc{border:1px solid var(--borda);border-radius:10px;padding:12px;margin-bottom:10px;background:var(--card2)}
@@ -875,6 +888,9 @@ function ucHTML(i){
     <div><label>Ilum. pública</label><input class="u-ilum rs" inputmode="decimal" value="R$ 0,00"></div>
     <div class="so-grupo-b"><label>% noturno <small class="auto u-not-obs"></small></label>
       <input class="u-not" type="number" step="1" value="${PCT(T.pct_noturno)}"></div>
+    <div class="so-grupo-a" style="display:none"><label>Autoconsumo (%) <small class="auto u-a-auto-obs"></small></label>
+      <input class="u-a-auto" type="number" step="1" min="0" max="100" placeholder="pior caso"
+        title="Quanto da geração do sistema NOVO a própria UC consome na hora, sem passar pelo medidor. Vazio = 0 % (pior caso: toda a geração é injetada e volta como crédito, que vale menos que o kWh evitado). É uma ESTIMATIVA: quando maior que zero, a proposta diz a hipótese na nota da pág. 5. Se a UC já tem usina com 'Gerou no total' preenchido, o valor medido nela aparece ao lado do rótulo."></div>
   </div>
 
   <div class="uc-abas">
@@ -1575,7 +1591,10 @@ function swSet(el,v){
 function gdHTML(g){
  g=g||{};
  const iso=(g.isento_icms==null)?true:!!g.isento_icms;
- return `<div class="gd-linha" style="display:grid;grid-template-columns:1fr 70px 80px 110px 110px 170px 58px;gap:8px;align-items:end;margin-bottom:8px">
+ // classe da usina (GD1/GD2): vazio = segue a chave GD da UC (ver addGD)
+ const gd2=(g.gd==null)?null:(String(g.gd).toUpperCase()!=='GD1');
+ return `<div class="gd-linha">
+  <div class="gd-campos">
    <div><label>Identificação</label>
      <input class="gd-nome" placeholder="ex.: usina 2022" value="${(g.nome||'').replace(/"/g,'&quot;')}"></div>
    <div><label>kWp</label>
@@ -1590,12 +1609,21 @@ function gdHTML(g){
    <div><label>Gerou no total (kWh/mês)</label>
      <input class="gd-ger" type="number" step="1" value="${g.geracao_kwh||''}"
        title="a geração REAL do mês, que só o aplicativo de monitoramento informa. O medidor da concessionária não enxerga o que foi gerado e consumido no mesmo instante — essa parte some da fatura mas não deixou de existir. A diferença entre esta geração e o injetado é o autoconsumo."></div>
-   <div><label>ICMS do crédito</label>
-     <label class="sw-wrap" style="height:36px"
+  </div>
+  <div class="gd-opcoes">
+   <div class="gd-op">ICMS do crédito
+     <label class="sw-wrap"
        title="O prazo do Convênio 16/2015 corre por PARECER DE ACESSO. Ligado: esta usina ainda está no prazo e o crédito dela devolve o ICMS da TE. Desligado: o prazo desta usina acabou (usina com mais de ~4 anos) e o crédito volta só com PIS/COFINS.">
        <input type="checkbox" class="sw-in gd-iso" ${iso?'checked':''} onchange="agendar()">
        <span class="sw"></span><span class="sw-rot">ainda isenta</span></label></div>
-   <div><span class="rm" onclick="rmGD(this)">remover</span></div>
+   <div class="gd-op">Classe
+     <label class="sw-wrap"
+       title="GD1 = ligada antes de 2023 (isenta de Fio B até 2045). GD2 = ligada depois. No grupo A, o crédito GD2 que abate a PONTA desconta o Fio B de ponta escalonado; o GD1 volta inteiro.">
+       <input type="checkbox" class="sw-in gd-gd2" ${gd2?'checked':''} data-vazio="${gd2==null?1:''}"
+         onchange="this.closest('.sw-wrap').querySelector('.sw-rot').textContent=this.checked?'GD2':'GD1';agendar()">
+       <span class="sw"></span><span class="sw-rot">${gd2?'GD2':'GD1'}</span></label></div>
+   <span class="rm" onclick="rmGD(this)">remover</span>
+  </div>
  </div>`;
 }
 function addGD(bt,g){
@@ -1604,7 +1632,15 @@ function addGD(bt,g){
  const uc=bt.closest('.uc'); if(!uc) return;
  const cx=uc.querySelector('.u-gds'); if(!cx) return;
  cx.insertAdjacentHTML('beforeend',gdHTML(g));
+ _gdPadrao(uc, cx.lastElementChild);
  wire(cx.lastElementChild); contarGDs(uc); agendar();
+}
+// usina sem classe salva: começa igual à chave GD da UC (o mesmo que o
+// servidor faz quando o campo falta — projeto antigo importado não muda)
+function _gdPadrao(uc, linha){
+ const ch=linha&&linha.querySelector('.gd-gd2'); if(!ch||!ch.dataset.vazio) return;
+ const uv=(uc.querySelector('.u-gd')||{}).value||'GD2';
+ ch.checked=uv!=='GD1'; ch.closest('.sw-wrap').querySelector('.sw-rot').textContent=ch.checked?'GD2':'GD1';
 }
 function rmGD(el){
  const uc=el.closest('.uc'), l=el.closest('.gd-linha');
@@ -1625,8 +1661,19 @@ function lerGDs(uc){
    inversor_kw:numBR((l.querySelector('.gd-inv')||{}).value)||0,
    injetado_kwh:numBR(l.querySelector('.gd-inj').value)||0,
    geracao_kwh:numBR(l.querySelector('.gd-ger').value)||0,
-   isento_icms:l.querySelector('.gd-iso').checked
+   isento_icms:l.querySelector('.gd-iso').checked,
+   gd:(l.querySelector('.gd-gd2')||{}).checked?'GD2':'GD1'
  })).filter(g=>g.injetado_kwh>0||g.nome);
+}
+// autoconsumo MEDIDO nas usinas que a UC já tem (gerou − injetou) ÷ gerou —
+// só aparece como dica ao lado do campo, nunca preenche sozinho
+function autoMedido(uc){
+ const obs=uc.querySelector('.u-a-auto-obs'); if(!obs) return;
+ let ger=0, inj=0;
+ uc.querySelectorAll('.gd-linha').forEach(l=>{
+   const g=numBR(l.querySelector('.gd-ger').value)||0, i=numBR(l.querySelector('.gd-inj').value)||0;
+   if(g>0){ ger+=g; inj+=i; } });
+ obs.textContent = (ger>0 && ger>inj) ? `medido ${Math.round((ger-inj)/ger*100)} %` : '';
 }
 function ehGrupoA(uc){ const g=uc.querySelector('.u-grupo'); return !!g && g.value==='A'; }
 // ---- abas da UC (Consumo · Tarifas · Demanda · Usinas) ----
@@ -1727,7 +1774,8 @@ function lerUC(el){
     tusd_kwh_ponta:n('.u-a-tup'), tusd_kwh_fora:n('.u-a-tuf'),
     tusd_demanda:n('.u-a-tud'), tusd_demanda_p:n('.u-a-tudp'),
     demanda_g_kw:n('.u-a-demg'), tusd_g_rs_kw:n('.u-a-tusdg'),
-    fator_ponta_manual:n('.u-a-fator')};
+    fator_ponta_manual:n('.u-a-fator'),
+    autoconsumo_pct:n('.u-a-auto')};
  }
  return {uc_numero:el.querySelector('.u-numero').value.trim(),
   gd:el.querySelector('.u-gd').value, grupo:_grupo,
@@ -1997,12 +2045,14 @@ function wire(root){root.querySelectorAll('input,select').forEach(el=>{
   uc.querySelector('.u-tipo').addEventListener('change',()=>syncNoturno(uc));
   uc.querySelectorAll('.u-te,.u-tusd,.u-icms,.u-cofins,.u-pis,.u-a-tep,.u-a-tup,.u-a-tef,.u-a-tuf,.u-a-tud,.u-a-fator').forEach(inp=>
     inp.addEventListener('input',()=>cheiaLocal(uc)));
-  uc.querySelector('.u-band').addEventListener('change',()=>cheiaLocal(uc));});
+  uc.querySelector('.u-band').addEventListener('change',()=>cheiaLocal(uc));
+  uc.addEventListener('input',()=>autoMedido(uc)); autoMedido(uc);});
  if(root.classList&&root.classList.contains('uc')){cheiaLocal(root); syncNoturno(root);
   root.querySelector('.u-tipo').addEventListener('change',()=>syncNoturno(root));
   root.querySelectorAll('.u-te,.u-tusd,.u-icms,.u-cofins,.u-pis,.u-a-tep,.u-a-tup,.u-a-tef,.u-a-tuf,.u-a-tud,.u-a-fator').forEach(inp=>
     inp.addEventListener('input',()=>cheiaLocal(root)));
-  root.querySelector('.u-band').addEventListener('change',()=>cheiaLocal(root));}}
+  root.querySelector('.u-band').addEventListener('change',()=>cheiaLocal(root));
+  root.addEventListener('input',()=>autoMedido(root)); autoMedido(root);}}
 
 let _pdfUrl=null;                 // guarda o último PDF gerado (link opcional de download)
 // PRÉ-VISUALIZAÇÃO: mesmo PDF, sem salvar pasta nem enviar ao Drive
@@ -2879,6 +2929,7 @@ function preencherUC(el,u){
   set('.u-a-tud',u.tusd_demanda); set('.u-a-tudp',u.tusd_demanda_p);
   set('.u-a-demg',u.demanda_g_kw); set('.u-a-tusdg',u.tusd_g_rs_kw);
   set('.u-a-fator',u.fator_ponta_manual);
+  set('.u-a-auto',u.autoconsumo_pct);
   const cpp=u.consumos_ponta||[];
   if(variam){ const ip=el.querySelectorAll('.u-a-pmes'); cpp.forEach((v,i)=>{if(ip[i]) ip[i].value=v;}); }
   else set('.u-a-pmedio',cpp.length?cpp[0]:'');
@@ -2888,7 +2939,7 @@ function preencherUC(el,u){
   const cxg=el.querySelector('.u-gds');
   if(cxg){ cxg.innerHTML='';
    (u.gds_existentes||[]).forEach(g=>{
-     cxg.insertAdjacentHTML('beforeend',gdHTML(g)); wire(cxg.lastElementChild); });
+     cxg.insertAdjacentHTML('beforeend',gdHTML(g)); _gdPadrao(el,cxg.lastElementChild); wire(cxg.lastElementChild); });
    contarGDs(el); }
  syncNoturno(el); cheiaLocal(el);
 }

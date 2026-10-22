@@ -1,5 +1,5 @@
 {
-  "_comentario": "PROJETO NOVO sobre a fatura real do grupo A (Cliente A, COPEL, ref. 09/2026, conta hoje R$ 17.648,07). Sistema NOVO de 180 modulos de 625 W (112,5 kWp) + inversor de 75 kW, para abater o consumo FORA PONTA, SOMADO a usina de 135 kW que a UC ja tem (gds_existentes). Resultado esperado em POST /api/calcular ou ao importar: fatura_sem R$ 17.648,01 -> fatura_com R$ 10.488,70 (economia R$ 7.159,31/mes) no PIOR CASO (toda a geracao nova injetada, sem autoconsumo — padrao do programa), com 35 kW de TUSD-G. Preencha valor_kit com o preco real do kit antes de gerar a proposta. Grupo A exige sessao de ADMINISTRADOR.",
+  "_comentario": "PROJETO NOVO sobre a fatura real do grupo A (Cliente A, COPEL, ref. 09/2026, conta hoje R$ 17.648,07). Sistema NOVO de 180 modulos de 625 W (112,5 kWp) + inversor de 75 kW, para abater o consumo FORA PONTA, SOMADO a usina de 135 kW que a UC ja tem (gds_existentes). Resultado esperado em POST /api/calcular ou ao importar: fatura_sem R$ 17.648,01 -> fatura_com R$ 10.070,92 (economia R$ 7.577,09/mes, PR 0,77; 20/10/2026) no PIOR CASO (toda a geracao nova injetada, sem autoconsumo — padrao do programa), com 35 kW de TUSD-G. O projeto novo e GD2 (gd da UC) e a usina atual GD1: os ~200 kWh de credito que sobram do fora ponta abatem a PONTA com o Fio B de ponta escalonado x 35,7 % (75 kW GD2 / 210 kW de inversores: REN 1.000 art. 655-R, desconto proporcional a potencia). Preencha valor_kit com o preco real do kit antes de gerar a proposta. Grupo A exige sessao de ADMINISTRADOR.",
   "nome": "CLIENTE A",
   "endereco": "Rodovia Exemplo",
   "numero": "0",
@@ -13,7 +13,7 @@
       "grupo": "A",
       "subgrupo_a": "A4",
       "modalidade_a": "VERDE",
-      "gd": "GD1",
+      "gd": "GD2",
       "tipo": "GERADORA",
       "ligacao": "TRIFASICO",
       "conc": "COPEL (PR)",
@@ -81,6 +81,7 @@
         {
           "_comentario": "A usina de 135 kW que a UC JA TEM, injetando 5.490 kWh/mes (linha ENERGIA INJETADA). inversor_kw entra na TUSD-G. isento_icms false: o prazo do Convenio desta usina venceu. geracao_kwh so o app de monitoramento informa (0 = o programa supoe autoconsumo maximo do sistema novo, o limite otimista).",
           "nome": "usina atual",
+          "gd": "GD1",
           "kwp": 135,
           "injetado_kwh": 5490,
           "geracao_kwh": 0,
